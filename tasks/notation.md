@@ -20,7 +20,7 @@ Order matters because if you rolled all 1s on the first roll, rerolling all
 four dice before discarding gives more opportunity for high values than discarding
 one of the 1s before rerolling only 3.
 
-- [ ] create notation parser
+- [X] create notation parser
 - [ ] create test webpage with common 5e rolls, some as element text, some as
       elements with a `data-roll` attribute
 - [ ] clicking any roll gives the calculated result in console
