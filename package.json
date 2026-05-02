@@ -1,0 +1,21 @@
+{
+    "name": "dice-roller",
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "test": "vitest run",
+        "build": "esbuild src/index.ts --bundle --format=iife --global-name=DiceRoller --outfile=dist/dice-roller.js"
+    },
+    "dependencies": {
+        "cannon-es": "^0.20.0",
+        "three": "^0.170.0"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^1.9.0",
+        "@types/three": "^0.170.0",
+        "esbuild": "^0.24.0",
+        "happy-dom": "^15.0.0",
+        "typescript": "^5.6.0",
+        "vitest": "^2.1.0"
+    }
+}
