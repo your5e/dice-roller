@@ -1,11 +1,11 @@
 const VALID_DICE = new Set([4, 6, 8, 10, 12, 20, 100]);
 
-type Modifier = {
+export type Modifier = {
     type: "kh" | "kl" | "dl" | "dh" | "rb" | "rm" | "m";
     value: number;
 };
 
-type ParsedDice = {
+export type ParsedDice = {
     count: number;
     sides: number;
     modifiers: Modifier[];

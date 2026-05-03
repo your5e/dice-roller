@@ -16,5 +16,13 @@
         "enabled": true,
         "indentStyle": "space",
         "indentWidth": 4
-    }
+    },
+    "overrides": [
+        {
+            "include": ["tests/**"],
+            "formatter": {
+                "enabled": false
+            }
+        }
+    ]
 }
