@@ -3,9 +3,9 @@ whatever element the roller is bound to — could be the full page body or a
 small dice box image.
 
 @queue
-- [ ] scene, camera above looking down, light from upper-left
-- [ ] animation loop, 60fps ideal, drop frames as needed
-- [ ] integrate renderer into example_roller.html, using a placeholder cube
+- [X] scene, camera above looking down, light from upper-left
+- [X] animation loop, 60fps ideal, drop frames as needed
+- [X] integrate renderer into example_roller.html, using a placeholder cube
       which can be rotated by hand
 - [ ] d6 mesh, rotatable for inspection
 - [ ] d4 mesh

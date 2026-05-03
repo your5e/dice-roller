@@ -71,36 +71,28 @@ function applyModifier(
 function keepHighest(dice: number[], count: number): number[] {
     const indexed = dice.map((value, index) => ({ value, index }));
     indexed.sort((a, b) => a.value - b.value);
-    const keepIndices = new Set(
-        indexed.slice(-count).map((item) => item.index),
-    );
+    const keepIndices = new Set(indexed.slice(-count).map((item) => item.index));
     return dice.filter((_, index) => keepIndices.has(index));
 }
 
 function keepLowest(dice: number[], count: number): number[] {
     const indexed = dice.map((value, index) => ({ value, index }));
     indexed.sort((a, b) => a.value - b.value);
-    const keepIndices = new Set(
-        indexed.slice(0, count).map((item) => item.index),
-    );
+    const keepIndices = new Set(indexed.slice(0, count).map((item) => item.index));
     return dice.filter((_, index) => keepIndices.has(index));
 }
 
 function dropHighest(dice: number[], count: number): number[] {
     const indexed = dice.map((value, index) => ({ value, index }));
     indexed.sort((a, b) => a.value - b.value);
-    const dropIndices = new Set(
-        indexed.slice(-count).map((item) => item.index),
-    );
+    const dropIndices = new Set(indexed.slice(-count).map((item) => item.index));
     return dice.filter((_, index) => !dropIndices.has(index));
 }
 
 function dropLowest(dice: number[], count: number): number[] {
     const indexed = dice.map((value, index) => ({ value, index }));
     indexed.sort((a, b) => a.value - b.value);
-    const dropIndices = new Set(
-        indexed.slice(0, count).map((item) => item.index),
-    );
+    const dropIndices = new Set(indexed.slice(0, count).map((item) => item.index));
     return dice.filter((_, index) => !dropIndices.has(index));
 }
 
@@ -122,9 +114,7 @@ function rerollUntil(
     let current = [...dice];
 
     while (current.some((value) => value < threshold)) {
-        current = current.map((value) =>
-            value < threshold ? rerollFn() : value,
-        );
+        current = current.map((value) => (value < threshold ? rerollFn() : value));
         steps.push({ [name]: [...current] });
     }
 

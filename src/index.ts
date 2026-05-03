@@ -1,6 +1,7 @@
 import { type Step, calculate } from "./calculate";
 import { rollDice } from "./dice";
 import { parse } from "./notation";
+import { createTray } from "./renderer";
 
 type RollResult = {
     notation: string;
@@ -35,7 +36,13 @@ export function roll(input: string): RollResult {
     return { notation: input, steps, total };
 }
 
-export function tray(_selector: string): void {}
+export function tray(selector: string): void {
+    const container = document.querySelector(selector);
+    if (!(container instanceof HTMLElement)) {
+        throw new Error(`Element not found: ${selector}`);
+    }
+    createTray(container);
+}
 
 export function bind(selector: string): void {
     const elements = document.querySelectorAll(selector);

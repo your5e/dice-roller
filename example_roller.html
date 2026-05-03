@@ -9,7 +9,14 @@
             font-family: system-ui, sans-serif;
             max-width: 600px;
             margin: 2rem auto;
-            padding: 0 1rem;
+            padding: 50vh 1rem 0 1rem;
+        }
+        #dice-tray {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 50vh;
         }
         h2 {
             margin-top: 2rem;
@@ -59,6 +66,7 @@
 </head>
 <body>
     <h1>Dice Roller Test</h1>
+    <div id="dice-tray"></div>
     <p>Click any roll to see the result.</p>
 
     <div id="result-modal">
@@ -104,6 +112,8 @@
 
     <script src="dist/dice-roller.js"></script>
     <script>
+        DiceRoller.tray('#dice-tray');
+
         var modal = document.getElementById('result-modal');
         var hideTimeout;
 
