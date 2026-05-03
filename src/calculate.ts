@@ -1,8 +1,15 @@
 import type { Modifier } from "./notation";
 
+export type Step = Record<string, number[]>;
+
 type Result = {
-    kept: number[];
+    steps: Step[];
     total: number;
+};
+
+type ModifierResult = {
+    result: number[];
+    steps: Step[];
 };
 
 export function calculate(
@@ -12,35 +19,52 @@ export function calculate(
     rerollFn: () => number,
 ): Result {
     let current = [...dice];
+    const steps: Step[] = [];
 
     for (const modifier of modifiers) {
-        current = applyModifier(current, modifier, rerollFn);
+        const modResult = applyModifier(current, modifier, rerollFn);
+        current = modResult.result;
+        steps.push(...modResult.steps);
     }
 
     const total = current.reduce((a, b) => a + b, 0) + bonus;
-    return { kept: current, total };
+    return { steps, total };
 }
 
 function applyModifier(
     dice: number[],
     modifier: Modifier,
     rerollFn: () => number,
-): number[] {
+): ModifierResult {
+    const name = `${modifier.type}${modifier.value}`;
+
     switch (modifier.type) {
-        case "kh":
-            return keepHighest(dice, modifier.value);
-        case "kl":
-            return keepLowest(dice, modifier.value);
-        case "dh":
-            return dropHighest(dice, modifier.value);
-        case "dl":
-            return dropLowest(dice, modifier.value);
-        case "rb":
-            return rerollOnce(dice, modifier.value, rerollFn);
+        case "kh": {
+            const result = keepHighest(dice, modifier.value);
+            return { result, steps: [{ [name]: result }] };
+        }
+        case "kl": {
+            const result = keepLowest(dice, modifier.value);
+            return { result, steps: [{ [name]: result }] };
+        }
+        case "dh": {
+            const result = dropHighest(dice, modifier.value);
+            return { result, steps: [{ [name]: result }] };
+        }
+        case "dl": {
+            const result = dropLowest(dice, modifier.value);
+            return { result, steps: [{ [name]: result }] };
+        }
+        case "rb": {
+            const result = rerollOnce(dice, modifier.value, rerollFn);
+            return { result, steps: [{ [name]: result }] };
+        }
         case "rm":
-            return rerollUntil(dice, modifier.value, rerollFn);
-        case "m":
-            return applyMinimum(dice, modifier.value);
+            return rerollUntil(dice, modifier.value, rerollFn, name);
+        case "m": {
+            const result = applyMinimum(dice, modifier.value);
+            return { result, steps: [{ [name]: result }] };
+        }
     }
 }
 
@@ -92,14 +116,19 @@ function rerollUntil(
     dice: number[],
     threshold: number,
     rerollFn: () => number,
-): number[] {
-    return dice.map((value) => {
-        let current = value;
-        while (current < threshold) {
-            current = rerollFn();
-        }
-        return current;
-    });
+    name: string,
+): ModifierResult {
+    const steps: Step[] = [];
+    let current = [...dice];
+
+    while (current.some((value) => value < threshold)) {
+        current = current.map((value) =>
+            value < threshold ? rerollFn() : value,
+        );
+        steps.push({ [name]: [...current] });
+    }
+
+    return { result: current, steps };
 }
 
 function applyMinimum(dice: number[], threshold: number): number[] {

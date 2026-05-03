@@ -22,6 +22,6 @@ one of the 1s before rerolling only 3.
 
 - [X] create notation parser
 - [X] create the dice roller
-- [ ] create test webpage with common 5e rolls, some as element text, some as
+- [X] create test webpage with common 5e rolls, some as element text, some as
       elements with a `data-roll` attribute
-- [ ] clicking any roll gives the calculated result in console
+- [X] clicking any roll gives the calculated result in console

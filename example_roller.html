@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Roller Test</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        h2 {
+            margin-top: 2rem;
+        }
+        .roll {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.25rem;
+            background: #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .roll:hover {
+            background: #d0d0d0;
+        }
+        #result-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #333;
+            color: #fff;
+            padding: 2rem 3rem;
+            border-radius: 8px;
+            font-size: 3rem;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            cursor: pointer;
+        }
+        #result-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #result-modal .notation {
+            font-size: 1rem;
+            font-weight: normal;
+            opacity: 0.7;
+        }
+        #result-modal .dice {
+            font-size: 1.5rem;
+            font-weight: normal;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dice Roller Test</h1>
+    <p>Click any roll to see the result.</p>
+
+    <div id="result-modal">
+        <div class="notation"></div>
+        <div class="dice"></div>
+        <div class="total"></div>
+    </div>
+
+    <h2>Custom Roll</h2>
+    <form id="custom-roll">
+        <input type="text" id="notation" placeholder="e.g. 2d20kh1+5" required>
+        <button type="submit">Roll</button>
+    </form>
+
+    <h2>Basic Rolls</h2>
+    <span class="roll">1d4</span>
+    <span class="roll">1d6</span>
+    <span class="roll">1d8</span>
+    <span class="roll">1d10</span>
+    <span class="roll">1d12</span>
+    <span class="roll">1d20</span>
+    <span class="roll">1d100</span>
+
+    <h2>Ability Checks</h2>
+    <span class="roll">1d20+5</span>
+    <span class="roll">1d20+3</span>
+    <span class="roll">1d20-1</span>
+    <span class="roll" data-roll="2d20kh1+5">1d20+5 (with advantage)</span>
+    <span class="roll" data-roll="2d20kl1-1">1d20-1 (with disadvantage)</span>
+
+    <h2>Ability Score Generation</h2>
+    <span class="roll">4d6dl1</span>
+
+    <h2>Damage Rolls</h2>
+    <span class="roll">2d6+3</span>
+    <span class="roll">1d8+4</span>
+    <span class="roll" data-roll="8d6">fireball</span>
+    <span class="roll" data-roll="4d6 4d6">flame strike</span>
+
+    <h2>Special Modifiers</h2>
+    <span class="roll" data-roll="1d20rb2">halfling luck</span>
+    <span class="roll" data-roll="1d20m10">reliable talent</span>
+
+    <script src="dist/dice-roller.js"></script>
+    <script>
+        var modal = document.getElementById('result-modal');
+        var hideTimeout;
+
+        function hideModal() {
+            clearTimeout(hideTimeout);
+            modal.classList.remove('visible');
+        }
+
+        function showResult(result) {
+            console.log(result);
+            // Collect final dice for each expression
+            // A new expression starts when we see a XdY key
+            var finalDice = [];
+            var lastDice = null;
+            for (var i = 0; i < result.steps.length; i++) {
+                var key = Object.keys(result.steps[i])[0];
+                var values = result.steps[i][key];
+                if (/^\d+d\d+$/.test(key)) {
+                    // New expression starting - save previous if any
+                    if (lastDice !== null) {
+                        finalDice = finalDice.concat(lastDice);
+                    }
+                }
+                lastDice = values;
+            }
+            if (lastDice !== null) {
+                finalDice = finalDice.concat(lastDice);
+            }
+            modal.querySelector('.notation').textContent = result.notation;
+            modal.querySelector('.dice').textContent = finalDice.join(' + ');
+            modal.querySelector('.total').textContent = result.total;
+            modal.classList.add('visible');
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(hideModal, 5000);
+        }
+
+        modal.addEventListener('click', hideModal);
+
+        document.querySelectorAll('.roll').forEach(function(el) {
+            el.addEventListener('click', function() {
+                var notation = el.getAttribute('data-roll') || el.textContent;
+                showResult(DiceRoller.roll(notation));
+            });
+        });
+
+        document.getElementById('custom-roll').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var notation = document.getElementById('notation').value;
+            showResult(DiceRoller.roll(notation));
+        });
+    </script>
+</body>
+</html>

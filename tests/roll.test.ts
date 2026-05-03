@@ -5,6 +5,8 @@ describe("roll", () => {
     it("rolls simple dice", () => {
         const result = roll("2d6");
 
+        expect(result.steps).toHaveLength(1);
+        expect(result.steps[0]["2d6"]).toHaveLength(2);
         expect(result.total).toBeGreaterThanOrEqual(2);
         expect(result.total).toBeLessThanOrEqual(12);
     });
@@ -12,7 +14,9 @@ describe("roll", () => {
     it("rolls with advantage", () => {
         const result = roll("2d20kh1");
 
-        expect(result.kept).toHaveLength(1);
+        expect(result.steps).toHaveLength(2);
+        expect(result.steps[0]["2d20"]).toHaveLength(2);
+        expect(result.steps[1].kh1).toHaveLength(1);
         expect(result.total).toBeGreaterThanOrEqual(1);
         expect(result.total).toBeLessThanOrEqual(20);
     });
@@ -20,7 +24,9 @@ describe("roll", () => {
     it("rolls with disadvantage", () => {
         const result = roll("2d20kl1");
 
-        expect(result.kept).toHaveLength(1);
+        expect(result.steps).toHaveLength(2);
+        expect(result.steps[0]["2d20"]).toHaveLength(2);
+        expect(result.steps[1].kl1).toHaveLength(1);
         expect(result.total).toBeGreaterThanOrEqual(1);
         expect(result.total).toBeLessThanOrEqual(20);
     });
@@ -28,7 +34,9 @@ describe("roll", () => {
     it("rolls ability scores", () => {
         const result = roll("4d6dl1");
 
-        expect(result.kept).toHaveLength(3);
+        expect(result.steps).toHaveLength(2);
+        expect(result.steps[0]["4d6"]).toHaveLength(4);
+        expect(result.steps[1].dl1).toHaveLength(3);
         expect(result.total).toBeGreaterThanOrEqual(3);
         expect(result.total).toBeLessThanOrEqual(18);
     });
@@ -50,6 +58,9 @@ describe("roll", () => {
     it("combines multiple expressions", () => {
         const result = roll("2d6+7 1d8");
 
+        expect(result.steps).toHaveLength(2);
+        expect(result.steps[0]["2d6"]).toHaveLength(2);
+        expect(result.steps[1]["1d8"]).toHaveLength(1);
         expect(result.total).toBeGreaterThanOrEqual(10);
         expect(result.total).toBeLessThanOrEqual(27);
     });
@@ -57,29 +68,35 @@ describe("roll", () => {
     it("combines damage with multiple types", () => {
         const result = roll("1d8+5 2d6");
 
+        expect(result.steps).toHaveLength(2);
+        expect(result.steps[0]["1d8"]).toHaveLength(1);
+        expect(result.steps[1]["2d6"]).toHaveLength(2);
         expect(result.total).toBeGreaterThanOrEqual(8);
         expect(result.total).toBeLessThanOrEqual(25);
     });
 
-    it("kept values sum to total minus bonus", () => {
-        const result = roll("3d6+5");
-        const sum = result.kept.reduce((a, b) => a + b, 0);
+    it("initial roll values sum to total when no modifiers", () => {
+        const result = roll("3d6");
+        const values = result.steps[0]["3d6"];
+        const sum = values.reduce((a, b) => a + b, 0);
 
-        expect(result.total).toBe(sum + 5);
+        expect(result.total).toBe(sum);
     });
 
-    it("kept values sum to total for combined expressions", () => {
-        const result = roll("2d6+3 1d8");
-        const sum = result.kept.reduce((a, b) => a + b, 0);
+    it("initial roll values plus bonus sum to total", () => {
+        const result = roll("3d6+5");
+        const values = result.steps[0]["3d6"];
+        const sum = values.reduce((a, b) => a + b, 0);
 
-        expect(result.total).toBe(sum + 3);
+        expect(result.total).toBe(sum + 5);
     });
 
     it("rerolls use the same die size", () => {
         for (let i = 0; i < 100; i++) {
             const result = roll("1d4rb3");
+            const finalValues = result.steps[1].rb3;
 
-            for (const value of result.kept) {
+            for (const value of finalValues) {
                 expect(value).toBeGreaterThanOrEqual(1);
                 expect(value).toBeLessThanOrEqual(4);
             }

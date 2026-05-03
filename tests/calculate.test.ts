@@ -12,7 +12,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [3, 4, 2],
+                steps: [],
                 total: 9,
             });
         });
@@ -25,7 +25,7 @@ describe("calculate", () => {
                     5,
                 ),
             ).toEqual({
-                kept: [3, 4, 2],
+                steps: [],
                 total: 14,
             });
 
@@ -36,7 +36,7 @@ describe("calculate", () => {
                     -2,
                 ),
             ).toEqual({
-                kept: [3, 4, 2],
+                steps: [],
                 total: 7,
             });
         });
@@ -52,7 +52,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [5, 6],
+                steps: [{ kh2: [5, 6] }],
                 total: 11,
             });
 
@@ -64,7 +64,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [4, 4, 4],
+                steps: [{ kh3: [4, 4, 4] }],
                 total: 12,
             });
         });
@@ -78,7 +78,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [3, 1, 4],
+                steps: [{ kh3: [3, 1, 4] }],
                 total: 8,
             });
         });
@@ -94,7 +94,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [1, 3],
+                steps: [{ kl2: [1, 3] }],
                 total: 4,
             });
 
@@ -106,7 +106,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [4, 4, 1],
+                steps: [{ kl3: [4, 4, 1] }],
                 total: 9,
             });
         });
@@ -122,7 +122,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [5, 3, 6],
+                steps: [{ dl1: [5, 3, 6] }],
                 total: 14,
             });
 
@@ -134,7 +134,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [5, 3],
+                steps: [{ dl2: [5, 3] }],
                 total: 8,
             });
         });
@@ -150,7 +150,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [1, 5, 3],
+                steps: [{ dh1: [1, 5, 3] }],
                 total: 9,
             });
 
@@ -162,7 +162,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [5, 3],
+                steps: [{ dh2: [5, 3] }],
                 total: 8,
             });
         });
@@ -177,7 +177,7 @@ describe("calculate", () => {
                 () => 4,
             );
             expect(result).toEqual({
-                kept: [4, 5, 4, 6],
+                steps: [{ rb3: [4, 5, 4, 6] }],
                 total: 19,
             });
         });
@@ -190,7 +190,7 @@ describe("calculate", () => {
                 () => 2,
             );
             expect(result).toEqual({
-                kept: [2, 5],
+                steps: [{ rb3: [2, 5] }],
                 total: 7,
             });
         });
@@ -207,7 +207,7 @@ describe("calculate", () => {
                 () => values[callCount++],
             );
             expect(result).toEqual({
-                kept: [4, 5],
+                steps: [{ rm3: [2, 5] }, { rm3: [1, 5] }, { rm3: [4, 5] }],
                 total: 9,
             });
         });
@@ -223,7 +223,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [3, 5, 3, 6],
+                steps: [{ m3: [3, 5, 3, 6] }],
                 total: 17,
             });
         });
@@ -237,7 +237,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [3, 4, 5],
+                steps: [{ m3: [3, 4, 5] }],
                 total: 12,
             });
         });
@@ -254,7 +254,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [3, 4, 2],
+                steps: [{ dl1: [3, 4, 2] }],
                 total: 9,
             });
         });
@@ -272,7 +272,7 @@ describe("calculate", () => {
                     () => 0,
                 ),
             ).toEqual({
-                kept: [3, 4],
+                steps: [{ kh3: [3, 4, 2] }, { dl1: [3, 4] }],
                 total: 7,
             });
         });
@@ -289,7 +289,7 @@ describe("calculate", () => {
                 () => 5,
             );
             expect(result).toEqual({
-                kept: [5, 3, 4],
+                steps: [{ rb2: [5, 3, 4, 2] }, { kh3: [5, 3, 4] }],
                 total: 12,
             });
         });
