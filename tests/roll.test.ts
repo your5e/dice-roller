@@ -102,4 +102,19 @@ describe("roll", () => {
             }
         }
     });
+
+    it("returns empty result when no valid expressions found", () => {
+        const result = roll("garbage");
+
+        expect(result.steps).toHaveLength(0);
+        expect(result.total).toBe(0);
+    });
+
+    it("ignores invalid parts of expression", () => {
+        const result = roll("1d20 garbage 2d6");
+
+        expect(result.steps).toHaveLength(2);
+        expect(result.steps[0]["1d20"]).toHaveLength(1);
+        expect(result.steps[1]["2d6"]).toHaveLength(2);
+    });
 });

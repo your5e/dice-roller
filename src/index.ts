@@ -16,7 +16,7 @@ export function roll(input: string): RollResult {
 
     for (const expr of expressions) {
         if (expr === null) {
-            throw new Error(`Invalid dice expression: ${input}`);
+            continue;
         }
 
         const diceNotation = `${expr.count}d${expr.sides}`;

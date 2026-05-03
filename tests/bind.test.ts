@@ -72,13 +72,16 @@ describe("bind", () => {
         expect(consoleSpy).toHaveBeenCalledTimes(2);
     });
 
-    it("throws on invalid expression", () => {
+    it("logs empty result on invalid expression", () => {
         document.body.innerHTML = '<span class="roll">invalid</span>';
+        const consoleSpy = vi.spyOn(console, "log");
 
         bind(".roll");
+        document.querySelector(".roll")?.dispatchEvent(new MouseEvent("click"));
 
-        expect(() => {
-            document.querySelector(".roll")?.dispatchEvent(new MouseEvent("click"));
-        }).toThrow("Invalid dice expression: invalid");
+        expect(consoleSpy).toHaveBeenCalledOnce();
+        const result = consoleSpy.mock.calls[0][0];
+        expect(result.steps).toHaveLength(0);
+        expect(result.total).toBe(0);
     });
 });
