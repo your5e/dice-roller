@@ -8,5 +8,7 @@ build:
 lint:
 	npx biome check .
 
-test: lint
+test-code:
 	npm test
+
+test: lint test-code

@@ -10,7 +10,7 @@ The d100 is a classic two-die percentile: one showing 0–9 (units), one
 showing 00–90 (tens).
 
 @queue
-- [ ] d6
+- [X] d6
 - [ ] d4
 - [ ] d8
 - [ ] d10 (0–9)

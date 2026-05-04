@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createD6 } from "./geometries/d6";
 
 type TrayState = {
     renderer: THREE.WebGLRenderer;
@@ -30,10 +31,8 @@ export function createTray(container: HTMLElement): TrayState {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
-    // placeholder cube
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-    const cube = new THREE.Mesh(geometry, material);
+    // d6 die
+    const { mesh: cube } = createD6(1, 0.1);
     scene.add(cube);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
