@@ -7,6 +7,7 @@ build:
 
 lint:
 	npx biome check .
+	npx tsc --noEmit
 
 test-code:
 	npm test

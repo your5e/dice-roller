@@ -1,10 +1,9 @@
-Using Cannon-es for physics simulation. Cannon-es bodies use the same
-geometry as the Three.js meshes.
+Using Cannon-es for physics simulation. Cannon-es bodies use the same source
+geometry, three.js embellishes with chamfering which is not required for the
+simulation.
 
 @queue
-- [ ] create Cannon-es bodies from die geometry
-- [ ] tray with floor and four walls, normal gravity
-- [ ] sync mesh position/rotation from physics body each frame
-- [ ] roll dice with random velocity and spin, simulate until settled
-- [ ] face detection: which face points up after settling
+- [X] simulate a tray for rolling dice, and prove one or more will roll around,
+      settle, and the result of the top faces is returned
+- [ ] renderer integration: visualise the roll in the tray, report result when settled
 - [ ] monte carlo fairness test

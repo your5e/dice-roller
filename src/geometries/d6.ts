@@ -1,10 +1,10 @@
 import * as THREE from "three";
+import { type PhysicsDie, createDieBody } from "../physics/dice";
 import { type DieFaces, createChamferedGeometry } from "./chamfer";
 
 export type Die = {
     mesh: THREE.Mesh;
-    // body: CANNON.Body;  // TODO: add when physics is implemented
-    faceValues: number[];
+    physics: PhysicsDie;
 };
 
 export function createD6(size: number, chamfer: number): Die {
@@ -43,10 +43,8 @@ export function createD6(size: number, chamfer: number): Die {
     const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const mesh = new THREE.Mesh(geometry, material);
 
-    // Physics: TODO — create CANNON.Body from vertices/faces
+    // Physics
+    const physics = createDieBody(vertices, faces);
 
-    // Result reading: map face index to value
-    const faceValues = faces.map((f) => f[0]);
-
-    return { mesh, faceValues };
+    return { mesh, physics };
 }
