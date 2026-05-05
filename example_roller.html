@@ -152,12 +152,8 @@
 
         modal.addEventListener('click', hideModal);
 
-        document.querySelectorAll('.roll').forEach(function(el) {
-            el.addEventListener('click', function() {
-                var notation = el.getAttribute('data-roll') || el.textContent;
-                showResult(DiceRoller.roll(notation));
-            });
-        });
+        DiceRoller.onRoll(showResult);
+        DiceRoller.bind('.roll');
 
         document.getElementById('custom-roll').addEventListener('submit', function(e) {
             e.preventDefault();

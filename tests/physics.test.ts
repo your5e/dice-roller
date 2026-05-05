@@ -2,6 +2,7 @@ import * as CANNON from "cannon-es";
 import { describe, expect, it } from "vitest";
 import { createD6 } from "../src/geometries/d6";
 import { createTray, roll } from "../src/physics/tray";
+import { syncDie } from "../src/renderer";
 
 describe("d6 body", () => {
     it("returns 2 when +Y faces up", () => {
@@ -145,5 +146,42 @@ describe("Tray containment", () => {
 
     it("dice remain within tall tray during roll", () => {
         assertContainedDuringRoll(3, 8);
+    });
+});
+
+describe("syncDie", () => {
+    it("copies body position to mesh position", () => {
+        const die = createD6(1, 0.1);
+        die.physics.body.position.set(1, 2, 3);
+        syncDie(die);
+        expect(die.mesh.position.x).toBe(1);
+        expect(die.mesh.position.y).toBe(2);
+        expect(die.mesh.position.z).toBe(3);
+    });
+
+    it("copies body quaternion to mesh quaternion", () => {
+        const die = createD6(1, 0.1);
+        die.physics.body.quaternion.set(0.1, 0.2, 0.3, 0.9);
+        syncDie(die);
+        expect(die.mesh.quaternion.x).toBeCloseTo(0.1);
+        expect(die.mesh.quaternion.y).toBeCloseTo(0.2);
+        expect(die.mesh.quaternion.z).toBeCloseTo(0.3);
+        expect(die.mesh.quaternion.w).toBeCloseTo(0.9);
+    });
+
+    it("syncs dice during roll via onStep callback", () => {
+        const tray = createTray(5, 5);
+        const die = createD6(1, 0.1);
+        let syncCount = 0;
+
+        roll(tray, [die.physics], {
+            onStep: () => {
+                syncDie(die);
+                syncCount++;
+            },
+        });
+
+        expect(syncCount).toBeGreaterThan(0);
+        expect(die.mesh.position.y).toBeGreaterThan(0);
     });
 });

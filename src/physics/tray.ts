@@ -4,11 +4,36 @@ import type { PhysicsDie } from "./dice";
 // Walls tall enough to contain bouncing dice
 const TRAY_WALL_HEIGHT = 3;
 
-const SETTLE_THRESHOLD = 0.01;
-const TIME_STEP = 1 / 60;
+export const SETTLE_THRESHOLD = 0.01;
+export const TIME_STEP = 1 / 60;
 
 // Dice should settle within 5 seconds; 10 gives margin for error
 const MAX_SIMULATION_TIME = 10;
+
+export function isSettled(die: PhysicsDie): boolean {
+    const speed = die.body.velocity.length();
+    const angularSpeed = die.body.angularVelocity.length();
+    return speed < SETTLE_THRESHOLD && angularSpeed < SETTLE_THRESHOLD;
+}
+
+export function throwDie(die: PhysicsDie, halfWidth: number, halfDepth: number): void {
+    die.body.position.set(
+        (Math.random() - 0.5) * halfWidth,
+        3 + Math.random() * 2,
+        (Math.random() - 0.5) * halfDepth,
+    );
+    die.body.quaternion.setFromEuler(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+    );
+    die.body.velocity.set((Math.random() - 0.5) * 4, -2, (Math.random() - 0.5) * 4);
+    die.body.angularVelocity.set(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+    );
+}
 
 export type Tray = {
     world: CANNON.World;
@@ -76,26 +101,7 @@ export function roll(tray: Tray, dice: PhysicsDie[], options?: RollOptions): num
     const { world, halfWidth, halfDepth } = tray;
 
     for (const die of dice) {
-        // starting position -- above tray
-        die.body.position.set(
-            (Math.random() - 0.5) * halfWidth,
-            3 + Math.random() * 2,
-            (Math.random() - 0.5) * halfDepth,
-        );
-
-        // initial rotation, velocity, and spin
-        die.body.quaternion.setFromEuler(
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2,
-        );
-        die.body.velocity.set((Math.random() - 0.5) * 4, -2, (Math.random() - 0.5) * 4);
-        die.body.angularVelocity.set(
-            (Math.random() - 0.5) * 10,
-            (Math.random() - 0.5) * 10,
-            (Math.random() - 0.5) * 10,
-        );
-
+        throwDie(die, halfWidth, halfDepth);
         world.addBody(die.body);
     }
 
@@ -104,13 +110,7 @@ export function roll(tray: Tray, dice: PhysicsDie[], options?: RollOptions): num
         world.step(TIME_STEP);
         options?.onStep?.();
 
-        const allSettled = dice.every((die) => {
-            const speed = die.body.velocity.length();
-            const angularSpeed = die.body.angularVelocity.length();
-            return speed < SETTLE_THRESHOLD && angularSpeed < SETTLE_THRESHOLD;
-        });
-
-        if (allSettled) {
+        if (dice.every(isSettled)) {
             break;
         }
     }

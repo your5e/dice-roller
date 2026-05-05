@@ -1,13 +1,24 @@
 import * as THREE from "three";
-import { createD6 } from "./geometries/d6";
+import { type Die, createD6 } from "./geometries/d6";
+import {
+    type Tray as PhysicsTray,
+    TIME_STEP,
+    createTray as createPhysicsTray,
+    isSettled,
+    throwDie,
+} from "./physics/tray";
 
-type TrayState = {
+type RollState = {
+    onSettle: (results: number[]) => void;
+};
+
+export type TrayState = {
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
-    cube: THREE.Mesh;
-    isDragging: boolean;
-    previousMousePosition: { x: number; y: number };
+    physicsTray: PhysicsTray;
+    dice: Die[];
+    roll: RollState | null;
     animationId: number | null;
 };
 
@@ -20,7 +31,7 @@ export function createTray(container: HTMLElement): TrayState {
 
     // top-down camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 3, 0);
+    camera.position.set(0, 8, 0);
     camera.lookAt(0, 0, 0);
 
     // light from top-left
@@ -31,61 +42,86 @@ export function createTray(container: HTMLElement): TrayState {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
-    // d6 die
-    const { mesh: cube } = createD6(1, 0.1);
-    scene.add(cube);
-
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
+    const physicsTray = createPhysicsTray(3, 3);
+
     const state: TrayState = {
         renderer,
         scene,
         camera,
-        cube,
-        isDragging: false,
-        previousMousePosition: { x: 0, y: 0 },
+        physicsTray,
+        dice: [],
+        roll: null,
         animationId: null,
     };
 
-    setupDragRotation(state, renderer.domElement);
     startAnimationLoop(state);
 
     return state;
 }
 
-function setupDragRotation(state: TrayState, canvas: HTMLCanvasElement): void {
-    canvas.addEventListener("pointerdown", (e) => {
-        state.isDragging = true;
-        state.previousMousePosition = { x: e.clientX, y: e.clientY };
-        canvas.setPointerCapture(e.pointerId);
-    });
-    canvas.addEventListener("pointermove", (e) => {
-        if (!state.isDragging) {
-            return;
-        }
+export function roll(tray: TrayState, count: number): Promise<number[]> {
+    // Clear previous dice from scene
+    for (const die of tray.dice) {
+        tray.scene.remove(die.mesh);
+        tray.physicsTray.world.removeBody(die.physics.body);
+    }
+    tray.dice = [];
 
-        state.cube.rotation.y += (e.clientX - state.previousMousePosition.x) * 0.01;
-        state.cube.rotation.x += (e.clientY - state.previousMousePosition.y) * 0.01;
-        state.previousMousePosition = {
-            x: e.clientX,
-            y: e.clientY,
+    const { halfWidth, halfDepth } = tray.physicsTray;
+    const dice: Die[] = [];
+
+    for (let i = 0; i < count; i++) {
+        const die = createD6(1, 0.1);
+        dice.push(die);
+        tray.scene.add(die.mesh);
+        throwDie(die.physics, halfWidth, halfDepth);
+        tray.physicsTray.world.addBody(die.physics.body);
+    }
+
+    tray.dice = dice;
+
+    return new Promise((resolve) => {
+        tray.roll = {
+            onSettle: resolve,
         };
-    });
-    canvas.addEventListener("pointerup", () => {
-        state.isDragging = false;
-    });
-    canvas.addEventListener("pointercancel", () => {
-        state.isDragging = false;
     });
 }
 
 function startAnimationLoop(state: TrayState): void {
     function animate(): void {
         state.animationId = requestAnimationFrame(animate);
+
+        if (state.roll) {
+            state.physicsTray.world.step(TIME_STEP);
+
+            for (const die of state.dice) {
+                syncDie(die);
+            }
+
+            if (state.dice.every((die) => isSettled(die.physics))) {
+                const results = state.dice.map((die) => die.physics.readFace());
+                state.roll.onSettle(results);
+                state.roll = null;
+            }
+        }
+
         state.renderer.render(state.scene, state.camera);
     }
     animate();
+}
+
+export function syncDie(die: Die): void {
+    const { body } = die.physics;
+    die.mesh.position.set(body.position.x, body.position.y, body.position.z);
+    die.mesh.quaternion.set(
+        body.quaternion.x,
+        body.quaternion.y,
+        body.quaternion.z,
+        body.quaternion.w,
+    );
 }

@@ -1,13 +1,18 @@
 import { type Step, calculate } from "./calculate";
 import { rollDice } from "./dice";
 import { parse } from "./notation";
-import { createTray } from "./renderer";
+import { type TrayState, createTray, roll as rollInTray } from "./renderer";
 
 type RollResult = {
     notation: string;
     steps: Step[];
     total: number;
 };
+
+type RollCallback = (result: RollResult) => void;
+
+let activeTray: TrayState | null = null;
+let onRollCallback: RollCallback = (result) => console.log(result);
 
 export function roll(input: string): RollResult {
     const expressions = parse(input);
@@ -36,12 +41,44 @@ export function roll(input: string): RollResult {
     return { notation: input, steps, total };
 }
 
+function rollWithPhysics(input: string): void {
+    const expressions = parse(input);
+
+    // Check if this is a single d6 expression we can animate
+    if (activeTray && expressions.length === 1 && expressions[0]?.sides === 6) {
+        const expr = expressions[0];
+        const diceNotation = `${expr.count}d6`;
+
+        rollInTray(activeTray, expr.count).then((faces) => {
+            const calcResult = calculate(
+                faces,
+                expr.modifiers,
+                expr.bonus,
+                () => Math.floor(Math.random() * 6) + 1,
+            );
+
+            onRollCallback({
+                notation: input,
+                steps: [{ [diceNotation]: faces }, ...calcResult.steps],
+                total: calcResult.total,
+            });
+        });
+    } else {
+        // Fall back to random roll for non-d6 or multi-expression
+        onRollCallback(roll(input));
+    }
+}
+
 export function tray(selector: string): void {
     const container = document.querySelector(selector);
     if (!(container instanceof HTMLElement)) {
         throw new Error(`Element not found: ${selector}`);
     }
-    createTray(container);
+    activeTray = createTray(container);
+}
+
+export function onRoll(callback: RollCallback): void {
+    onRollCallback = callback;
 }
 
 export function bind(selector: string): void {
@@ -50,8 +87,7 @@ export function bind(selector: string): void {
         element.addEventListener("click", () => {
             const expression =
                 element.getAttribute("data-roll") || element.textContent || "";
-            const result = roll(expression);
-            console.log(result);
+            rollWithPhysics(expression);
         });
     }
 }

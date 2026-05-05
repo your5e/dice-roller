@@ -5,5 +5,7 @@ simulation.
 @queue
 - [X] simulate a tray for rolling dice, and prove one or more will roll around,
       settle, and the result of the top faces is returned
-- [ ] renderer integration: visualise the roll in the tray, report result when settled
+- [X] renderer integration: visualise the roll in the tray, report result when settled
+- [ ] "throw" dice into the tray from the side, not drop from above
+- [ ] detect cocked dice (no face sufficiently horizontal) and reroll them
 - [ ] monte carlo fairness test
