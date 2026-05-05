@@ -41,32 +41,91 @@ export function roll(input: string): RollResult {
     return { notation: input, steps, total };
 }
 
+const animatedDice = new Set([6, 12]);
+
 function rollWithPhysics(input: string): void {
     const expressions = parse(input);
 
-    // Check if this is a single d6 expression we can animate
-    if (activeTray && expressions.length === 1 && expressions[0]?.sides === 6) {
-        const expr = expressions[0];
-        const diceNotation = `${expr.count}d6`;
-
-        rollInTray(activeTray, expr.count).then((faces) => {
-            const calcResult = calculate(
-                faces,
-                expr.modifiers,
-                expr.bonus,
-                () => Math.floor(Math.random() * 6) + 1,
-            );
-
-            onRollCallback({
-                notation: input,
-                steps: [{ [diceNotation]: faces }, ...calcResult.steps],
-                total: calcResult.total,
-            });
-        });
-    } else {
-        // Fall back to random roll for non-d6 or multi-expression
+    if (!activeTray) {
         onRollCallback(roll(input));
+        return;
     }
+
+    // separate out the physical rolls we can do, the rest are mathematical
+    type IndexedExpr = { index: number; expr: NonNullable<(typeof expressions)[0]> };
+    const animated: IndexedExpr[] = [];
+    const mathematical: IndexedExpr[] = [];
+
+    for (let i = 0; i < expressions.length; i++) {
+        const expr = expressions[i];
+        if (expr === null) {
+            continue;
+        }
+        if (animatedDice.has(expr.sides)) {
+            animated.push({ index: i, expr });
+        } else {
+            mathematical.push({ index: i, expr });
+        }
+    }
+
+    // roll mathematically first, in order to quick exit if no physical rolls
+    type MathResult = { faces: number[]; calcResult: ReturnType<typeof calculate> };
+    const mathResults = new Map<number, MathResult>();
+    for (const { index, expr } of mathematical) {
+        const faces = rollDice(expr.count, expr.sides);
+        const calcResult = calculate(
+            faces,
+            expr.modifiers,
+            expr.bonus,
+            () => rollDice(1, expr.sides)[0],
+        );
+        mathResults.set(index, { faces, calcResult });
+    }
+    if (animated.length === 0) {
+        onRollCallback(roll(input));
+        return;
+    }
+
+    // physical rolls
+    const groups = animated.map(({ expr }) => ({
+        count: expr.count,
+        sides: expr.sides,
+    }));
+    rollInTray(activeTray, groups).then((groupedFaces) => {
+        let total = 0;
+        const steps: Step[] = [];
+
+        // Combine results in original order
+        let animatedIndex = 0;
+        for (let i = 0; i < expressions.length; i++) {
+            const expr = expressions[i];
+            if (expr === null) {
+                continue;
+            }
+
+            const diceNotation = `${expr.count}d${expr.sides}`;
+            const mathResult = mathResults.get(i);
+
+            if (mathResult) {
+                steps.push({ [diceNotation]: mathResult.faces });
+                total += mathResult.calcResult.total;
+                steps.push(...mathResult.calcResult.steps);
+            } else {
+                const faces = groupedFaces[animatedIndex++];
+                steps.push({ [diceNotation]: faces });
+                const calcResult = calculate(
+                    faces,
+                    expr.modifiers,
+                    expr.bonus,
+                    () => Math.floor(Math.random() * expr.sides) + 1,
+                );
+                total += calcResult.total;
+                steps.push(...calcResult.steps);
+            }
+        }
+
+        onRollCallback({ notation: input, steps, total });
+    });
 }
 
 export function tray(selector: string): void {
@@ -84,10 +143,19 @@ export function onRoll(callback: RollCallback): void {
 export function bind(selector: string): void {
     const elements = document.querySelectorAll(selector);
     for (const element of elements) {
-        element.addEventListener("click", () => {
-            const expression =
-                element.getAttribute("data-roll") || element.textContent || "";
-            rollWithPhysics(expression);
-        });
+        if (element instanceof HTMLFormElement) {
+            const input = element.querySelector("input");
+            element.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const expression = input?.value || "";
+                rollWithPhysics(expression);
+            });
+        } else {
+            element.addEventListener("click", () => {
+                const expression =
+                    element.getAttribute("data-roll") || element.textContent || "";
+                rollWithPhysics(expression);
+            });
+        }
     }
 }

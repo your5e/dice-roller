@@ -25,3 +25,10 @@ one of the 1s before rerolling only 3.
 - [X] create test webpage with common 5e rolls, some as element text, some as
       elements with a `data-roll` attribute
 - [X] clicking any roll gives the calculated result in console
+
+Mixed damage types need separate totals reported — a Flame Tongue sword deals
+slashing damage plus fire damage. Distinguishing the types in the
+result is needed to apply resistances/vulnerabilities correctly. Add
+`label:` before the expression to name that part of the roll.
+
+- [ ] support labelled dice groups in notation and roll result

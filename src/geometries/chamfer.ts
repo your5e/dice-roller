@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { normalFromPoints } from "../geometry";
 
 export type DieFaces = [value: number, vertices: number[]][];
 
@@ -19,7 +20,7 @@ export function createChamferedGeometry(
 
     function addPolygon(verts: THREE.Vector3[]) {
         const startVertex = positions.length / 3;
-        const normal = computeNormal(verts[0], verts[1], verts[2]);
+        const normal = normalFromPoints(verts[0], verts[1], verts[2]);
         for (const v of verts) {
             positions.push(v.x, v.y, v.z);
             normals.push(normal.x, normal.y, normal.z);
@@ -73,7 +74,7 @@ export function createChamferedGeometry(
         }
 
         // create the corner polygon
-        const normal = computeNormal(cornerVerts[0], cornerVerts[1], cornerVerts[2]);
+        const normal = normalFromPoints(cornerVerts[0], cornerVerts[1], cornerVerts[2]);
         if (normal.dot(baseVertices[vertex]) < 0) {
             cornerVerts.reverse();
         }
@@ -135,14 +136,4 @@ function centroid(points: THREE.Vector3[]): THREE.Vector3 {
         centre.add(point);
     }
     return centre.divideScalar(points.length);
-}
-
-function computeNormal(
-    a: THREE.Vector3,
-    b: THREE.Vector3,
-    c: THREE.Vector3,
-): THREE.Vector3 {
-    const ab = new THREE.Vector3().subVectors(b, a);
-    const ac = new THREE.Vector3().subVectors(c, a);
-    return new THREE.Vector3().crossVectors(ab, ac).normalize();
 }

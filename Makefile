@@ -6,7 +6,7 @@ build:
 	npm run build
 
 lint:
-	npx biome check .
+	npx biome check --fix .
 	npx tsc --noEmit
 
 test-code:

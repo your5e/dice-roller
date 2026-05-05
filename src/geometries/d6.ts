@@ -1,26 +1,22 @@
 import * as THREE from "three";
-import { type PhysicsDie, createDieBody } from "../physics/dice";
+import { createDieBody } from "../physics/dice";
 import { type DieFaces, createChamferedGeometry } from "./chamfer";
-
-export type Die = {
-    mesh: THREE.Mesh;
-    physics: PhysicsDie;
-};
+import type { Die } from "./dice";
 
 export function createD6(size: number, chamfer: number): Die {
-    const s = size / 2;
+    const scale = size / 2;
 
     // Map out the 8 corners of the cube; each corner is a combination of half the
     // width (as measured edge to edge) from the center, which is the origin point.
     const vertices = [
-        new THREE.Vector3(s, s, s),
-        new THREE.Vector3(s, s, -s),
-        new THREE.Vector3(s, -s, s),
-        new THREE.Vector3(s, -s, -s),
-        new THREE.Vector3(-s, s, s),
-        new THREE.Vector3(-s, s, -s),
-        new THREE.Vector3(-s, -s, s),
-        new THREE.Vector3(-s, -s, -s),
+        new THREE.Vector3(scale, scale, scale),
+        new THREE.Vector3(scale, scale, -scale),
+        new THREE.Vector3(scale, -scale, scale),
+        new THREE.Vector3(scale, -scale, -scale),
+        new THREE.Vector3(-scale, scale, scale),
+        new THREE.Vector3(-scale, scale, -scale),
+        new THREE.Vector3(-scale, -scale, scale),
+        new THREE.Vector3(-scale, -scale, -scale),
     ];
 
     // Map out the six faces and which number is displayed on it. The

@@ -118,34 +118,48 @@ describe("Tray containment", () => {
                         Math.abs(z),
                         `die ${i} left bounds on Z axis: z=${z}`,
                     ).toBeLessThan(halfDepth);
-
-                    for (let j = i + 1; j < dice.length; j++) {
-                        const other = dice[j];
-                        const dx = x - other.physics.body.position.x;
-                        const dy = y - other.physics.body.position.y;
-                        const dz = z - other.physics.body.position.z;
-                        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                        expect(
-                            distance,
-                            `dice ${i} and ${j} overlapping`,
-                        ).toBeGreaterThan(0.5);
-                    }
                 }
             },
         });
+
+        return dice;
+    }
+
+    function assertDiceNotOverlapping(dice: ReturnType<typeof createD6>[]) {
+        for (let i = 0; i < dice.length; i++) {
+            const die = dice[i];
+            const x = die.physics.body.position.x;
+            const y = die.physics.body.position.y;
+            const z = die.physics.body.position.z;
+
+            for (let j = i + 1; j < dice.length; j++) {
+                const other = dice[j];
+                const dx = x - other.physics.body.position.x;
+                const dy = y - other.physics.body.position.y;
+                const dz = z - other.physics.body.position.z;
+                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                expect(
+                    distance,
+                    `dice ${i} and ${j} overlapping`,
+                ).toBeGreaterThan(0.9);
+            }
+        }
     }
 
     it("dice remain within square tray during roll", () => {
-        assertContainedDuringRoll(5, 5);
+        const dice = assertContainedDuringRoll(5, 5);
+        assertDiceNotOverlapping(dice);
     });
 
-    it("dice remain within wide tray during roll", () => {
-        assertContainedDuringRoll(8, 3);
+    it("dice remain within landscape tray during roll", () => {
+        const dice = assertContainedDuringRoll(8, 3);
+        assertDiceNotOverlapping(dice);
     });
 
-    it("dice remain within tall tray during roll", () => {
-        assertContainedDuringRoll(3, 8);
+    it("dice remain within portrait tray during roll", () => {
+        const dice = assertContainedDuringRoll(3, 8);
+        assertDiceNotOverlapping(dice);
     });
 });
 

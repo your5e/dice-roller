@@ -1,5 +1,6 @@
 import * as CANNON from "cannon-es";
 import type { DieFaces } from "../geometries/chamfer";
+import { normalFromFace } from "../geometry";
 
 export type PhysicsDie = {
     body: CANNON.Body;
@@ -41,7 +42,7 @@ function readFaceUp(
     let bestDot = Number.NEGATIVE_INFINITY;
 
     for (const [value, indices] of faces) {
-        const normal = computeFaceNormal(vertices, indices);
+        const normal = normalFromFace(vertices, indices);
         const worldNormal = body.quaternion.vmult(normal);
         const dot = worldNormal.dot(up);
         if (dot > bestDot) {
@@ -51,22 +52,4 @@ function readFaceUp(
     }
 
     return bestValue;
-}
-
-function computeFaceNormal(
-    vertices: { x: number; y: number; z: number }[],
-    indices: number[],
-): CANNON.Vec3 {
-    const a = vertices[indices[0]];
-    const b = vertices[indices[1]];
-    const c = vertices[indices[2]];
-
-    const ab = new CANNON.Vec3(b.x - a.x, b.y - a.y, b.z - a.z);
-    const ac = new CANNON.Vec3(c.x - a.x, c.y - a.y, c.z - a.z);
-
-    const normal = new CANNON.Vec3();
-    ab.cross(ac, normal);
-    normal.normalize();
-
-    return normal;
 }

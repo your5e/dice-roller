@@ -1,5 +1,7 @@
 import * as THREE from "three";
-import { type Die, createD6 } from "./geometries/d6";
+import { createD6 } from "./geometries/d6";
+import { createD12 } from "./geometries/d12";
+import type { Die } from "./geometries/dice";
 import {
     type Tray as PhysicsTray,
     TIME_STEP,
@@ -64,7 +66,20 @@ export function createTray(container: HTMLElement): TrayState {
     return state;
 }
 
-export function roll(tray: TrayState, count: number): Promise<number[]> {
+function createDie(sides: number): Die {
+    switch (sides) {
+        case 6:
+            return createD6(0.5, 0.05);
+        case 12:
+            return createD12(0.5, 0.05);
+        default:
+            throw new Error(`No geometry for d${sides}`);
+    }
+}
+
+type DiceGroup = { count: number; sides: number };
+
+export function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
     // Clear previous dice from scene
     for (const die of tray.dice) {
         tray.scene.remove(die.mesh);
@@ -74,20 +89,32 @@ export function roll(tray: TrayState, count: number): Promise<number[]> {
 
     const { halfWidth, halfDepth } = tray.physicsTray;
     const dice: Die[] = [];
+    const groupBoundaries: number[] = [0];
 
-    for (let i = 0; i < count; i++) {
-        const die = createD6(1, 0.1);
-        dice.push(die);
-        tray.scene.add(die.mesh);
-        throwDie(die.physics, halfWidth, halfDepth);
-        tray.physicsTray.world.addBody(die.physics.body);
+    for (const { count, sides } of groups) {
+        for (let i = 0; i < count; i++) {
+            const die = createDie(sides);
+            dice.push(die);
+            tray.scene.add(die.mesh);
+            throwDie(die.physics, halfWidth, halfDepth);
+            tray.physicsTray.world.addBody(die.physics.body);
+        }
+        groupBoundaries.push(dice.length);
     }
 
     tray.dice = dice;
 
     return new Promise((resolve) => {
         tray.roll = {
-            onSettle: resolve,
+            onSettle: (results) => {
+                const grouped: number[][] = [];
+                for (let i = 0; i < groupBoundaries.length - 1; i++) {
+                    grouped.push(
+                        results.slice(groupBoundaries[i], groupBoundaries[i + 1]),
+                    );
+                }
+                resolve(grouped);
+            },
         };
     });
 }
