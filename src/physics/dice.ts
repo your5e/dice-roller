@@ -1,6 +1,7 @@
 import * as CANNON from "cannon-es";
 import type { DieFaces } from "../geometries/chamfer";
 import { normalFromFace } from "../geometry";
+import { diceMaterial } from "./tray";
 
 export type PhysicsDie = {
     body: CANNON.Body;
@@ -23,6 +24,12 @@ export function createDieBody(
     const body = new CANNON.Body({
         mass: 1,
         shape,
+        material: diceMaterial,
+        linearDamping: 0.3, // scale: 0 = vacuum, 0.3 = air, 1.0 = honey
+        angularDamping: 0.3,
+        allowSleep: true,
+        sleepSpeedLimit: 0.05,
+        sleepTimeLimit: 0.1,
     });
 
     return {

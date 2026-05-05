@@ -9,7 +9,7 @@ describe("bind", () => {
 
     it("logs notation, steps starting with initial roll, and total", () => {
         document.body.innerHTML = '<span class="roll">1d20</span>';
-        const consoleSpy = vi.spyOn(console, "log");
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
         bind(".roll");
         document.querySelector(".roll")?.dispatchEvent(new MouseEvent("click"));
@@ -26,7 +26,7 @@ describe("bind", () => {
     it("logs each modifier as a step", () => {
         document.body.innerHTML =
             '<span class="roll" data-roll="2d20kh1">with advantage</span>';
-        const consoleSpy = vi.spyOn(console, "log");
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
         bind(".roll");
         document.querySelector(".roll")?.dispatchEvent(new MouseEvent("click"));
@@ -43,7 +43,7 @@ describe("bind", () => {
 
     it("reads expression from data-roll attribute over text", () => {
         document.body.innerHTML = '<span class="roll" data-roll="2d6">1d20</span>';
-        const consoleSpy = vi.spyOn(console, "log");
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
         bind(".roll");
         document.querySelector(".roll")?.dispatchEvent(new MouseEvent("click"));
@@ -62,7 +62,7 @@ describe("bind", () => {
             <span class="roll">1d4</span>
             <span class="roll">1d6</span>
         `;
-        const consoleSpy = vi.spyOn(console, "log");
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
         bind(".roll");
         const elements = document.querySelectorAll(".roll");
@@ -74,7 +74,7 @@ describe("bind", () => {
 
     it("logs empty result on invalid expression", () => {
         document.body.innerHTML = '<span class="roll">invalid</span>';
-        const consoleSpy = vi.spyOn(console, "log");
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
         bind(".roll");
         document.querySelector(".roll")?.dispatchEvent(new MouseEvent("click"));

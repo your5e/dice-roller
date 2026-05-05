@@ -3,7 +3,7 @@ import { createDieBody } from "../physics/dice";
 import { type DieFaces, createChamferedGeometry } from "./chamfer";
 import type { Die } from "./dice";
 
-export function createD12(size: number, chamfer: number): Die {
+export function createD12(size = 0.5, chamfer = 0.05): Die {
     const scale = size / 2;
     const phi = (1 + Math.sqrt(5)) / 2;
     const invPhi = 1 / phi;

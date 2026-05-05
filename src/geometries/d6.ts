@@ -3,7 +3,7 @@ import { createDieBody } from "../physics/dice";
 import { type DieFaces, createChamferedGeometry } from "./chamfer";
 import type { Die } from "./dice";
 
-export function createD6(size: number, chamfer: number): Die {
+export function createD6(size = 0.5, chamfer = 0.05): Die {
     const scale = size / 2;
 
     // Map out the 8 corners of the cube; each corner is a combination of half the
