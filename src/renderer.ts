@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createD6 } from "./geometries/d6";
 import { createD12 } from "./geometries/d12";
+import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
 import {
     type Tray as PhysicsTray,
@@ -75,6 +76,8 @@ function createDie(sides: number): Die {
             return createD6();
         case 12:
             return createD12();
+        case 20:
+            return createD20();
         default:
             throw new Error(`No geometry for d${sides}`);
     }

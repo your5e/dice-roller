@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { createD6 } from "../src/geometries/d6";
-import { createD12 } from "../src/geometries/d12";
-import type { Die } from "../src/geometries/dice";
-import { normalFromPoints } from "../src/geometry";
+import { createD6 } from "../../src/geometries/d6";
+import { createD12 } from "../../src/geometries/d12";
+import { createD20 } from "../../src/geometries/d20";
+import type { Die } from "../../src/geometries/dice";
+import { normalFromPoints } from "../../src/geometry";
 
 function assertTrianglesWoundOutward(die: Die) {
     const geometry = die.mesh.geometry;
@@ -27,9 +28,7 @@ function assertTrianglesWoundOutward(die: Die) {
         const b = getVertex(indices.getX(triangle + 1));
         const c = getVertex(indices.getX(triangle + 2));
 
-        const centroid = new THREE.Vector3()
-            .add(a).add(b).add(c)
-            .divideScalar(3);
+        const centroid = new THREE.Vector3().add(a).add(b).add(c).divideScalar(3);
 
         const normal = normalFromPoints(a, b, c);
 
@@ -38,14 +37,12 @@ function assertTrianglesWoundOutward(die: Die) {
     }
 }
 
-describe("createD6", () => {
-    it("produces a mesh with all triangles wound outward", () => {
-        assertTrianglesWoundOutward(createD6(1, 0.08));
-    });
-});
-
-describe("createD12", () => {
-    it("produces a mesh with all triangles wound outward", () => {
-        assertTrianglesWoundOutward(createD12(1, 0.08));
+describe("dice geometries", () => {
+    it.each([
+        ["d6", createD6],
+        ["d12", createD12],
+        ["d20", createD20],
+    ])("%s has all triangles wound outward", (_, create) => {
+        assertTrianglesWoundOutward(create());
     });
 });

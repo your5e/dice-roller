@@ -1,7 +1,11 @@
 import * as THREE from "three";
 import { normalFromPoints } from "../geometry";
 
-export type DieFaces = [value: number, vertices: number[]][];
+export type DieFaces = {
+    value: number;
+    vertices: number[];
+    bottomEdge: number;
+}[];
 
 /**
  * Vertex-centric chamfering: split each vertex into N positions (one per
@@ -37,7 +41,7 @@ export function createChamferedGeometry(
         // find faces touching this vertex
         const touchingFaces = baseFaces
             .map((_, i) => i)
-            .filter((i) => baseFaces[i][1].includes(vertex));
+            .filter((i) => baseFaces[i].vertices.includes(vertex));
 
         // order those faces so neighbours are grouped together
         // so the corner polygon comes out right
@@ -49,11 +53,11 @@ export function createChamferedGeometry(
             remaining.delete(currentFace);
             orderedFaces.push(currentFace);
 
-            const faceVerts = baseFaces[currentFace][1];
+            const faceVerts = baseFaces[currentFace].vertices;
             for (const face of remaining) {
                 if (
                     faceVerts.some(
-                        (v) => v !== vertex && baseFaces[face][1].includes(v),
+                        (v) => v !== vertex && baseFaces[face].vertices.includes(v),
                     )
                 ) {
                     currentFace = face;
@@ -66,7 +70,7 @@ export function createChamferedGeometry(
         const cornerVerts: THREE.Vector3[] = [];
 
         for (const face of orderedFaces) {
-            const faceVerts = baseFaces[face][1];
+            const faceVerts = baseFaces[face].vertices;
             const centre = centroid(faceVerts.map((v) => baseVertices[v]));
             const pos = baseVertices[vertex].clone().lerp(centre, chamfer);
             cornerVerts.push(pos);
@@ -89,8 +93,8 @@ export function createChamferedGeometry(
     // STEP THREE -- fill in the remaining strips between the adjacent faces
     for (let face = 0; face < baseFaces.length; face++) {
         for (let nextFace = face + 1; nextFace < baseFaces.length; nextFace++) {
-            const [, vertices] = baseFaces[face];
-            const [, nextVertices] = baseFaces[nextFace];
+            const vertices = baseFaces[face].vertices;
+            const nextVertices = baseFaces[nextFace].vertices;
 
             // only adjacent faces need a strip between them
             const shared = vertices.filter((v) => nextVertices.includes(v));

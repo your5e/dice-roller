@@ -14,7 +14,7 @@ export function createDieBody(
     faces: DieFaces,
 ): PhysicsDie {
     const cannonVerts = vertices.map((v) => new CANNON.Vec3(v.x, v.y, v.z));
-    const cannonFaces = faces.map(([, indices]) => indices);
+    const cannonFaces = faces.map((face) => face.vertices);
 
     const shape = new CANNON.ConvexPolyhedron({
         vertices: cannonVerts,
@@ -45,16 +45,16 @@ function readFaceUp(
     faces: DieFaces,
 ): number {
     const up = new CANNON.Vec3(0, 1, 0);
-    let bestValue = faces[0][0];
+    let bestValue = faces[0].value;
     let bestDot = Number.NEGATIVE_INFINITY;
 
-    for (const [value, indices] of faces) {
-        const normal = normalFromFace(vertices, indices);
+    for (const face of faces) {
+        const normal = normalFromFace(vertices, face.vertices);
         const worldNormal = body.quaternion.vmult(normal);
         const dot = worldNormal.dot(up);
         if (dot > bestDot) {
             bestDot = dot;
-            bestValue = value;
+            bestValue = face.value;
         }
     }
 

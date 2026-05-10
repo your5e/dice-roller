@@ -1,6 +1,8 @@
 import * as CANNON from "cannon-es";
 import * as THREE from "three";
 
+export const PHI = (1 + Math.sqrt(5)) / 2;
+
 export function normalFromPoints(
     a: THREE.Vector3,
     b: THREE.Vector3,

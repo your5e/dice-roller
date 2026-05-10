@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import { FACES, VERTICES, createD6Body } from "../bodies/d6";
+import { FACES, VERTICES, createD20Body } from "../bodies/d20";
 import { createChamferedGeometry } from "./chamfer";
 import type { Die } from "./dice";
 
-export function createD6(size = 0.5, chamfer = 0.05): Die {
+export function createD20(size = 0.5, chamfer = 0.05): Die {
     const scale = size / 2;
     const vertices = VERTICES.map((v) => v.clone().multiplyScalar(scale));
 
@@ -11,7 +11,7 @@ export function createD6(size = 0.5, chamfer = 0.05): Die {
     const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const mesh = new THREE.Mesh(geometry, material);
 
-    const physics = createD6Body(scale);
+    const physics = createD20Body(scale);
 
     return { mesh, physics };
 }
