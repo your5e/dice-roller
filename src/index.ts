@@ -1,7 +1,12 @@
 import { type Step, calculate } from "./calculate";
 import { rollDice } from "./dice";
 import { parse } from "./notation";
-import { type TrayState, createTray, roll as rollInTray } from "./renderer";
+import {
+    type TrayState,
+    createTray,
+    roll as rollInTray,
+    setDebugDie as setDebugDieInTray,
+} from "./renderer";
 
 type RollResult = {
     notation: string;
@@ -128,12 +133,13 @@ function rollWithPhysics(input: string): void {
     });
 }
 
-export function tray(selector: string): void {
+export function tray(selector: string): TrayState {
     const container = document.querySelector(selector);
     if (!(container instanceof HTMLElement)) {
         throw new Error(`Element not found: ${selector}`);
     }
     activeTray = createTray(container);
+    return activeTray;
 }
 
 export function onRoll(callback: RollCallback): void {
@@ -159,3 +165,12 @@ export function bind(selector: string): void {
         }
     }
 }
+
+export function setDebugDie(sides: 6 | 12 | 20): void {
+    if (activeTray) {
+        setDebugDieInTray(activeTray, sides);
+    }
+}
+
+export type { DebugDieType } from "./debug";
+export type { TrayState } from "./renderer";

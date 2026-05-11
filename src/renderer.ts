@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { DebugDieController, type DebugDieType } from "./debug";
+import { loadVarelaRound } from "./fonts/varela-round";
 import { createD6 } from "./geometries/d6";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
@@ -19,6 +21,7 @@ type RollState = {
 };
 
 export type TrayState = {
+    container: HTMLElement;
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
@@ -26,6 +29,7 @@ export type TrayState = {
     dice: Die[];
     roll: RollState | null;
     animationId: number | null;
+    debugDie: DebugDieController;
 };
 
 export function createTray(container: HTMLElement): TrayState {
@@ -45,7 +49,7 @@ export function createTray(container: HTMLElement): TrayState {
     directionalLight.position.set(-1, 1, 0);
     scene.add(directionalLight);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -54,8 +58,10 @@ export function createTray(container: HTMLElement): TrayState {
     container.appendChild(renderer.domElement);
 
     const physicsTray = createPhysicsTray(3, 3);
+    const debugDie = new DebugDieController();
 
     const state: TrayState = {
+        container,
         renderer,
         scene,
         camera,
@@ -63,21 +69,28 @@ export function createTray(container: HTMLElement): TrayState {
         dice: [],
         roll: null,
         animationId: null,
+        debugDie,
     };
+
+    loadVarelaRound().then(async () => {
+        const mesh = await debugDie.create();
+        scene.add(mesh);
+        debugDie.setupInteraction(container);
+    });
 
     startAnimationLoop(state);
 
     return state;
 }
 
-function createDie(sides: number): Die {
+async function createDie(sides: number): Promise<Die> {
     switch (sides) {
         case 6:
-            return createD6();
+            return await createD6();
         case 12:
-            return createD12();
+            return await createD12();
         case 20:
-            return createD20();
+            return await createD20();
         default:
             throw new Error(`No geometry for d${sides}`);
     }
@@ -85,7 +98,11 @@ function createDie(sides: number): Die {
 
 type DiceGroup = { count: number; sides: number };
 
-export function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
+export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
+    if (tray.debugDie.mesh) {
+        tray.debugDie.remove(tray.scene);
+    }
+
     for (const die of tray.dice) {
         tray.scene.remove(die.mesh);
     }
@@ -97,7 +114,7 @@ export function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> 
 
     for (const { count, sides } of groups) {
         for (let i = 0; i < count; i++) {
-            dice.push(createDie(sides));
+            dice.push(await createDie(sides));
         }
         groupBoundaries.push(dice.length);
     }
@@ -175,6 +192,8 @@ function startAnimationLoop(state: TrayState): void {
                 state.roll.onSettle(results);
                 state.roll = null;
             }
+        } else if (state.debugDie.mesh) {
+            state.debugDie.update();
         }
 
         state.renderer.render(state.scene, state.camera);
@@ -191,4 +210,20 @@ export function syncDie(die: Die): void {
         body.quaternion.z,
         body.quaternion.w,
     );
+}
+
+export async function setDebugDie(tray: TrayState, sides: DebugDieType): Promise<void> {
+    if (tray.debugDie.mesh) {
+        tray.debugDie.remove(tray.scene);
+    }
+
+    for (const die of tray.dice) {
+        tray.scene.remove(die.mesh);
+    }
+    tray.dice = [];
+    tray.roll = null;
+
+    const mesh = await tray.debugDie.create(sides);
+    tray.scene.add(mesh);
+    tray.debugDie.setupInteraction(tray.container);
 }

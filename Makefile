@@ -1,9 +1,12 @@
-.PHONY: all build lint test
+.PHONY: all build lint test templates
 
 all: lint test build
 
-build:
+build: templates
 	npm run build
+
+templates:
+	npx tsx scripts/export-templates.ts
 
 lint:
 	npx biome check --fix .

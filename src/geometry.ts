@@ -2,6 +2,7 @@ import * as CANNON from "cannon-es";
 import * as THREE from "three";
 
 export const PHI = (1 + Math.sqrt(5)) / 2;
+export const DEG_TO_RAD = Math.PI / 180;
 
 export function normalFromPoints(
     a: THREE.Vector3,
@@ -11,6 +12,11 @@ export function normalFromPoints(
     const ab = new THREE.Vector3().subVectors(b, a);
     const ac = new THREE.Vector3().subVectors(c, a);
     return new THREE.Vector3().crossVectors(ab, ac).normalize();
+}
+
+export function perpendicular(dx: number, dy: number): { x: number; y: number } {
+    const len = Math.hypot(dx, dy);
+    return { x: -dy / len, y: dx / len };
 }
 
 export function normalFromFace(

@@ -42,6 +42,14 @@ export const FACES: DieFaces = [
     { value: 20, vertices: [1, 9, 3], bottomEdge: 2 },
 ];
 
+export const FACE_VERTICES: Record<number, number[]> = Object.fromEntries(
+    FACES.map((face) => [face.value, face.vertices]),
+);
+
+export const FACE_BOTTOM_EDGE: Record<number, number> = Object.fromEntries(
+    FACES.map((face) => [face.value, face.bottomEdge]),
+);
+
 export function createD20Body(scale: number): PhysicsDie {
     const vertices = VERTICES.map((v) => v.clone().multiplyScalar(scale));
     return createDieBody(vertices, FACES);
