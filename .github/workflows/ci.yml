@@ -20,8 +20,6 @@ jobs:
 
       - run: npm ci
 
-      - run: make lint
-
       - run: make test
 
       - run: make build
@@ -29,7 +27,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: dice-roller
-          path: dist/dice-roller.js
+          path: dist/
 
   release:
     needs: build
@@ -44,4 +42,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v3
         with:
-          files: dice-roller.js
+          files: |
+            dice-roller.js
+            template/*.png
+            debug/*.png

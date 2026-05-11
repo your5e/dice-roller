@@ -14,7 +14,7 @@ small dice box image.
 - [X] create the necessary mesh to show numbers on the d20
         - be able to choose the colour of faces and numbers
         - investigate default textures in three.js
-- [ ] create template UV sprite image for artists to make more detailed
+- [X] create template UV sprite image for artists to make more detailed
       patterned dice
 
 # Remaining dice
