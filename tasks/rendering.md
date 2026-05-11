@@ -11,7 +11,7 @@ small dice box image.
 
 # Visual appearance
 
-- [ ] create the necessary mesh to show numbers on the d6
+- [X] create the necessary mesh to show numbers on the d20
         - be able to choose the colour of faces and numbers
         - investigate default textures in three.js
 - [ ] create template UV sprite image for artists to make more detailed
@@ -19,9 +19,13 @@ small dice box image.
 
 # Remaining dice
 
-- [ ] d4 mesh
-- [ ] d8 mesh
-- [ ] d10 mesh
-- [ ] d00 mesh
-- [ ] d12 mesh
-- [ ] d20 mesh
+- [ ] d4 texture and net template
+- [ ] d6 texture and net template
+- [ ] d8 texture and net template
+- [ ] d10 texture and net template
+- [ ] d12 texture and net template
+- [ ] d00 texture and net template
+
+# Monitoring
+
+- [ ] monitor frame drops

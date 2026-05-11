@@ -1,7 +1,10 @@
 import * as CANNON from "cannon-es";
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { createD6 } from "../src/geometries/d6";
 import { createD12 } from "../src/geometries/d12";
+
+const mockTexture = new THREE.Texture();
 import {
     applyThrowVelocity,
     createTray,
@@ -13,53 +16,53 @@ import {
 import { syncDie } from "../src/renderer";
 
 describe("d6 body", () => {
-    it("returns 2 when +Y faces up", () => {
-        const die = createD6();
+    it("returns 2 when +Y faces up", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.set(0, 0, 0, 1);
         expect(die.physics.readFace()).toBe(2);
     });
 
-    it("returns 5 when -Y faces up", () => {
-        const die = createD6();
+    it("returns 5 when -Y faces up", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI);
         expect(die.physics.readFace()).toBe(5);
     });
 
-    it("returns 1 when +X faces up", () => {
-        const die = createD6();
+    it("returns 1 when +X faces up", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
         expect(die.physics.readFace()).toBe(1);
     });
 
-    it("returns 6 when -X faces up", () => {
-        const die = createD6();
+    it("returns 6 when -X faces up", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
         expect(die.physics.readFace()).toBe(6);
     });
 
-    it("returns 3 when +Z faces up", () => {
-        const die = createD6();
+    it("returns 3 when +Z faces up", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
         expect(die.physics.readFace()).toBe(3);
     });
 
-    it("returns 4 when -Z faces up", () => {
-        const die = createD6();
+    it("returns 4 when -Z faces up", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
         expect(die.physics.readFace()).toBe(4);
     });
 
-    it("returns 2 when tilted 15° off +Y axis", () => {
-        const die = createD6();
+    it("returns 2 when tilted 15° off +Y axis", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 12);
         expect(die.physics.readFace()).toBe(2);
     });
 });
 
 describe("Tray", () => {
-    it("returns a valid face value when a die settles", () => {
+    it("returns a valid face value when a die settles", async () => {
         const tray = createTray(5, 5);
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
         const results = roll(tray, [die.physics]);
 
         expect(results).toHaveLength(1);
@@ -67,9 +70,9 @@ describe("Tray", () => {
         expect(results[0]).toBeLessThanOrEqual(6);
     });
 
-    it("returns a result for each die added", () => {
+    it("returns a result for each die added", async () => {
         const tray = createTray(5, 5);
-        const dice = [createD6(), createD6(), createD6()];
+        const dice = await Promise.all([createD6(0.5, mockTexture), createD6(0.5, mockTexture), createD6(0.5, mockTexture)]);
         const results = roll(tray, dice.map((d) => d.physics));
 
         expect(results).toHaveLength(3);
@@ -79,12 +82,12 @@ describe("Tray", () => {
         }
     });
 
-    it("produces varied results across multiple rolls", () => {
+    it("produces varied results across multiple rolls", async () => {
         const tray = createTray(5, 5);
         const seen = new Set<number>();
 
         for (let i = 0; i < 20; i++) {
-            const die = createD6();
+            const die = await createD6(0.5, mockTexture);
             const results = roll(tray, [die.physics]);
             seen.add(results[0]);
         }
@@ -92,9 +95,9 @@ describe("Tray", () => {
         expect(seen.size).toBeGreaterThanOrEqual(3);
     });
 
-    it("die rests on the floor after settling", () => {
+    it("die rests on the floor after settling", async () => {
         const tray = createTray(5, 5);
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
         roll(tray, [die.physics]);
 
         const inContactWithStatic = tray.world.contacts.some(
@@ -107,9 +110,9 @@ describe("Tray", () => {
 });
 
 describe("Tray containment", () => {
-    function assertContainedAfterRoll(halfWidth: number, halfDepth: number) {
+    async function assertContainedAfterRoll(halfWidth: number, halfDepth: number) {
         const tray = createTray(halfWidth, halfDepth);
-        const dice = Array.from({ length: 6 }, () => createD6());
+        const dice = await Promise.all(Array.from({ length: 6 }, () => createD6(0.5, mockTexture)));
 
         roll(tray, dice.map((d) => d.physics));
 
@@ -135,7 +138,7 @@ describe("Tray containment", () => {
         return dice;
     }
 
-    function assertDiceNotOverlapping(dice: ReturnType<typeof createD6>[]) {
+    function assertDiceNotOverlapping(dice: Awaited<ReturnType<typeof createD6>>[]) {
         for (let i = 0; i < dice.length; i++) {
             const die = dice[i];
             const x = die.physics.body.position.x;
@@ -157,27 +160,27 @@ describe("Tray containment", () => {
         }
     }
 
-    it.each([1, 2, 3, 4, 5])("dice settle within square tray (%i)", () => {
-        const dice = assertContainedAfterRoll(5, 5);
+    it.each([1, 2, 3, 4, 5])("dice settle within square tray (%i)", async () => {
+        const dice = await assertContainedAfterRoll(5, 5);
         assertDiceNotOverlapping(dice);
     });
 
-    it.each([1, 2, 3, 4, 5])("dice settle within landscape tray (%i)", () => {
-        const dice = assertContainedAfterRoll(8, 3);
+    it.each([1, 2, 3, 4, 5])("dice settle within landscape tray (%i)", async () => {
+        const dice = await assertContainedAfterRoll(8, 3);
         assertDiceNotOverlapping(dice);
     });
 
-    it.each([1, 2, 3, 4, 5])("dice settle within portrait tray (%i)", () => {
-        const dice = assertContainedAfterRoll(3, 8);
+    it.each([1, 2, 3, 4, 5])("dice settle within portrait tray (%i)", async () => {
+        const dice = await assertContainedAfterRoll(3, 8);
         assertDiceNotOverlapping(dice);
     });
 });
 
 describe("Throw behaviour", () => {
-    it("dice start at the left edge when thrown from left", () => {
+    it("dice start at the left edge when thrown from left", async () => {
         const halfWidth = 5;
         const tray = createTray(halfWidth, 5);
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
 
         packDice([die.physics], tray.world);
         offsetToEdge([die.physics], halfWidth, true);
@@ -186,10 +189,10 @@ describe("Throw behaviour", () => {
         expect(x, "die should start near left edge").toBeLessThan(-halfWidth + 1);
     });
 
-    it("dice start at the right edge when thrown from right", () => {
+    it("dice start at the right edge when thrown from right", async () => {
         const halfWidth = 5;
         const tray = createTray(halfWidth, 5);
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
 
         packDice([die.physics], tray.world);
         offsetToEdge([die.physics], halfWidth, false);
@@ -198,9 +201,9 @@ describe("Throw behaviour", () => {
         expect(x, "die should start near right edge").toBeGreaterThan(halfWidth - 1);
     });
 
-    it("dice are thrown towards positive X from left", () => {
+    it("dice are thrown towards positive X from left", async () => {
         const halfWidth = 5;
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
 
         applyThrowVelocity(die.physics, true, halfWidth);
 
@@ -208,9 +211,9 @@ describe("Throw behaviour", () => {
         expect(vx, "die should be moving towards positive X").toBeGreaterThan(0);
     });
 
-    it("dice are thrown towards negative X from right", () => {
+    it("dice are thrown towards negative X from right", async () => {
         const halfWidth = 5;
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
 
         applyThrowVelocity(die.physics, false, halfWidth);
 
@@ -220,8 +223,8 @@ describe("Throw behaviour", () => {
 });
 
 describe("syncDie", () => {
-    it("copies body position to mesh position", () => {
-        const die = createD6();
+    it("copies body position to mesh position", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.position.set(1, 2, 3);
         syncDie(die);
         expect(die.mesh.position.x).toBe(1);
@@ -229,8 +232,8 @@ describe("syncDie", () => {
         expect(die.mesh.position.z).toBe(3);
     });
 
-    it("copies body quaternion to mesh quaternion", () => {
-        const die = createD6();
+    it("copies body quaternion to mesh quaternion", async () => {
+        const die = await createD6(0.5, mockTexture);
         die.physics.body.quaternion.set(0.1, 0.2, 0.3, 0.9);
         syncDie(die);
         expect(die.mesh.quaternion.x).toBeCloseTo(0.1);
@@ -239,9 +242,9 @@ describe("syncDie", () => {
         expect(die.mesh.quaternion.w).toBeCloseTo(0.9);
     });
 
-    it("syncs dice during roll via onStep callback", () => {
+    it("syncs dice during roll via onStep callback", async () => {
         const tray = createTray(5, 5);
-        const die = createD6();
+        const die = await createD6(0.5, mockTexture);
         let syncCount = 0;
 
         roll(tray, [die.physics], {
@@ -267,12 +270,12 @@ describe("Dice positioning", () => {
         return contacts.length > 0;
     }
 
-    function getBoundingRadius(die: ReturnType<typeof createD6>): number {
+    function getBoundingRadius(die: Awaited<ReturnType<typeof createD6>>): number {
         const shape = die.physics.body.shapes[0] as CANNON.ConvexPolyhedron;
         return shape.boundingSphereRadius;
     }
 
-    function getPosition(die: ReturnType<typeof createD6>): { x: number; z: number } {
+    function getPosition(die: Awaited<ReturnType<typeof createD6>>): { x: number; z: number } {
         return {
             x: die.physics.body.position.x,
             z: die.physics.body.position.z,
@@ -284,9 +287,9 @@ describe("Dice positioning", () => {
     }
 
     describe("no overlap", () => {
-        it("3 d6s do not overlap", () => {
+        it("3 d6s do not overlap", async () => {
             const tray = createTray(5, 5);
-            const dice = [createD6(), createD6(), createD6()];
+            const dice = await Promise.all([createD6(0.5, mockTexture), createD6(0.5, mockTexture), createD6(0.5, mockTexture)]);
             packDice(dice.map((d) => d.physics), tray.world);
 
             for (let i = 0; i < dice.length; i++) {
@@ -299,9 +302,9 @@ describe("Dice positioning", () => {
             }
         });
 
-        it("3 d12s do not overlap", () => {
+        it("3 d12s do not overlap", async () => {
             const tray = createTray(5, 5);
-            const dice = [createD12(), createD12(), createD12()];
+            const dice = await Promise.all([createD12(0.5, mockTexture), createD12(0.5, mockTexture), createD12(0.5, mockTexture)]);
             packDice(dice.map((d) => d.physics), tray.world);
 
             for (let i = 0; i < dice.length; i++) {
@@ -314,12 +317,12 @@ describe("Dice positioning", () => {
             }
         });
 
-        it("12 d6s and 12 d12s do not overlap", () => {
+        it("12 d6s and 12 d12s do not overlap", async () => {
             const tray = createTray(5, 5);
-            const dice = [
-                ...Array.from({ length: 12 }, () => createD6()),
-                ...Array.from({ length: 12 }, () => createD12()),
-            ];
+            const dice = await Promise.all([
+                ...Array.from({ length: 12 }, () => createD6(0.5, mockTexture)),
+                ...Array.from({ length: 12 }, () => createD12(0.5, mockTexture)),
+            ]);
             packDice(dice.map((d) => d.physics), tray.world);
 
             for (let i = 0; i < dice.length; i++) {
@@ -334,14 +337,14 @@ describe("Dice positioning", () => {
     });
 
     describe("inside tray walls", () => {
-        it("all dice inside walls when thrown from left", () => {
+        it("all dice inside walls when thrown from left", async () => {
             const halfWidth = 5;
             const halfDepth = 5;
             const tray = createTray(halfWidth, halfDepth);
-            const dice = [
-                ...Array.from({ length: 12 }, () => createD6()),
-                ...Array.from({ length: 12 }, () => createD12()),
-            ];
+            const dice = await Promise.all([
+                ...Array.from({ length: 12 }, () => createD6(0.5, mockTexture)),
+                ...Array.from({ length: 12 }, () => createD12(0.5, mockTexture)),
+            ]);
             packDice(dice.map((d) => d.physics), tray.world);
             offsetToEdge(dice.map((d) => d.physics), halfWidth, true);
 
@@ -355,14 +358,14 @@ describe("Dice positioning", () => {
             }
         });
 
-        it("all dice inside walls when thrown from right", () => {
+        it("all dice inside walls when thrown from right", async () => {
             const halfWidth = 5;
             const halfDepth = 5;
             const tray = createTray(halfWidth, halfDepth);
-            const dice = [
-                ...Array.from({ length: 12 }, () => createD6()),
-                ...Array.from({ length: 12 }, () => createD12()),
-            ];
+            const dice = await Promise.all([
+                ...Array.from({ length: 12 }, () => createD6(0.5, mockTexture)),
+                ...Array.from({ length: 12 }, () => createD12(0.5, mockTexture)),
+            ]);
             packDice(dice.map((d) => d.physics), tray.world);
             offsetToEdge(dice.map((d) => d.physics), halfWidth, false);
 
@@ -378,10 +381,10 @@ describe("Dice positioning", () => {
     });
 
     describe("near throwing edge", () => {
-        it("dice cluster near left edge when thrown from left", () => {
+        it("dice cluster near left edge when thrown from left", async () => {
             const halfWidth = 5;
             const tray = createTray(halfWidth, 5);
-            const dice = Array.from({ length: 10 }, () => createD6());
+            const dice = await Promise.all(Array.from({ length: 10 }, () => createD6(0.5, mockTexture)));
             packDice(dice.map((d) => d.physics), tray.world);
             offsetToEdge(dice.map((d) => d.physics), halfWidth, true);
 
@@ -391,10 +394,10 @@ describe("Dice positioning", () => {
             expect(avgX, "cluster should be in left half").toBeLessThan(0);
         });
 
-        it("dice cluster near right edge when thrown from right", () => {
+        it("dice cluster near right edge when thrown from right", async () => {
             const halfWidth = 5;
             const tray = createTray(halfWidth, 5);
-            const dice = Array.from({ length: 10 }, () => createD6());
+            const dice = await Promise.all(Array.from({ length: 10 }, () => createD6(0.5, mockTexture)));
             packDice(dice.map((d) => d.physics), tray.world);
             offsetToEdge(dice.map((d) => d.physics), halfWidth, false);
 
@@ -406,12 +409,12 @@ describe("Dice positioning", () => {
     });
 
     describe("compact cluster", () => {
-        it("24 dice fit in reasonable radius", () => {
+        it("24 dice fit in reasonable radius", async () => {
             const tray = createTray(5, 5);
-            const dice = [
-                ...Array.from({ length: 12 }, () => createD6()),
-                ...Array.from({ length: 12 }, () => createD12()),
-            ];
+            const dice = await Promise.all([
+                ...Array.from({ length: 12 }, () => createD6(0.5, mockTexture)),
+                ...Array.from({ length: 12 }, () => createD12(0.5, mockTexture)),
+            ]);
             packDice(dice.map((d) => d.physics), tray.world);
 
             const positions = dice.map(getPosition);
