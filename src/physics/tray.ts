@@ -2,7 +2,7 @@ import * as CANNON from "cannon-es";
 import type { PhysicsDie } from "./dice";
 
 // wall tall enough to contain bouncing dice
-const TRAY_WALL_HEIGHT = 6;
+const TRAY_WALL_HEIGHT = 12;
 export const WALL_THICKNESS = 0.5;
 
 export const SETTLE_THRESHOLD = 0.01;
@@ -48,7 +48,7 @@ export function packDice(dice: PhysicsDie[], world: CANNON.World): void {
         for (let attempt = 0; attempt < 100; attempt++) {
             const x = radius * Math.cos(angle);
             const z = radius * Math.sin(angle);
-            die.body.position.set(x, 1, z);
+            die.body.position.set(x, 2, z);
             if (
                 !dice
                     .slice(0, i)
@@ -56,7 +56,7 @@ export function packDice(dice: PhysicsDie[], world: CANNON.World): void {
             ) {
                 break;
             }
-            radius += 0.1;
+            radius += 0.2;
         }
         lastRadius = Math.max(lastRadius, radius);
     }
@@ -81,7 +81,7 @@ export function offsetToEdge(
         maxZ = Math.max(maxZ, pos.z + r);
     }
 
-    const offsetX = fromLeft ? -halfWidth - minX + 0.1 : halfWidth - maxX - 0.1;
+    const offsetX = fromLeft ? -halfWidth - minX + 0.2 : halfWidth - maxX - 0.2;
     const offsetZ = -(minZ + maxZ) / 2;
 
     for (const die of dice) {
@@ -97,11 +97,11 @@ export function applyThrowVelocity(
 ): void {
     const baseAngle = fromLeft ? 0 : Math.PI;
     const throwAngle = baseAngle + (Math.random() - 0.5) * (Math.PI / 3);
-    const throwSpeed = 5 + Math.random() * 2;
+    const throwSpeed = 10 + Math.random() * 4;
 
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,
-        -1 - Math.random() * 2,
+        -2 - Math.random() * 4,
         Math.sin(throwAngle) * throwSpeed,
     );
 

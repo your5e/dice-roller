@@ -41,7 +41,7 @@ export function createTray(container: HTMLElement): TrayState {
 
     // top-down camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 8, 0);
+    camera.position.set(0, 16, 0);
     camera.lookAt(0, 0, 0);
 
     // light from top-left
@@ -57,7 +57,7 @@ export function createTray(container: HTMLElement): TrayState {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    const physicsTray = createPhysicsTray(3, 3);
+    const physicsTray = createPhysicsTray(6, 6);
     const debugDie = new DebugDieController();
 
     const state: TrayState = {
@@ -73,6 +73,7 @@ export function createTray(container: HTMLElement): TrayState {
     };
 
     loadVarelaRound().then(async () => {
+        camera.position.y = 8;
         const mesh = await debugDie.create();
         scene.add(mesh);
         debugDie.setupInteraction(container);
@@ -119,7 +120,7 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
         groupBoundaries.push(dice.length);
     }
 
-    let halfSize = 3;
+    let halfSize = 6;
     tray.physicsTray = createPhysicsTray(halfSize, halfSize);
     packDice(
         dice.map((d) => d.physics),
@@ -130,12 +131,10 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
     while (true) {
         const allFit = dice.every((die) => {
             const pos = die.physics.body.position;
-            return (
-                Math.abs(pos.x) + 0.5 <= halfSize && Math.abs(pos.z) + 0.5 <= halfSize
-            );
+            return Math.abs(pos.x) + 1 <= halfSize && Math.abs(pos.z) + 1 <= halfSize;
         });
         if (allFit) break;
-        halfSize += 0.5;
+        halfSize += 1;
         tray.physicsTray = createPhysicsTray(halfSize, halfSize);
     }
 
@@ -222,6 +221,8 @@ export async function setDebugDie(tray: TrayState, sides: DebugDieType): Promise
     }
     tray.dice = [];
     tray.roll = null;
+
+    tray.camera.position.y = 8;
 
     const mesh = await tray.debugDie.create(sides);
     tray.scene.add(mesh);

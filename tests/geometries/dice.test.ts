@@ -4,7 +4,7 @@ import { createD6 } from "../../src/geometries/d6";
 import { createD12 } from "../../src/geometries/d12";
 import { createD20 } from "../../src/geometries/d20";
 import type { Die } from "../../src/geometries/dice";
-import { normalFromPoints } from "../../src/geometry";
+import { normalFromVertices } from "../../src/geometry";
 
 // Mock canvas for texture creation in d20
 beforeEach(() => {
@@ -66,7 +66,7 @@ function assertTrianglesWoundOutward(die: Die) {
 
         const centroid = new THREE.Vector3().add(a).add(b).add(c).divideScalar(3);
 
-        const normal = normalFromPoints(a, b, c);
+        const normal = normalFromVertices(a, b, c);
 
         // normal should point away from origin
         expect(normal.dot(centroid)).toBeGreaterThan(0);

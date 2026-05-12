@@ -4,7 +4,7 @@ import * as THREE from "three";
 export const PHI = (1 + Math.sqrt(5)) / 2;
 export const DEG_TO_RAD = Math.PI / 180;
 
-export function normalFromPoints(
+export function normalFromVertices(
     a: THREE.Vector3,
     b: THREE.Vector3,
     c: THREE.Vector3,

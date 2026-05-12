@@ -103,7 +103,7 @@ export class DebugDieController {
     async create(sides: DebugDieType = 20): Promise<THREE.Mesh> {
         this.sides = sides;
         this.die = await this.createDieOfType(sides);
-        this.die.mesh.position.y = 5;
+        this.die.mesh.position.y = 1;
         this.targetQuaternion = this.die.defaultOrientation();
         if (this.targetQuaternion) {
             this.die.mesh.quaternion.copy(this.targetQuaternion);
@@ -274,7 +274,7 @@ export class DebugDieController {
             }
             case 20: {
                 const texture = await new D20DebugTexture().createTexture();
-                return await createD20(1.0, texture);
+                return await createD20(1, texture);
             }
         }
     }
