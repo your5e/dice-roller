@@ -21,11 +21,12 @@ small dice box image.
 - [X] simple visualiser for the basic polygon to ensure the FACES data
       structure is as desired
 - [ ] flatten the camera? telephoto effect?
+- [ ] slight black lines, co-ordinate drift?
 
 # Remaining dice
 
 - [ ] d4 texture and net template
-- [ ] d6 texture and net template
+- [X] d6 texture and net template
 - [ ] d8 texture and net template
 - [ ] d10 texture and net template
 - [ ] d12 texture and net template

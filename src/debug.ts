@@ -4,8 +4,8 @@ import { createD6 } from "./geometries/d6";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
-import { D6Texture } from "./textures/d6";
 import { D12Texture } from "./textures/d12";
+import { D6DebugTexture } from "./textures/d6";
 import { D20DebugTexture } from "./textures/d20";
 
 export type DebugDieType = 6 | 12 | 20;
