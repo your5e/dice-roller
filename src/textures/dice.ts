@@ -47,43 +47,36 @@ export abstract class DieTexture {
     protected abstract faceColour: string;
     protected abstract stripColour: string;
     protected abstract crownColour: string;
+    protected abstract get edgeLength(): number;
     protected numberColour = "#ffffff";
     protected underlineColour = "#ffffff";
     protected fontFamily = "Varela Round, sans-serif";
-    protected fontSize = 0.6;
+    protected fontWeight = 400;
+    protected fontSize = 1.2;
+    protected faceData = new Map<number, FaceData>();
+    protected stripData = new Map<string, StripData>();
+    protected crownData = new Map<number, CrownData>();
+    private textureCache: { current: THREE.CanvasTexture | null } = { current: null };
+    public width = 0;
+    public height = 0;
 
-    protected get circumradius(): number {
+    protected get pixelDensity(): number {
         return 100;
     }
-    protected abstract get edgeLength(): number;
     protected get stripWidth(): number {
         return this.edgeLength * CHAMFER;
     }
     protected get margin(): number {
         return this.stripWidth + 5;
     }
-    private textureCache: { current: THREE.CanvasTexture | null } = { current: null };
 
-    protected faceData = new Map<number, FaceData>();
-    protected stripData = new Map<string, StripData>();
-    protected crownData = new Map<number, CrownData>();
-
-    abstract readonly width: number;
-    abstract readonly height: number;
-
-    protected abstract buildFaceLayout(): void;
     protected buildFaceData(): void {
         for (const { value: face } of this.faces) {
             const points = this.calculateFacePoints(face);
-            const startIndex = this.get2DStartIndex(face);
-            const vertexCount = this.faceVertices[face].length;
-            const uvs = points.map((_, i) => {
-                const j = (i + startIndex) % vertexCount;
-                return {
-                    u: points[j].x / this.width,
-                    v: points[j].y / this.height,
-                };
-            });
+            const uvs = points.map((p) => ({
+                u: p.x / this.width,
+                v: p.y / this.height,
+            }));
             this.faceData.set(face, { points, uvs });
         }
     }
@@ -164,7 +157,6 @@ export abstract class DieTexture {
         }
     }
 
-    protected abstract calculateFacePoints(face: number): Point[];
     protected calculateStripPoints(faceA: number, faceB: number): Point[] {
         const stripFace = this.getStripPriorityFace(faceA, faceB);
         const otherFace = stripFace === faceA ? faceB : faceA;
@@ -184,7 +176,6 @@ export abstract class DieTexture {
             { x: p1.x + perp.x * this.stripWidth, y: p1.y + perp.y * this.stripWidth },
         ];
     }
-    protected abstract calculateCrownPoints(vertex: number): Point[];
 
     protected createTextureFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
         const texture = new THREE.CanvasTexture(canvas);
@@ -295,10 +286,6 @@ export abstract class DieTexture {
         return data.uvs;
     }
 
-    abstract get2DStartIndex(face: number): number;
-
-    protected abstract get2DEdgeIndex(face: number, adjFace: number): number;
-
     protected getStripPriorityFace(faceA: number, faceB: number): number {
         const idxA = this.faces.findIndex((f) => f.value === faceA);
         const idxB = this.faces.findIndex((f) => f.value === faceB);
@@ -314,12 +301,10 @@ export abstract class DieTexture {
         const [inner1, inner2, outer2, outer1] = points;
         const vertexCount = this.faceVertices[stripFace].length;
 
-        const edge2DIdx = this.get2DEdgeIndex(
+        const strip3DIdx = this.get2DEdgeIndex(
             stripFace,
             stripFace === requestingFace ? otherFace : requestingFace,
         );
-        const stripStartIndex = this.get2DStartIndex(stripFace);
-        const strip3DIdx = (edge2DIdx - stripStartIndex + vertexCount) % vertexCount;
         const stripVerts = this.faceVertices[stripFace];
         const requestingVerts = this.faceVertices[requestingFace];
         const sharedVerts = requestingVerts.filter((vx) =>
@@ -381,7 +366,7 @@ export abstract class DieTexture {
             ctx.fill();
         }
     }
-    protected decorateStrips(_ctx: CanvasRenderingContext2D): void {}
+
     protected drawCrowns(ctx: CanvasRenderingContext2D): void {
         for (const data of this.crownData.values()) {
             ctx.fillStyle = this.crownColour;
@@ -394,9 +379,6 @@ export abstract class DieTexture {
             ctx.fill();
         }
     }
-    protected decorateCrowns(_ctx: CanvasRenderingContext2D): void {}
-    protected abstract drawFaces(ctx: CanvasRenderingContext2D): void;
-    protected decorateFaces(_ctx: CanvasRenderingContext2D): void {}
 
     protected drawFaceNumber(
         ctx: CanvasRenderingContext2D,
@@ -408,12 +390,26 @@ export abstract class DieTexture {
         colour: string,
         underlineColour: string,
     ): void {
+        const valueStr = String(value);
         ctx.fillStyle = colour;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = `400 ${fontPx}px ${fontFamily}`;
-        ctx.letterSpacing = value >= 10 ? `${-fontPx * 0.1}px` : "0px";
-        ctx.fillText(String(value), x, y);
+        ctx.font = `${this.fontWeight} ${fontPx}px ${fontFamily}`;
+
+        if (valueStr.length > 1) {
+            // tighten double-digit faces manually as the CSS property doesn't do it
+            const letterSpacing = -fontPx * 0.1;
+            const totalWidth =
+                ctx.measureText(valueStr).width + letterSpacing * (valueStr.length - 1);
+            let offsetX = x - totalWidth / 2;
+            for (const ch of valueStr) {
+                offsetX += ctx.measureText(ch).width / 2;
+                ctx.fillText(ch, offsetX, y);
+                offsetX += ctx.measureText(ch).width / 2 + letterSpacing;
+            }
+        } else {
+            ctx.fillText(valueStr, x, y);
+        }
 
         // underline 6 and 9 to distinguish them
         if (value === 6 || value === 9) {
@@ -432,6 +428,27 @@ export abstract class DieTexture {
             );
             ctx.fill();
         }
+    }
+
+    protected buildFaceLayout(): void {}
+    protected calculateCrownPoints(_vertex: number): Point[] {
+        return [];
+    }
+    protected calculateFacePoints(_face: number): Point[] {
+        return [];
+    }
+    protected decorateCrowns(_ctx: CanvasRenderingContext2D): void {}
+    protected decorateFaces(_ctx: CanvasRenderingContext2D): void {}
+    protected decorateStrips(_ctx: CanvasRenderingContext2D): void {}
+    protected drawFaces(_ctx: CanvasRenderingContext2D): void {}
+    protected get2DEdgeIndex(_face: number, _adjFace: number): number {
+        return -1;
+    }
+    protected getFaceHeight(): number {
+        return 1.0;
+    }
+    protected getShapeFontScale(): number {
+        return 1.0;
     }
 }
 
@@ -452,7 +469,7 @@ export function TemplateMixin<T extends DieTextureConstructor>(Base: T) {
 export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
     // @ts-expect-error: mixin applied to concrete subclass, not abstract base
     return class extends Base {
-        protected override get circumradius(): number {
+        protected override get pixelDensity(): number {
             return 200;
         }
         protected faceColour = "#f0f0f0";
@@ -462,23 +479,37 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
         protected underlineColour = "#000000";
         protected fontFamily =
             "Inter, Roboto, 'Helvetica Neue', 'Arial Nova', 'Nimbus Sans', Arial, sans-serif";
+        protected fontWeight = 200;
 
         private stripColourIndex = new Map<string, number>();
         private nextStripColour = 0;
 
+        private getStripColourIndex(key: string): number {
+            const index = this.stripColourIndex.get(key);
+            if (index === undefined) {
+                const newIndex = this.nextStripColour++;
+                this.stripColourIndex.set(key, newIndex);
+                return newIndex;
+            }
+            return index;
+        }
+
         protected getStripColour(faceA: number, faceB: number): string {
             const key = `${Math.min(faceA, faceB)},${Math.max(faceA, faceB)}`;
-            if (!this.stripColourIndex.has(key)) {
-                this.stripColourIndex.set(key, this.nextStripColour++);
-            }
-            const index = this.stripColourIndex.get(key);
-            if (index === undefined)
-                throw new Error(`No colour index for strip ${key}`);
-            return this.getDebugColour(index).hex;
+            return this.getDebugColour(this.getStripColourIndex(key)).hex;
+        }
+
+        protected getStripColourName(faceA: number, faceB: number): string {
+            const key = `${Math.min(faceA, faceB)},${Math.max(faceA, faceB)}`;
+            return this.getDebugColour(this.getStripColourIndex(key)).name;
         }
 
         protected getCrownColour(vertex: number): string {
             return this.getDebugColour(vertex).hex;
+        }
+
+        protected getCrownColourName(vertex: number): string {
+            return this.getDebugColour(vertex).name;
         }
 
         protected override decorateStrips(ctx: CanvasRenderingContext2D): void {
@@ -487,7 +518,8 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
                 const [p1, p2, p3, p4] = data.points;
 
                 ctx.strokeStyle = this.getStripColour(faceA, faceB);
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 0.03 * this.pixelDensity;
+
                 const offsetRatio = this.stripWidth / this.edgeLength;
                 const innerMidX = (p1.x + p2.x) / 2;
                 const innerMidY = (p1.y + p2.y) / 2;
@@ -514,6 +546,50 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
                 }
                 ctx.closePath();
                 ctx.fill();
+            }
+        }
+
+        protected override decorateFaces(ctx: CanvasRenderingContext2D): void {
+            for (const { value: face } of this.faces) {
+                const data = this.faceData.get(face);
+                if (!data) continue;
+                const pts = data.points;
+                const n = pts.length;
+
+                const centreX = pts.reduce((sum, p) => sum + p.x, 0) / n;
+                const centreY = pts.reduce((sum, p) => sum + p.y, 0) / n;
+
+                ctx.lineWidth = 0.03 * this.pixelDensity;
+
+                for (const adjFace of this.getAdjacentFaces(face)) {
+                    ctx.strokeStyle = this.getStripColour(face, adjFace);
+                    const edgeIdx = this.get2DEdgeIndex(face, adjFace);
+                    const edgePt = pts[edgeIdx];
+                    const startX = centreX + 0.5 * (edgePt.x - centreX);
+                    const startY = centreY + 0.5 * (edgePt.y - centreY);
+                    const midX = (pts[edgeIdx].x + pts[(edgeIdx + 1) % n].x) / 2;
+                    const midY = (pts[edgeIdx].y + pts[(edgeIdx + 1) % n].y) / 2;
+                    const offsetRatio = this.stripWidth / this.edgeLength;
+                    const toX = midX + offsetRatio * (edgePt.x - midX);
+                    const toY = midY + offsetRatio * (edgePt.y - midY);
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(toX, toY);
+                    ctx.stroke();
+                }
+
+                const faceVerts = this.faceVertices[face];
+                for (let i = 0; i < n; i++) {
+                    const vertex = faceVerts[i];
+                    ctx.strokeStyle = this.getCrownColour(vertex);
+                    const cornerPt = pts[i];
+                    const endX = cornerPt.x + 0.3 * (centreX - cornerPt.x);
+                    const endY = cornerPt.y + 0.3 * (centreY - cornerPt.y);
+                    ctx.beginPath();
+                    ctx.moveTo(cornerPt.x, cornerPt.y);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                }
             }
         }
     };

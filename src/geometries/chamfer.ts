@@ -14,11 +14,7 @@ export type FaceUVMapper = (faceValue: number) => UV[];
 export type StripUVMapper = (faceA: number, faceB: number) => UV[];
 export type CrownUVMapper = (faces: number[]) => UV[];
 
-/**
- * Vertex-centric chamfering: split each vertex into N positions (one per
- * adjacent face), creating crown surfaces. Then connect them with the
- * shrunken faces and edge strips.
- */
+// chamfer (lightly round off the edges for a subtle look) the hard-edged polyhedron
 export function createChamferedGeometry(
     baseVertices: THREE.Vector3[],
     baseFaces: DieFaces,
@@ -124,7 +120,7 @@ export function createChamferedGeometry(
             const faceValue = baseFaces[face].value;
             const nextFaceValue = baseFaces[nextFace].value;
 
-            // only adjacent faces need a strip between them
+            // only adjacent faces have a strip between them
             const shared = vertices.filter((v) => nextVertices.includes(v));
             if (shared.length !== 2) {
                 continue;

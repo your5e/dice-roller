@@ -57,7 +57,7 @@ export function createTray(container: HTMLElement): TrayState {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    const physicsTray = createPhysicsTray(6, 6);
+    const physicsTray = createPhysicsTray(10, 10);
     const debugDie = new DebugDieController();
 
     const state: TrayState = {
@@ -120,7 +120,7 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
         groupBoundaries.push(dice.length);
     }
 
-    let halfSize = 6;
+    let halfSize = 10;
     tray.physicsTray = createPhysicsTray(halfSize, halfSize);
     packDice(
         dice.map((d) => d.physics),

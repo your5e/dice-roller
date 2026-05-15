@@ -1,6 +1,7 @@
 import * as CANNON from "cannon-es";
+import type * as THREE from "three";
 import type { DieFaces } from "../geometries/chamfer";
-import { normalFromFace } from "../geometry";
+import { normalFromVertices } from "../geometry";
 import { diceMaterial } from "./tray";
 
 export type PhysicsDie = {
@@ -9,9 +10,12 @@ export type PhysicsDie = {
     readFace: () => number;
 };
 
+const DEFAULT_MASS = 1;
+
 export function createDieBody(
-    vertices: { x: number; y: number; z: number }[],
+    vertices: THREE.Vector3[],
     faces: DieFaces,
+    mass = DEFAULT_MASS,
 ): PhysicsDie {
     const cannonVerts = vertices.map((v) => new CANNON.Vec3(v.x, v.y, v.z));
     const cannonFaces = faces.map((face) => face.vertices);
@@ -22,7 +26,7 @@ export function createDieBody(
     });
 
     const body = new CANNON.Body({
-        mass: 1,
+        mass,
         shape,
         material: diceMaterial,
         linearDamping: 0.3, // scale: 0 = vacuum, 0.3 = air, 1.0 = honey
@@ -41,7 +45,7 @@ export function createDieBody(
 
 function readFaceUp(
     body: CANNON.Body,
-    vertices: { x: number; y: number; z: number }[],
+    vertices: THREE.Vector3[],
     faces: DieFaces,
 ): number {
     const up = new CANNON.Vec3(0, 1, 0);
@@ -49,7 +53,13 @@ function readFaceUp(
     let bestDot = Number.NEGATIVE_INFINITY;
 
     for (const face of faces) {
-        const normal = normalFromFace(vertices, face.vertices);
+        const verts = face.vertices;
+        const threeNormal = normalFromVertices(
+            vertices[verts[0]],
+            vertices[verts[1]],
+            vertices[verts[2]],
+        );
+        const normal = new CANNON.Vec3(threeNormal.x, threeNormal.y, threeNormal.z);
         const worldNormal = body.quaternion.vmult(normal);
         const dot = worldNormal.dot(up);
         if (dot > bestDot) {

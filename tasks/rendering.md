@@ -16,6 +16,11 @@ small dice box image.
         - investigate default textures in three.js
 - [X] create template UV sprite image for artists to make more detailed
       patterned dice
+- [X] make reusable spanning tree unfolding class
+- [X] document how to make another die
+- [X] simple visualiser for the basic polygon to ensure the FACES data
+      structure is as desired
+- [ ] flatten the camera? telephoto effect?
 
 # Remaining dice
 

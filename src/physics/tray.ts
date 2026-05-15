@@ -96,8 +96,8 @@ export function applyThrowVelocity(
     halfWidth: number,
 ): void {
     const baseAngle = fromLeft ? 0 : Math.PI;
-    const throwAngle = baseAngle + (Math.random() - 0.5) * (Math.PI / 3);
-    const throwSpeed = 10 + Math.random() * 4;
+    const throwAngle = baseAngle + (Math.random() - 0.5) * (Math.PI / 2);
+    const throwSpeed = (14.4 + Math.random() * 3.6) * (halfWidth / 6);
 
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,

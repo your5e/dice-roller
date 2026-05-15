@@ -1,0 +1,61 @@
+<!-- npx vite src/bodies → http://localhost:5173/visualiser.html -->
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width">
+<body style="margin:0">
+<script type="module">
+
+// import your new die definitions here
+import { VERTICES, FACES } from "./d20.ts";
+
+// the visualiser
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 10);
+camera.position.set(2, 2, 2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const geometry = new THREE.BufferGeometry();
+const positions = FACES.flatMap(f => f.vertices.flatMap(i => VERTICES[i].toArray()));
+geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+
+const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ wireframe: true }));
+scene.add(mesh);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(innerWidth, innerHeight);
+labelRenderer.domElement.style.position = "absolute";
+labelRenderer.domElement.style.top = "0";
+labelRenderer.domElement.style.pointerEvents = "none";
+document.body.appendChild(labelRenderer.domElement);
+
+for (const face of FACES) {
+    const [v0, v1, v2] = face.vertices.map(i => VERTICES[i]);
+    const edge1 = v1.clone().sub(v0);
+    const edge2 = v2.clone().sub(v0);
+    const normal = edge1.cross(edge2);
+    const centroid = v0.clone().add(v1).add(v2).divideScalar(3);
+    const isCCW = normal.dot(centroid) > 0;
+    const div = document.createElement("div");
+    div.textContent = face.value + (isCCW ? " ↺" : " ↻");
+    div.style.color = isCCW ? "lime" : "red";
+    const label = new CSS2DObject(div);
+    label.position.copy(centroid);
+    scene.add(label);
+}
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.02;
+renderer.setAnimationLoop(() => {
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+});
+
+</script>

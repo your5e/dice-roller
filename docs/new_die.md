@@ -36,147 +36,134 @@ Conceptual:
   object in space
 
 
+## The standard die unit
+
+The length of a new die's primary edge is a ratio against the edge of the
+standard die unit, the d6. A d6 is considered to be "one unit" and everything
+is sized relative to it.
+
+
 ## Structure
 
-Each die is split across three files:
+Each die is split across three files, which follows the broad method of
+implementing them:
 
 - `bodies/dX.ts` defines the 3D polyhedron
 - `textures/dX.ts` creates the 2D canvas net that decorates the polyhedron
 - `geometries/dX.ts` wires the polyhedron and textures together
 
-To create a new die, first build the body and debug texture. Until the texture
-is laid out correctly, there is no point advancing to the 3d geometry. Focus
-on connecting as many faces as possible in the image. Number orientation comes
-after making the layout correct. This requires a visual inspection, no easily
-written tests can confirm this.
+To create a new die, first build the body and debug texture. Until the
+texture is laid out correctly, there is no point advancing to the 3d
+geometry. Focus on connecting as many faces as possible in the image. This
+requires a visual inspection, it is very hard to write tests that can
+determine this automatically.
 
 After the canvas is correct, lay it on the 3d rendering geometry. Once all
 three files are ready, final testing is in `example_roller.html` by setting it
 as the default debug die and again inspecting visually.
 
+Lastly, change the number stance for more pleasing "randomness" of faces.
+
 
 ## bodies/dX.ts
 
-This file defines the pure 3D geometric shape of the die.
+First, you need the basic polyhedral defined as a 3D body:
 
-- `DIE_SCALE` — ratio of this die's face edge length to the d6's reference
-  1-unit face edge length
-- `VERTICES` are the corners of the polyhedron shape
-- `FACES` — details which vertices connect into faces, assigning them their
-  numbers and the priority order in which they are drawn in the canvas. Each
-  contains:
-    - `value` — the number shown on this face
-    - `vertices` — listed _anti-clockwise_ for correct 3d rendering
-    - `stance` — which edge (0 to n-1) the number sits above when drawn;
-      adjustable so that each number can face in any direction.
-- `FACE_VERTICES`, `FACE_STANCE` are derived lookups
+```typescript
+import * as THREE from "three";
+import type { DieFaces } from "../geometries/chamfer";
+
+// the d6 is our reference die edge length, everything is relative to it
+export const DIE_SCALE = 1.0;
+
+export const VERTICES: THREE.Vector3[] = [
+    new THREE.Vector3(0, 0, 0),
+    ...
+];
+
+export const FACES: DieFaces = [
+    { value: 1, vertices: [0, 0, 0], stance: 0 },
+    ...
+];
+
+export const FACE_VERTICES: Record<number, number[]> = Object.fromEntries(
+    FACES.map((face) => [face.value, face.vertices]),
+);
+
+export const FACE_STANCE: Record<number, number> = Object.fromEntries(
+    FACES.map((face) => [face.value, face.stance]),
+);
+```
+
+You need to define the vertices of the shape and construct the faces from
+those vertices. The vertices in each face must be listed anti-clockwise to
+render correctly in 3D space. Use `visualiser.html` to preview and debug the
+polyhedron (it shows winding direction with green and red edges and an arrow):
+
+The distance between vertexes creates the edge length, which must be 2.000 for
+the die to end up being properly sized against the standard die unit.
+
+```bash
+npx vite src/bodies
+open http://localhost:5173/visualiser.html
+```
 
 
 ## textures/dX.ts
 
-```typescript
-class D{n}Texture extends DieTexture {
-    protected faceVertices = FACE_VERTICES;
-    protected faces = FACES;
+Second, create the textures, most of which should be boilerplate. Set the
+rotation of the first face placed, the calculation for the edgeLength,
+override getShapeFontScale if needed, and the colours.
 
-    // override base class properties for colours, fonts, size, etc.
-    protected faceColour: string;
-    protected fontFamily = "Comic Sans";
+Each die must have the three default textures, but can provide more
+
+- _DXTexture_ — what is rolled as standard
+- _DXTemplateTexture_ — a flat grey PNG exported for people to use to
+  create manually decorated die
+- _DXDebugTexture_ — used when checking the roller 3D code
+
+```typescript
+import { FACES, FACE_VERTICES, VERTICES } from "../bodies/dX";
+import { DebugMixin, DieTexture, TemplateMixin } from "./dice";
+import { Unfoldable } from "./unfold";
+
+export class DXTexture extends Unfoldable(DieTexture) {
+    protected faces = FACES;
+    protected vertices = VERTICES;
+    protected faceVertices = FACE_VERTICES;
+    protected faceColour = "#e07000";
+    protected stripColour = "#e07000";
+    protected crownColour = "#e07000";
+
+    get startRotation(): number {
+        return 0;
+    }
+
+    protected get edgeLength(): number {
+        return this.pixelDensity * Math.sqrt(3);
+    }
+
+    protected override getShapeFontScale(): number {
+        return 0.75;
+    }
 
     constructor() {
         super();
         this.buildLayoutData();
     }
-
-    // derived measurement (die-specific)
-    protected get edgeLength(): number;   // derived from circumradius
-
-    // canvas dimensions (calculated from layout)
-    get width(): number;
-    get height(): number;
-
-    // implement to populate layout data (others are in base class)
-    protected buildFaceLayout(): void;
-
-    // calculate 2D point positions (strips derived in base class)
-    protected calculateFacePoints(face: number): Point[];
-    protected calculateCrownPoints(vertex: number): Point[];
-
-    // render to canvas (strips and crowns are in base class)
-    protected drawFaces(ctx: CanvasRenderingContext2D): void;
-
-    // map 3D adjacency to 2D layout
-    protected get2DEdgeIndex(face: number, adjFace: number): number;
-    get2DStartIndex(face: number): number;
 }
+
+export class DXTemplateTexture extends TemplateMixin(DXTexture) {}
+export class DXDebugTexture extends DebugMixin(DXTexture) {}
 ```
 
-### Derived Measurements
+### New textures
 
-All measurements scale from `circumradius`:
+If you are creating a new texture, note that all measurements scale from
+`pixelDensity`. When the value is larger, the resulting canvas PNG will
+be larger, the die itself as rendered on the web page does not change. It
+is a quality dial, not a size dial, that is DIE_SCALE in the body.
 
-1. **`circumradius`** — base class getter (default 100), the distance from
-   face centre to point in canvas pixels
-2. **`edgeLength`** — derived from circumradius using geometry (abstract,
-   each die implements based on its face polygon)
-3. **`stripWidth`** — chamfer strip width, `edgeLength × CHAMFER` (in base class)
-4. **`margin`** — canvas padding, `stripWidth + 5` (in base class)
-5. **`width`, `height`** — canvas dimensions, calculated from how faces tile
-   plus margins and gaps
-
-Changing circumradius scales the entire texture proportionally.
-
-
-### Face Layout
-
-Each die needs its own method for arranging faces on the canvas. The layout
-should form a connected net (like a papercraft template) with as many shared
-edges as possible, so artists decorating the template can see how adjacent
-faces relate on the 3D shape. Think about an optimal layout first.
-
-Whatever the approach, you need to track each face's position and rotation,
-drawing to the defined order in `FACES`; `buildFaceLayout()` determines where
-each face sits on the canvas.
-
-The 3D geometry is chamfered — each face is shrunk, which creates three types
-of polygon to be drawn and matching UV co-ordinates. You will need to provide
-die-specific `calculateFacePoints` and `calculateCrownPoints`.
-
-The strips and crowns are each associated with more than one face, so the
-first drawn face "owns" them and is responsible for their position in the
-canvas net.
-
-
-### Face Rotation
-
-The drawing of the polygon and the orientation of the number within are
-independent. The polygon should be rotated correctly to the 2D canvas,
-the number uses the `stance` property to orient _within_ the face.
-
-
-### The Three Texture Classes
-
-Each die requires at least these three texture subclasses:
-
-- **`D{n}Texture`** — the default appearance in the roller (e.g. d20 is
-  orange with white text).
-- **`D{n}TemplateTexture`** — used to draw a template PNG for others to
-  decorate for custom dice appearances.
-- **`D{n}DebugTexture`** — used to ensure the 2D and 3D textures are aligned
-  using registration markers. Implement these three methods:
-    - `decorateCrowns` — fill each crown polygon using
-      `getCrownColour`
-    - `decorateStrips` — draw an angled tick mark across each strip using
-      `getStripColour`, offset from the midpoint by `stripWidth / edgeLength`
-      ratio, spaced to match the same lines in `decorateFaces`; the angle
-      helps detect accidentally reflected textures
-    - `decorateFaces(ctx)` — for each face, draw lines toward its edges and
-      crowns using the same colour methods:
-        - **strip lines**: from halfway along the face toward the edge point,
-          ending at the face boundary offset by `stripWidth / edgeLength` —
-          this meets the tick mark from `decorateStrips`
-        - **crown lines**: from the crown point to 30% toward the centre,
-          using `getCrownColour`
 
 
 ## geometries/dX.ts
@@ -185,23 +172,30 @@ This file wires the body and texture together. Copy an existing geometry file
 and update the imports and class names.
 
 ```typescript
-const geometryCache = new Map<number, THREE.BufferGeometry>();
-const d{n}Texture = new D{n}Texture();
+import type * as THREE from "three";
+import { DIE_SCALE, FACES, FACE_STANCE, FACE_VERTICES, VERTICES } from "../bodies/dX";
+import { DXTexture } from "../textures/dX";
+import { Die, createDie } from "./dice";
 
-class D{n} extends Die {
+const geometryCache = new Map<number, THREE.BufferGeometry>();
+const dXTexture = new DXTexture();
+
+export class DX extends Die {
     protected faceVertices = FACE_VERTICES;
     protected meshVertices = VERTICES;
     protected faceStance = FACE_STANCE;
-
-    defaultOrientation(): THREE.Quaternion {
-        return ...
-    }
 }
 
-async function createD{n}(size = 1, texture?: THREE.Texture): Promise<D{n}> {
-    return createDie(D{n}, DIE_SCALE, VERTICES, FACES, d{n}Texture, geometryCache, size, texture);
+export async function createDX(size = 1, texture?: THREE.Texture): Promise<DX> {
+    return createDie(
+        DX,
+        DIE_SCALE,
+        VERTICES,
+        FACES,
+        dXTexture,
+        geometryCache,
+        size,
+        texture,
+    );
 }
 ```
-
-`defaultOrientation()` controls how the die appears at rest in the tray
-(used in the debug feature of `example_roller.html`).

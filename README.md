@@ -4,6 +4,7 @@ A 3D physics-based dice roller for the common types of roles in 5e. Rolls the
 standard seven polyhedrals (d4, d6, d8, d10, d12, d20, d100), allowing for
 common adjustments, such as advantage/disadvantage.
 
+
 ## Usage
 
 ```html
@@ -56,3 +57,8 @@ are a 1. So if the original roll was all 1s, the former notation would give a
 better chance of a high total as you reroll all four dice.
 
 Any part of the expression being invalid makes the entire expression invalid.
+
+
+## Adding a new die
+
+See [docs/new_die.md](docs/new_die.md).

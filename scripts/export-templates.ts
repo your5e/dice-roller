@@ -36,18 +36,21 @@ function writePng(path: string, canvas: HTMLCanvasElement): void {
     console.log(path);
 }
 
+console.log("-- d6");
 const d6TemplateTexture = new D6TemplateTexture();
 setupDocument(d6TemplateTexture.width, d6TemplateTexture.height);
 writePng("dist/template/d6.png", await d6TemplateTexture.createCanvas());
 const d6DebugTexture = new D6DebugTexture();
 writePng("dist/debug/d6.png", await d6DebugTexture.createCanvas());
 
+console.log("-- d12");
 const d12TemplateTexture = new D12TemplateTexture();
 setupDocument(d12TemplateTexture.width, d12TemplateTexture.height);
 writePng("dist/template/d12.png", await d12TemplateTexture.createCanvas());
 const d12DebugTexture = new D12DebugTexture();
 writePng("dist/debug/d12.png", await d12DebugTexture.createCanvas());
 
+console.log("-- d20");
 const d20TemplateTexture = new D20TemplateTexture();
 setupDocument(d20TemplateTexture.width, d20TemplateTexture.height);
 writePng("dist/template/d20.png", await d20TemplateTexture.createCanvas());
