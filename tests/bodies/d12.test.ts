@@ -39,4 +39,21 @@ describe("d12 body", () => {
             );
         }
     });
+
+    it("has balanced flowers around faces 1 and 12", () => {
+        const getAdjacent = (faceValue: number): number[] => {
+            const face = FACES.find((f) => f.value === faceValue);
+            if (!face) throw new Error(`face ${faceValue} not found`);
+            const verts = new Set(face.vertices);
+            return FACES.filter(
+                (f) =>
+                    f.value !== faceValue &&
+                    f.vertices.filter((v) => verts.has(v)).length === 2,
+            ).map((f) => f.value);
+        };
+
+        const flower1 = 1 + getAdjacent(1).reduce((a, b) => a + b, 0);
+        const flower12 = 12 + getAdjacent(12).reduce((a, b) => a + b, 0);
+        expect(flower1, `flower 1 (${flower1}) !== flower 12 (${flower12})`).toBe(flower12);
+    });
 });

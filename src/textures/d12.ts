@@ -1,38 +1,30 @@
-import { FACE_VERTICES } from "../bodies/d12";
-import { DieTexture } from "./dice";
+import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d12";
+import { DEG_TO_RAD } from "../geometry";
+import { DebugMixin, DieTexture, TemplateMixin } from "./dice";
+import { Unfoldable } from "./unfold";
 
-export class D12Texture extends DieTexture {
+export class D12Texture extends Unfoldable(DieTexture) {
+    protected faces = FACES;
+    protected vertices = VERTICES;
     protected faceVertices = FACE_VERTICES;
     protected faceColour = "#e6b800";
-    protected edgeColour = "#e6b800";
-    protected cornerColour = "#e6b800";
-    protected numberColour = "#000000";
-    protected underlineColour = "#000000";
+    protected stripColour = "#e6b800";
+    protected crownColour = "#e6b800";
 
-    readonly width = 256;
-    readonly height = 256;
+    // this puts the first flower horizontal, not the first face
+    get startRotation(): number {
+        return 36;
+    }
 
-    protected buildLayoutData(): void {}
+    protected get edgeLength(): number {
+        return this.pixelDensity * 2 * Math.sin(36 * DEG_TO_RAD);
+    }
 
-    protected drawEdges(_ctx: CanvasRenderingContext2D): void {}
-    protected drawCorners(_ctx: CanvasRenderingContext2D): void {}
-    protected drawFaces(_ctx: CanvasRenderingContext2D): void {}
-
-    async createCanvas(): Promise<HTMLCanvasElement> {
-        const canvas = document.createElement("canvas");
-        canvas.width = this.width;
-        canvas.height = this.height;
-        const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-        ctx.fillStyle = this.faceColour;
-        ctx.fillRect(0, 0, this.width, this.height);
-        return canvas;
+    constructor() {
+        super();
+        this.buildLayoutData();
     }
 }
 
-export class D12TemplateTexture extends D12Texture {
-    protected faceColour = "#ffffff";
-}
-
-export class D12DebugTexture extends D12Texture {
-    protected faceColour = "#f0f0f0";
-}
+export class D12TemplateTexture extends TemplateMixin(D12Texture) {}
+export class D12DebugTexture extends DebugMixin(D12Texture) {}

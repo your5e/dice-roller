@@ -7,6 +7,7 @@ export type DieFaces = {
     value: number;
     vertices: number[];
     stance: number;
+    adjacent?: number;
 }[];
 
 export type UV = { u: number; v: number };

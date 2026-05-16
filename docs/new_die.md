@@ -35,12 +35,12 @@ Conceptual:
 - **quaternion** is the orientation/rotation (pitch, yaw, roll) of the 3d
   object in space
 
-
 ## The standard die unit
 
 The length of a new die's primary edge is a ratio against the edge of the
 standard die unit, the d6. A d6 is considered to be "one unit" and everything
 is sized relative to it.
+
 
 
 ## Structure
@@ -63,6 +63,7 @@ three files are ready, final testing is in `example_roller.html` by setting it
 as the default debug die and again inspecting visually.
 
 Lastly, change the number stance for more pleasing "randomness" of faces.
+
 
 
 ## bodies/dX.ts
@@ -107,6 +108,7 @@ the die to end up being properly sized against the standard die unit.
 npx vite src/bodies
 open http://localhost:5173/visualiser.html
 ```
+
 
 
 ## textures/dX.ts
@@ -163,6 +165,19 @@ If you are creating a new texture, note that all measurements scale from
 `pixelDensity`. When the value is larger, the resulting canvas PNG will
 be larger, the die itself as rendered on the web page does not change. It
 is a quality dial, not a size dial, that is DIE_SCALE in the body.
+
+### Face placement
+
+Faces are placed on the canvas by walking the order in `FACES`. Each face
+is placed against the edge it shares with the most-recently placed face
+by default. You can set `protected placeReverse = false;` on the texture
+to place faces against the first-placed texture by default, or you can
+set the `adjacent` property on the individual face in `FACES` to concretely
+define where it is placed:
+
+```typescript
+{ value: 4, vertices: [1, 13, 15, 5, 9], stance: 3, adjacent: 12 },
+```
 
 
 

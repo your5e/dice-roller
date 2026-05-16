@@ -15,6 +15,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
     abstract class UnfoldableMixin extends Base {
         protected faces!: DieFaces;
         protected vertices!: THREE.Vector3[];
+        protected placeReverse = true;
 
         private _faceShape: Point[] | null = null;
         protected get faceShape(): Point[] {
@@ -314,7 +315,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             const n = this.faces[0].vertices.length;
             const placed: number[] = [];
 
-            // Place first face at origin
+            // place the first face
             const firstFace = this.faces[0].value;
             this.faceLayout.set(firstFace, {
                 centre: { x: 0, y: 0 },
@@ -322,29 +323,47 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             });
             placed.push(firstFace);
 
-            // Place remaining faces by finding connections to already-placed faces
+            // all other faces connected to an already placed face, no disconects
             for (let i = 1; i < this.faces.length; i++) {
                 const face = this.faces[i].value;
+                const faceData = this.faces[i];
 
-                // Search placed faces in reverse (most recent first)
-                const adjacentFaces = this.getAdjacentFaces(face);
-                let baseFace: number | null = null;
-                for (let j = placed.length - 1; j >= 0; j--) {
-                    if (adjacentFaces.includes(placed[j])) {
-                        baseFace = placed[j];
-                        break;
+                // individual faces can explicitly define which face to place against
+                if (faceData.adjacent !== undefined) {
+                    const target = faceData.adjacent;
+                    if (!placed.includes(target)) {
+                        throw new Error(
+                            `Face ${face} places adjacent to face ${target}, which has not been placed yet`,
+                        );
                     }
-                }
+                    this.placeAdjacent(target, face);
+                } else {
+                    // otherwise, place against either the most-recently
+                    // placed or the least-recently placed
+                    const adjacentFaces = this.getAdjacentFaces(face);
+                    let baseFace: number | null = null;
+                    const step = this.placeReverse ? -1 : 1;
+                    const start = this.placeReverse ? placed.length - 1 : 0;
+                    const end = this.placeReverse ? -1 : placed.length;
+                    for (let j = start; j !== end; j += step) {
+                        if (adjacentFaces.includes(placed[j])) {
+                            baseFace = placed[j];
+                            break;
+                        }
+                    }
 
-                if (baseFace === null) {
-                    throw new Error(`Face ${face} has no connection to placed faces`);
-                }
+                    if (baseFace === null) {
+                        throw new Error(
+                            `Face ${face} has no connection to placed faces`,
+                        );
+                    }
 
-                this.placeAdjacent(baseFace, face);
+                    this.placeAdjacent(baseFace, face);
+                }
                 placed.push(face);
             }
 
-            // Calculate canvas bounds
+            // once all faces placed, determine the size of the canvas
             let minX = Number.POSITIVE_INFINITY;
             let maxX = Number.NEGATIVE_INFINITY;
             let minY = Number.POSITIVE_INFINITY;
@@ -363,7 +382,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             this.width = Math.ceil(maxX - minX + 2 * this.margin + this.stripWidth);
             this.height = Math.ceil(maxY - minY + 2 * this.margin + this.stripWidth);
 
-            // Shift all centres to fit in canvas
+            // shift the net over in order to trim the image tight
             const shiftX = this.margin + this.stripWidth / 2 - minX;
             const shiftY = this.margin + this.stripWidth / 2 - minY;
             for (const layout of this.faceLayout.values()) {

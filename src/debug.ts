@@ -4,8 +4,8 @@ import { createD6 } from "./geometries/d6";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
-import { D12Texture } from "./textures/d12";
 import { D6DebugTexture } from "./textures/d6";
+import { D12DebugTexture } from "./textures/d12";
 import { D20DebugTexture } from "./textures/d20";
 
 export type DebugDieType = 6 | 12 | 20;
@@ -16,7 +16,7 @@ const PAUSE_DURATION = 1000;
 
 export class DebugDieController {
     private die: Die | null = null;
-    private sides: DebugDieType = 20;
+    private sides: DebugDieType = 12;
 
     private dragging = false;
     private lastDragEnd = 0;
@@ -265,12 +265,12 @@ export class DebugDieController {
     private async createDieOfType(sides: DebugDieType): Promise<Die> {
         switch (sides) {
             case 6: {
-                const texture = await new D6Texture().createTexture();
-                return await createD6(1.0, texture);
+                const texture = await new D6DebugTexture().createTexture();
+                return await createD6(1, texture);
             }
             case 12: {
-                const texture = await new D12Texture().createTexture();
-                return await createD12(1.0, texture);
+                const texture = await new D12DebugTexture().createTexture();
+                return await createD12(1, texture);
             }
             case 20: {
                 const texture = await new D20DebugTexture().createTexture();
