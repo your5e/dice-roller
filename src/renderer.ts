@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { DebugDieController, type DebugDieType } from "./debug";
 import { loadVarelaRound } from "./fonts/varela-round";
 import { createD6 } from "./geometries/d6";
+import { createD8 } from "./geometries/d8";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
@@ -88,6 +89,8 @@ async function createDie(sides: number): Promise<Die> {
     switch (sides) {
         case 6:
             return await createD6();
+        case 8:
+            return await createD8();
         case 12:
             return await createD12();
         case 20:

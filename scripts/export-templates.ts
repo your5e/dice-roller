@@ -4,6 +4,7 @@ import { Window } from "happy-dom";
 import { decompress } from "wawoff2";
 import { VARELA_ROUND_DIGITS_WOFF2 } from "../src/fonts/varela-round";
 import { D6DebugTexture, D6TemplateTexture } from "../src/textures/d6";
+import { D8DebugTexture, D8TemplateTexture } from "../src/textures/d8";
 import { D12DebugTexture, D12TemplateTexture } from "../src/textures/d12";
 import { D20DebugTexture, D20TemplateTexture } from "../src/textures/d20";
 
@@ -42,6 +43,13 @@ setupDocument(d6TemplateTexture.width, d6TemplateTexture.height);
 writePng("dist/template/d6.png", await d6TemplateTexture.createCanvas());
 const d6DebugTexture = new D6DebugTexture();
 writePng("dist/debug/d6.png", await d6DebugTexture.createCanvas());
+
+console.log("-- d8");
+const d8TemplateTexture = new D8TemplateTexture();
+setupDocument(d8TemplateTexture.width, d8TemplateTexture.height);
+writePng("dist/template/d8.png", await d8TemplateTexture.createCanvas());
+const d8DebugTexture = new D8DebugTexture();
+writePng("dist/debug/d8.png", await d8DebugTexture.createCanvas());
 
 console.log("-- d12");
 const d12TemplateTexture = new D12TemplateTexture();

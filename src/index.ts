@@ -1,4 +1,5 @@
 import { type Step, calculate } from "./calculate";
+import type { DebugDieType } from "./debug";
 import { rollDice } from "./dice";
 import { parse } from "./notation";
 import {
@@ -46,7 +47,7 @@ export function roll(input: string): RollResult {
     return { notation: input, steps, total };
 }
 
-const animatedDice = new Set([6, 12, 20]);
+const animatedDice = new Set([6, 8, 12, 20]);
 
 function rollWithPhysics(input: string): void {
     const expressions = parse(input);
@@ -166,7 +167,7 @@ export function bind(selector: string): void {
     }
 }
 
-export function setDebugDie(sides: 6 | 12 | 20): void {
+export function setDebugDie(sides: DebugDieType): void {
     if (activeTray) {
         setDebugDieInTray(activeTray, sides);
     }
