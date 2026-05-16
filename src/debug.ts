@@ -2,15 +2,17 @@ import type * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { createD6 } from "./geometries/d6";
 import { createD8 } from "./geometries/d8";
+import { createD10 } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
 import { D6DebugTexture } from "./textures/d6";
 import { D8DebugTexture } from "./textures/d8";
+import { D10DebugTexture } from "./textures/d10";
 import { D12DebugTexture } from "./textures/d12";
 import { D20DebugTexture } from "./textures/d20";
 
-export type DebugDieType = 6 | 8 | 12 | 20;
+export type DebugDieType = 6 | 8 | 10 | 12 | 20;
 
 const RESUME_DELAY = 2000;
 const ROTATE_DURATION = 2000;
@@ -43,7 +45,7 @@ export class DebugDieController {
     }
 
     setupControls(container: HTMLElement): void {
-        const dieTypes: DebugDieType[] = [6, 8, 12, 20];
+        const dieTypes: DebugDieType[] = [6, 8, 10, 12, 20];
         for (const sides of dieTypes) {
             const button = document.createElement("button");
             button.textContent = `d${sides}`;
@@ -102,7 +104,7 @@ export class DebugDieController {
         this.syncUI();
     }
 
-    async create(sides: DebugDieType = 8): Promise<THREE.Mesh> {
+    async create(sides: DebugDieType = 10): Promise<THREE.Mesh> {
         this.sides = sides;
         this.die = await this.createDieOfType(sides);
         this.die.mesh.position.y = 1;
@@ -273,6 +275,10 @@ export class DebugDieController {
             case 8: {
                 const texture = await new D8DebugTexture().createTexture();
                 return await createD8(1, texture);
+            }
+            case 10: {
+                const texture = await new D10DebugTexture().createTexture();
+                return await createD10(1, texture);
             }
             case 12: {
                 const texture = await new D12DebugTexture().createTexture();
