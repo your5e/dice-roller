@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createD4 } from "../../src/geometries/d4";
 import { createD6 } from "../../src/geometries/d6";
 import { createD8 } from "../../src/geometries/d8";
 import { createD10 } from "../../src/geometries/d10";
@@ -76,6 +77,11 @@ function assertTrianglesWoundOutward(die: Die) {
 }
 
 describe("dice geometries", () => {
+    it("d4 has all triangles wound outward", async () => {
+        const texture = new THREE.Texture();
+        assertTrianglesWoundOutward(await createD4(0.5, texture));
+    });
+
     it("d6 has all triangles wound outward", async () => {
         const texture = new THREE.Texture();
         assertTrianglesWoundOutward(await createD6(0.5, texture));

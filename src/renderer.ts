@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { DebugDieController, type DebugDieType } from "./debug";
 import { loadVarelaRound } from "./fonts/varela-round";
+import { createD4 } from "./geometries/d4";
 import { createD6 } from "./geometries/d6";
 import { createD8 } from "./geometries/d8";
 import { createD10 } from "./geometries/d10";
@@ -88,6 +89,8 @@ export function createTray(container: HTMLElement): TrayState {
 
 async function createDie(sides: number): Promise<Die> {
     switch (sides) {
+        case 4:
+            return await createD4();
         case 6:
             return await createD6();
         case 8:

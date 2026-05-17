@@ -25,7 +25,7 @@ small dice box image.
 
 # Remaining dice
 
-- [ ] d4 texture and net template
+- [X] d4 texture and net template
 - [X] d6 texture and net template
 - [X] d8 texture and net template
 - [X] d10 texture and net template

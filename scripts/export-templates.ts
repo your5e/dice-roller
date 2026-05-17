@@ -3,6 +3,7 @@ import { createCanvas, registerFont } from "canvas";
 import { Window } from "happy-dom";
 import { decompress } from "wawoff2";
 import { VARELA_ROUND_DIGITS_WOFF2 } from "../src/fonts/varela-round";
+import { D4DebugTexture, D4TemplateTexture } from "../src/textures/d4";
 import { D6DebugTexture, D6TemplateTexture } from "../src/textures/d6";
 import { D8DebugTexture, D8TemplateTexture } from "../src/textures/d8";
 import { D10DebugTexture, D10TemplateTexture } from "../src/textures/d10";
@@ -37,6 +38,13 @@ function writePng(path: string, canvas: HTMLCanvasElement): void {
     writeFileSync(path, (canvas as unknown as CanvasLike).toBuffer("image/png"));
     console.log(path);
 }
+
+console.log("-- d4");
+const d4TemplateTexture = new D4TemplateTexture();
+setupDocument(d4TemplateTexture.width, d4TemplateTexture.height);
+writePng("dist/template/d4.png", await d4TemplateTexture.createCanvas());
+const d4DebugTexture = new D4DebugTexture();
+writePng("dist/debug/d4.png", await d4DebugTexture.createCanvas());
 
 console.log("-- d6");
 const d6TemplateTexture = new D6TemplateTexture();

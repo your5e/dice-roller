@@ -61,6 +61,7 @@ export async function createDie<T extends Die>(
     size: number,
     customTexture?: THREE.Texture,
     mass?: number,
+    readDown = false,
 ): Promise<T> {
     const scale = size * dieScale;
     const scaledVertices = vertices.map((v) => v.clone().multiplyScalar(scale));
@@ -86,7 +87,7 @@ export async function createDie<T extends Die>(
     });
     const mesh = new THREE.Mesh(geometry, material);
 
-    const physics = createDieBody(scaledVertices, faces, mass);
+    const physics = createDieBody(scaledVertices, faces, mass, readDown);
 
     return new DieClass(mesh, physics);
 }

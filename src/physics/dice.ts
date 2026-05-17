@@ -16,6 +16,7 @@ export function createDieBody(
     vertices: THREE.Vector3[],
     faces: DieFaces,
     mass = DEFAULT_MASS,
+    readDown = false,
 ): PhysicsDie {
     const cannonVerts = vertices.map((v) => new CANNON.Vec3(v.x, v.y, v.z));
     const cannonFaces = faces.map((face) => face.vertices);
@@ -39,7 +40,7 @@ export function createDieBody(
     return {
         body,
         faces,
-        readFace: () => readFaceUp(body, vertices, faces),
+        readFace: () => readFaceUp(body, vertices, faces, readDown),
     };
 }
 
@@ -47,8 +48,9 @@ function readFaceUp(
     body: CANNON.Body,
     vertices: THREE.Vector3[],
     faces: DieFaces,
+    readDown = false,
 ): number {
-    const up = new CANNON.Vec3(0, 1, 0);
+    const up = new CANNON.Vec3(0, readDown ? -1 : 1, 0);
     let bestValue = faces[0].value;
     let bestDot = Number.NEGATIVE_INFINITY;
 

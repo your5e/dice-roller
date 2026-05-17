@@ -273,42 +273,56 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 const data = this.faceData.get(face);
                 if (!data) continue;
                 const pts = data.points;
-
-                ctx.fillStyle = this.faceColour;
-                ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) {
-                    ctx.lineTo(pts[i].x, pts[i].y);
-                }
-                ctx.closePath();
-                ctx.fill();
-
-                const centreX = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
-                const centreY = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
-                const textRotation = this.getTextRotation(face, pts, centreX, centreY);
-
-                ctx.save();
-                ctx.translate(centreX, centreY);
-                ctx.rotate(textRotation);
-
-                const faceH = this.getFaceHeight();
-
-                // baseline: d6 square face, height = 2.0
-                const fontScale = (faceH / 2.0) * this.getShapeFontScale();
-
-                const fontPx = this.pixelDensity * this.fontSize * fontScale;
-                this.drawFaceNumber(
-                    ctx,
-                    face,
-                    0,
-                    0,
-                    fontPx,
-                    this.fontFamily,
-                    this.numberColour,
-                    this.underlineColour,
-                );
-                ctx.restore();
+                this.drawFaceBackground(ctx, face, pts);
+                this.drawFaceNumerals(ctx, face, pts);
             }
+        }
+
+        protected drawFaceBackground(
+            ctx: CanvasRenderingContext2D,
+            face: number,
+            pts: Point[],
+        ): void {
+            ctx.fillStyle = this.faceColour;
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                ctx.lineTo(pts[i].x, pts[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        protected drawFaceNumerals(
+            ctx: CanvasRenderingContext2D,
+            face: number,
+            pts: Point[],
+        ): void {
+            const centreX = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+            const centreY = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+            const textRotation = this.getTextRotation(face, pts, centreX, centreY);
+
+            ctx.save();
+            ctx.translate(centreX, centreY);
+            ctx.rotate(textRotation);
+
+            const faceH = this.getFaceHeight();
+
+            // baseline: d6 square face, height = 2.0
+            const fontScale = (faceH / 2.0) * this.getShapeFontScale();
+
+            const fontPx = this.pixelDensity * this.fontSize * fontScale;
+            this.drawFaceNumber(
+                ctx,
+                face,
+                0,
+                0,
+                fontPx,
+                this.fontFamily,
+                this.numberColour,
+                this.underlineColour,
+            );
+            ctx.restore();
         }
 
         protected buildFaceLayout(): void {

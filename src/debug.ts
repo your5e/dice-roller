@@ -1,18 +1,19 @@
-import type * as CANNON from "cannon-es";
 import * as THREE from "three";
+import { createD4 } from "./geometries/d4";
 import { createD6 } from "./geometries/d6";
 import { createD8 } from "./geometries/d8";
 import { createD10 } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
+import { D4DebugTexture } from "./textures/d4";
 import { D6DebugTexture } from "./textures/d6";
 import { D8DebugTexture } from "./textures/d8";
 import { D10DebugTexture } from "./textures/d10";
 import { D12DebugTexture } from "./textures/d12";
 import { D20DebugTexture } from "./textures/d20";
 
-export type DebugDieType = 6 | 8 | 10 | 12 | 20;
+export type DebugDieType = 4 | 6 | 8 | 10 | 12 | 20;
 
 const RESUME_DELAY = 2000;
 const ROTATE_DURATION = 2000;
@@ -45,7 +46,7 @@ export class DebugDieController {
     }
 
     setupControls(container: HTMLElement): void {
-        const dieTypes: DebugDieType[] = [6, 8, 10, 12, 20];
+        const dieTypes: DebugDieType[] = [4, 6, 8, 10, 12, 20];
         for (const sides of dieTypes) {
             const button = document.createElement("button");
             button.textContent = `d${sides}`;
@@ -104,7 +105,7 @@ export class DebugDieController {
         this.syncUI();
     }
 
-    async create(sides: DebugDieType = 10): Promise<THREE.Mesh> {
+    async create(sides: DebugDieType = 4): Promise<THREE.Mesh> {
         this.sides = sides;
         this.die = await this.createDieOfType(sides);
         this.die.mesh.position.y = 1;
@@ -185,8 +186,12 @@ export class DebugDieController {
         if (!this.die) return;
         const mesh = this.die.mesh;
 
+        // sync physics body from mesh for readFace() to work
+        const q = mesh.quaternion;
+        this.die.physics.body.quaternion.set(q.x, q.y, q.z, q.w);
+
         if (this.splash) {
-            this.splash.textContent = String(this.readFaceUp());
+            this.splash.textContent = String(this.die.physics.readFace());
         }
 
         if (this.dragging) return;
@@ -198,7 +203,7 @@ export class DebugDieController {
             this.lastDragEnd > 0 &&
             now - this.lastDragEnd < RESUME_DELAY
         ) {
-            this.targetFace = this.readFaceUp();
+            this.targetFace = this.die.physics.readFace();
             this.targetQuaternion = null;
             this.pausing = true;
             this.animationStart = now;
@@ -268,6 +273,10 @@ export class DebugDieController {
 
     private async createDieOfType(sides: DebugDieType): Promise<Die> {
         switch (sides) {
+            case 4: {
+                const texture = await new D4DebugTexture().createTexture();
+                return await createD4(1, texture);
+            }
             case 6: {
                 const texture = await new D6DebugTexture().createTexture();
                 return await createD6(1, texture);
@@ -294,38 +303,5 @@ export class DebugDieController {
     private getQuaternionForFace(faceValue: number): THREE.Quaternion | null {
         if (!this.die) return null;
         return this.die.orientToFace(faceValue);
-    }
-
-    private readFaceUp(): number {
-        if (!this.die) return 0;
-
-        const faces = this.die.physics.faces;
-        const up = new THREE.Vector3(0, 1, 0);
-        let bestValue = faces[0].value;
-        let bestDot = Number.NEGATIVE_INFINITY;
-
-        for (const face of faces) {
-            const body = this.die.physics.body;
-            const shape = body.shapes[0] as CANNON.ConvexPolyhedron;
-            const verts = shape.vertices;
-
-            const a = verts[face.vertices[0]];
-            const b = verts[face.vertices[1]];
-            const c = verts[face.vertices[2]];
-
-            const ab = new THREE.Vector3(b.x - a.x, b.y - a.y, b.z - a.z);
-            const ac = new THREE.Vector3(c.x - a.x, c.y - a.y, c.z - a.z);
-            const normal = new THREE.Vector3().crossVectors(ab, ac).normalize();
-
-            normal.applyQuaternion(this.die.mesh.quaternion);
-
-            const dot = normal.dot(up);
-            if (dot > bestDot) {
-                bestDot = dot;
-                bestValue = face.value;
-            }
-        }
-
-        return bestValue;
     }
 }
