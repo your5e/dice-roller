@@ -67,7 +67,7 @@ export abstract class DieTexture {
         return this.edgeLength * CHAMFER;
     }
     protected get margin(): number {
-        return this.stripWidth + 5;
+        return this.stripWidth * 1.5;
     }
 
     protected buildFaceData(): void {

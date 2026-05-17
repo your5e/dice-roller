@@ -21,7 +21,7 @@ small dice box image.
 - [X] simple visualiser for the basic polygon to ensure the FACES data
       structure is as desired
 - [X] flatten the camera? telephoto effect?
-- [ ] slight black lines, co-ordinate drift?
+- [X] slight black lines, co-ordinate drift?
 
 # Remaining dice
 
