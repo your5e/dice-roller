@@ -20,7 +20,7 @@ small dice box image.
 - [X] document how to make another die
 - [X] simple visualiser for the basic polygon to ensure the FACES data
       structure is as desired
-- [ ] flatten the camera? telephoto effect?
+- [X] flatten the camera? telephoto effect?
 - [ ] slight black lines, co-ordinate drift?
 
 # Remaining dice

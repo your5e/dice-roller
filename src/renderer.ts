@@ -27,13 +27,22 @@ export type TrayState = {
     container: HTMLElement;
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
-    camera: THREE.PerspectiveCamera;
+    camera: THREE.OrthographicCamera;
     physicsTray: PhysicsTray;
     dice: Die[];
     roll: RollState | null;
     animationId: number | null;
     debugDie: DebugDieController;
 };
+
+function resizeCamera(tray: TrayState, halfSize: number): void {
+    const aspect = tray.container.clientWidth / tray.container.clientHeight;
+    tray.camera.left = -halfSize * aspect;
+    tray.camera.right = halfSize * aspect;
+    tray.camera.top = halfSize;
+    tray.camera.bottom = -halfSize;
+    tray.camera.updateProjectionMatrix();
+}
 
 export function createTray(container: HTMLElement): TrayState {
     const width = container.clientWidth;
@@ -42,9 +51,19 @@ export function createTray(container: HTMLElement): TrayState {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
 
-    // top-down camera
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 16, 0);
+    // top-down orthographic camera
+    const aspect = width / height;
+    const frustumHeight = 10;
+    const frustumWidth = frustumHeight * aspect;
+    const camera = new THREE.OrthographicCamera(
+        -frustumWidth,
+        frustumWidth,
+        frustumHeight,
+        -frustumHeight,
+        0.1,
+        100,
+    );
+    camera.position.set(0, 50, 0);
     camera.lookAt(0, 0, 0);
 
     // light from top-left
@@ -76,7 +95,7 @@ export function createTray(container: HTMLElement): TrayState {
     };
 
     loadVarelaRound().then(async () => {
-        camera.position.y = 8;
+        resizeCamera(state, 3);
         const mesh = await debugDie.create();
         scene.add(mesh);
         debugDie.setupInteraction(container);
@@ -163,7 +182,7 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
         fromLeft,
     );
 
-    tray.camera.position.y = halfSize * (8 / 3);
+    resizeCamera(tray, halfSize);
 
     for (const die of dice) {
         tray.scene.add(die.mesh);
@@ -234,7 +253,7 @@ export async function setDebugDie(tray: TrayState, sides: DebugDieType): Promise
     tray.dice = [];
     tray.roll = null;
 
-    tray.camera.position.y = 8;
+    resizeCamera(tray, 3);
 
     const mesh = await tray.debugDie.create(sides);
     tray.scene.add(mesh);
