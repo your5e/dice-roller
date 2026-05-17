@@ -4,7 +4,7 @@ import { loadVarelaRound } from "./fonts/varela-round";
 import { createD4 } from "./geometries/d4";
 import { createD6 } from "./geometries/d6";
 import { createD8 } from "./geometries/d8";
-import { createD10 } from "./geometries/d10";
+import { createD10, createD100 } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
@@ -19,7 +19,7 @@ import {
 } from "./physics/tray";
 
 type RollState = {
-    onSettle: (results: number[]) => void;
+    onSettle: () => void;
     steps: number;
 };
 
@@ -87,7 +87,12 @@ export function createTray(container: HTMLElement): TrayState {
     return state;
 }
 
-async function createDie(sides: number): Promise<Die> {
+interface Roll {
+    dice: Die[];
+    readResult(): number;
+}
+
+async function createRoll(sides: number): Promise<Roll> {
     switch (sides) {
         case 4:
             return await createD4();
@@ -101,6 +106,8 @@ async function createDie(sides: number): Promise<Die> {
             return await createD12();
         case 20:
             return await createD20();
+        case 100:
+            return await createD100();
         default:
             throw new Error(`No geometry for d${sides}`);
     }
@@ -120,13 +127,16 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
 
     const fromLeft = Math.random() < 0.5;
     const dice: Die[] = [];
-    const groupBoundaries: number[] = [0];
+    const rolls: Roll[][] = [];
 
     for (const { count, sides } of groups) {
+        const groupRolls: Roll[] = [];
         for (let i = 0; i < count; i++) {
-            dice.push(await createDie(sides));
+            const roll = await createRoll(sides);
+            dice.push(...roll.dice);
+            groupRolls.push(roll);
         }
-        groupBoundaries.push(dice.length);
+        rolls.push(groupRolls);
     }
 
     let halfSize = 10;
@@ -170,14 +180,8 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
     return new Promise((resolve) => {
         tray.roll = {
             steps: 0,
-            onSettle: (results) => {
-                const grouped: number[][] = [];
-                for (let i = 0; i < groupBoundaries.length - 1; i++) {
-                    grouped.push(
-                        results.slice(groupBoundaries[i], groupBoundaries[i + 1]),
-                    );
-                }
-                resolve(grouped);
+            onSettle: () => {
+                resolve(rolls.map((group) => group.map((roll) => roll.readResult())));
             },
         };
     });
@@ -196,8 +200,7 @@ function startAnimationLoop(state: TrayState): void {
             }
 
             if (state.dice.every((die) => isSettled(die.physics))) {
-                const results = state.dice.map((die) => die.physics.readFace());
-                state.roll.onSettle(results);
+                state.roll.onSettle();
                 state.roll = null;
             }
         } else if (state.debugDie.mesh) {

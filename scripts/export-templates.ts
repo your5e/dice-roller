@@ -6,7 +6,12 @@ import { VARELA_ROUND_DIGITS_WOFF2 } from "../src/fonts/varela-round";
 import { D4DebugTexture, D4TemplateTexture } from "../src/textures/d4";
 import { D6DebugTexture, D6TemplateTexture } from "../src/textures/d6";
 import { D8DebugTexture, D8TemplateTexture } from "../src/textures/d8";
-import { D10DebugTexture, D10TemplateTexture } from "../src/textures/d10";
+import {
+    D10DebugTexture,
+    D10TemplateTexture,
+    DPercentileDebugTexture,
+    DPercentileTemplateTexture,
+} from "../src/textures/d10";
 import { D12DebugTexture, D12TemplateTexture } from "../src/textures/d12";
 import { D20DebugTexture, D20TemplateTexture } from "../src/textures/d20";
 
@@ -73,6 +78,16 @@ setupDocument(d10TemplateTexture.width, d10TemplateTexture.height);
 writePng("dist/template/d10.png", await d10TemplateTexture.createCanvas());
 const d10DebugTexture = new D10DebugTexture();
 writePng("dist/debug/d10.png", await d10DebugTexture.createCanvas());
+
+console.log("-- percentile");
+const percentileTemplateTexture = new DPercentileTemplateTexture();
+setupDocument(percentileTemplateTexture.width, percentileTemplateTexture.height);
+writePng(
+    "dist/template/percentile.png",
+    await percentileTemplateTexture.createCanvas(),
+);
+const percentileDebugTexture = new DPercentileDebugTexture();
+writePng("dist/debug/percentile.png", await percentileDebugTexture.createCanvas());
 
 console.log("-- d20");
 const d20TemplateTexture = new D20TemplateTexture();

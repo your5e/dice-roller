@@ -2,18 +2,18 @@ import * as THREE from "three";
 import { createD4 } from "./geometries/d4";
 import { createD6 } from "./geometries/d6";
 import { createD8 } from "./geometries/d8";
-import { createD10 } from "./geometries/d10";
+import { createD10, createPercentile } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
 import { D4DebugTexture } from "./textures/d4";
 import { D6DebugTexture } from "./textures/d6";
 import { D8DebugTexture } from "./textures/d8";
-import { D10DebugTexture } from "./textures/d10";
+import { D10DebugTexture, DPercentileDebugTexture } from "./textures/d10";
 import { D12DebugTexture } from "./textures/d12";
 import { D20DebugTexture } from "./textures/d20";
 
-export type DebugDieType = 4 | 6 | 8 | 10 | 12 | 20;
+export type DebugDieType = 4 | 6 | 8 | 10 | 12 | 20 | 100;
 
 const RESUME_DELAY = 2000;
 const ROTATE_DURATION = 2000;
@@ -46,10 +46,10 @@ export class DebugDieController {
     }
 
     setupControls(container: HTMLElement): void {
-        const dieTypes: DebugDieType[] = [4, 6, 8, 10, 12, 20];
+        const dieTypes: DebugDieType[] = [4, 6, 8, 10, 12, 20, 100];
         for (const sides of dieTypes) {
             const button = document.createElement("button");
-            button.textContent = `d${sides}`;
+            button.textContent = sides === 100 ? "d%" : `d${sides}`;
             button.addEventListener("click", () => {
                 this.sides = sides;
                 this.updateFaceSelect();
@@ -95,7 +95,7 @@ export class DebugDieController {
 
     setFace(face: number): void {
         if (!this.die) return;
-        if (face < 1 || face > this.sides) return;
+        if (!this.die.physics.faces.some((f) => f.value === face)) return;
 
         this.startQuaternion = this.die.mesh.quaternion.clone();
         this.targetQuaternion = this.getQuaternionForFace(face);
@@ -214,8 +214,12 @@ export class DebugDieController {
 
         if (this.pausing) {
             if (this.autoRotate && elapsed >= PAUSE_DURATION) {
-                const faceCount = this.die.physics.faces.length;
-                this.targetFace = (this.targetFace % faceCount) + 1;
+                const faceValues = this.die.physics.faces
+                    .map((f) => f.value)
+                    .sort((a, b) => a - b);
+                const currentIndex = faceValues.indexOf(this.targetFace);
+                const nextIndex = (currentIndex + 1) % faceValues.length;
+                this.targetFace = faceValues[nextIndex];
                 this.startQuaternion = mesh.quaternion.clone();
                 this.targetQuaternion = this.getQuaternionForFace(this.targetFace);
                 this.animationStart = now;
@@ -251,20 +255,23 @@ export class DebugDieController {
     }
 
     private updateFaceSelect(): void {
-        if (!this.faceSelect) return;
+        if (!this.faceSelect || !this.die) return;
         this.faceSelect.innerHTML = "";
-        for (let i = 1; i <= this.sides; i++) {
+        const faceValues = this.die.physics.faces
+            .map((f) => f.value)
+            .sort((a, b) => a - b);
+        for (const value of faceValues) {
             const option = document.createElement("option");
-            option.value = String(i);
-            option.textContent = String(i);
+            option.value = String(value);
+            option.textContent = this.die.getFaceLabel(value);
             this.faceSelect.appendChild(option);
         }
-        this.faceSelect.value = String(this.targetFace || 1);
+        this.faceSelect.value = String(this.targetFace || faceValues[0]);
     }
 
     private syncUI(): void {
         if (this.faceSelect) {
-            this.faceSelect.value = String(this.targetFace || 1);
+            this.faceSelect.value = String(this.targetFace);
         }
         if (this.autoRotateCheckbox) {
             this.autoRotateCheckbox.checked = this.autoRotate;
@@ -288,6 +295,10 @@ export class DebugDieController {
             case 10: {
                 const texture = await new D10DebugTexture().createTexture();
                 return await createD10(1, texture);
+            }
+            case 100: {
+                const texture = await new DPercentileDebugTexture().createTexture();
+                return await createPercentile(1, texture);
             }
             case 12: {
                 const texture = await new D12DebugTexture().createTexture();

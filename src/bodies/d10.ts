@@ -40,16 +40,16 @@ export const VERTICES: THREE.Vector3[] = [
 export const FACES: DieFaces = [
     // top fan
     { value: 2, vertices: [0, 3, 7, 2], stance: 0 },
-    { value: 4, vertices: [0, 4, 8, 3], stance: 0 },
-    { value: 6, vertices: [0, 5, 9, 4], stance: 0 },
-    { value: 8, vertices: [0, 6, 10, 5], stance: 0 },
-    { value: 10, vertices: [0, 2, 11, 6], stance: 0 },
+    { value: 8, vertices: [0, 4, 8, 3], stance: 0 },
+    { value: 4, vertices: [0, 5, 9, 4], stance: 0 },
+    { value: 10, vertices: [0, 6, 10, 5], stance: 0 },
+    { value: 6, vertices: [0, 2, 11, 6], stance: 0 },
 
     // bottom fan
-    { value: 1, vertices: [1, 11, 2, 7], stance: 0, adjacent: 2 },
-    { value: 9, vertices: [1, 7, 3, 8], stance: 0 },
-    { value: 7, vertices: [1, 8, 4, 9], stance: 0 },
-    { value: 5, vertices: [1, 9, 5, 10], stance: 0 },
+    { value: 7, vertices: [1, 11, 2, 7], stance: 0, adjacent: 6 },
+    { value: 1, vertices: [1, 7, 3, 8], stance: 0 },
+    { value: 5, vertices: [1, 8, 4, 9], stance: 0 },
+    { value: 9, vertices: [1, 9, 5, 10], stance: 0 },
     { value: 3, vertices: [1, 10, 6, 11], stance: 0 },
 ];
 
@@ -59,4 +59,29 @@ export const FACE_VERTICES: Record<number, number[]> = Object.fromEntries(
 
 export const FACE_STANCE: Record<number, number> = Object.fromEntries(
     FACES.map((face) => [face.value, face.stance]),
+);
+
+// exactly the same but x10, opposite faces sum to 110
+export const PERCENTILE_FACES: DieFaces = [
+    // top fan
+    { value: 20, vertices: [0, 3, 7, 2], stance: 0 },
+    { value: 80, vertices: [0, 4, 8, 3], stance: 0 },
+    { value: 40, vertices: [0, 5, 9, 4], stance: 0 },
+    { value: 100, vertices: [0, 6, 10, 5], stance: 0 },
+    { value: 60, vertices: [0, 2, 11, 6], stance: 0 },
+
+    // bottom fan
+    { value: 70, vertices: [1, 11, 2, 7], stance: 0, adjacent: 60 },
+    { value: 10, vertices: [1, 7, 3, 8], stance: 0 },
+    { value: 50, vertices: [1, 8, 4, 9], stance: 0 },
+    { value: 90, vertices: [1, 9, 5, 10], stance: 0 },
+    { value: 30, vertices: [1, 10, 6, 11], stance: 0 },
+];
+
+export const PERCENTILE_FACE_VERTICES: Record<number, number[]> = Object.fromEntries(
+    PERCENTILE_FACES.map((face) => [face.value, face.vertices]),
+);
+
+export const PERCENTILE_FACE_STANCE: Record<number, number> = Object.fromEntries(
+    PERCENTILE_FACES.map((face) => [face.value, face.stance]),
 );

@@ -30,7 +30,7 @@ small dice box image.
 - [X] d8 texture and net template
 - [X] d10 texture and net template
 - [X] d12 texture and net template
-- [ ] d00 texture and net template
+- [X] d100 texture and net template
 
 # Monitoring
 

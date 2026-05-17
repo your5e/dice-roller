@@ -380,6 +380,10 @@ export abstract class DieTexture {
         }
     }
 
+    protected getFaceLabel(face: number): string {
+        return String(face);
+    }
+
     protected drawFaceNumber(
         ctx: CanvasRenderingContext2D,
         value: number,
@@ -390,7 +394,7 @@ export abstract class DieTexture {
         colour: string,
         underlineColour: string,
     ): void {
-        const valueStr = String(value);
+        const valueStr = this.getFaceLabel(value);
         ctx.fillStyle = colour;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";

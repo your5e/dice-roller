@@ -47,7 +47,7 @@ export function roll(input: string): RollResult {
     return { notation: input, steps, total };
 }
 
-const animatedDice = new Set([4, 6, 8, 10, 12, 20]);
+const animatedDice = new Set([4, 6, 8, 10, 12, 20, 100]);
 
 function rollWithPhysics(input: string): void {
     const expressions = parse(input);

@@ -14,6 +14,18 @@ export abstract class Die {
     protected abstract meshVertices: THREE.Vector3[];
     protected abstract faceStance: Record<number, number>;
 
+    get dice(): Die[] {
+        return [this];
+    }
+
+    readResult(): number {
+        return this.physics.readFace();
+    }
+
+    getFaceLabel(value: number): string {
+        return String(value);
+    }
+
     defaultOrientation(): THREE.Quaternion {
         return this.orientToFace(1);
     }

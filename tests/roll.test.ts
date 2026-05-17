@@ -117,4 +117,26 @@ describe("roll", () => {
         expect(result.steps[0]["1d20"]).toHaveLength(1);
         expect(result.steps[1]["2d6"]).toHaveLength(2);
     });
+
+    describe("d100", () => {
+        it("rolls a percentile value", () => {
+            const result = roll("1d100");
+
+            expect(result.steps).toHaveLength(1);
+            expect(result.steps[0]["1d100"]).toHaveLength(1);
+            expect(result.total).toBeGreaterThanOrEqual(1);
+            expect(result.total).toBeLessThanOrEqual(100);
+        });
+
+        it("produces varied results across multiple rolls", () => {
+            const seen = new Set<number>();
+
+            for (let i = 0; i < 100; i++) {
+                const result = roll("1d100");
+                seen.add(result.total);
+            }
+
+            expect(seen.size).toBeGreaterThanOrEqual(20);
+        });
+    });
 });
