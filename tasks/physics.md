@@ -13,4 +13,4 @@ simulation.
 - [ ] dropped dice go away (how?)
 - [ ] rerolled dice get actually rerolled
         - no established die gets changed as a result
-- [ ] monte carlo fairness test
+- [X] monte carlo fairness test

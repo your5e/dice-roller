@@ -22,6 +22,22 @@ export function isSettled(die: PhysicsDie): boolean {
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
+// Shoemake's uniform random quaternion
+// https://en.wikipedia.org/wiki/3D_rotation_group#Uniform_random_sampling
+function randomQuaternion(): CANNON.Quaternion {
+    const u1 = Math.random();
+    const u2 = Math.random() * Math.PI * 2;
+    const u3 = Math.random() * Math.PI * 2;
+    const sqrt1MinusU1 = Math.sqrt(1 - u1);
+    const sqrtU1 = Math.sqrt(u1);
+    return new CANNON.Quaternion(
+        sqrt1MinusU1 * Math.sin(u2),
+        sqrt1MinusU1 * Math.cos(u2),
+        sqrtU1 * Math.sin(u3),
+        sqrtU1 * Math.cos(u3),
+    );
+}
+
 function bodiesOverlap(a: CANNON.Body, b: CANNON.Body, world: CANNON.World): boolean {
     a.updateAABB();
     b.updateAABB();
@@ -37,11 +53,7 @@ export function packDice(dice: PhysicsDie[], world: CANNON.World): void {
 
     for (let i = 0; i < dice.length; i++) {
         const die = dice[i];
-        die.body.quaternion.setFromEuler(
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2,
-        );
+        die.body.quaternion.copy(randomQuaternion());
 
         const angle = i * GOLDEN_ANGLE;
         let radius = lastRadius;
