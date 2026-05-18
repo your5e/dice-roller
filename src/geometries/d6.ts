@@ -1,7 +1,7 @@
 import type * as THREE from "three";
-import { DIE_SCALE, FACES, FACE_STANCE, FACE_VERTICES, VERTICES } from "../bodies/d6";
+import { DIE_SCALE, FACE_STANCE, FACE_VERTICES, FACES, VERTICES } from "../bodies/d6";
 import { D6Texture } from "../textures/d6";
-import { Die, createDie } from "./dice";
+import { createDie, Die } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
 const defaultTexture = new D6Texture();

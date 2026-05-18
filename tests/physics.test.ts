@@ -4,8 +4,8 @@ import { createD6 } from "../src/geometries/d6";
 import { createD12 } from "../src/geometries/d12";
 import {
     applyThrowVelocity,
+    bodiesOverlap,
     createTray,
-    isSettled,
     offsetToEdge,
     packDice,
     roll,
@@ -259,16 +259,6 @@ describe("syncDie", () => {
 });
 
 describe("Dice positioning", () => {
-    function bodiesOverlap(a: CANNON.Body, b: CANNON.Body, world: CANNON.World): boolean {
-        a.updateAABB();
-        b.updateAABB();
-
-        const contacts: CANNON.ContactEquation[] = [];
-        world.narrowphase.getContacts([a], [b], world, contacts, [], [], []);
-
-        return contacts.length > 0;
-    }
-
     function getBoundingRadius(die: Awaited<ReturnType<typeof createD6>>): number {
         const shape = die.physics.body.shapes[0] as CANNON.ConvexPolyhedron;
         return shape.boundingSphereRadius;

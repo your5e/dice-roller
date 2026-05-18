@@ -1,12 +1,13 @@
-import { type Step, calculate } from "./calculate";
+import { calculate, type Step } from "./calculate";
 import type { DebugDieType } from "./debug";
 import { rollDice } from "./dice";
 import { type ParsedDice, parse } from "./notation";
 import {
-    type TrayState,
     createTray,
+    resize as resizeTray,
     roll as rollInTray,
     setDebugDie as setDebugDieInTray,
+    type TrayState,
 } from "./renderer";
 
 type RollResult = {
@@ -159,6 +160,12 @@ export function bind(selector: string): void {
 export function setDebugDie(sides: DebugDieType): void {
     if (activeTray) {
         setDebugDieInTray(activeTray, sides);
+    }
+}
+
+export function resize(): void {
+    if (activeTray) {
+        resizeTray(activeTray);
     }
 }
 

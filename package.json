@@ -9,17 +9,17 @@
     "dependencies": {
         "cannon-es": "^0.20.0",
         "lucide": "^1.16.0",
-        "three": "^0.170.0"
+        "three": "^0.184.0"
     },
     "devDependencies": {
-        "@biomejs/biome": "^1.9.0",
-        "@types/three": "^0.170.0",
+        "@biomejs/biome": "^2.4.15",
+        "@types/three": "^0.184.1",
         "canvas": "^3.2.3",
-        "esbuild": "^0.24.0",
-        "happy-dom": "^15.0.0",
-        "tsx": "^4.21.0",
-        "typescript": "^5.6.0",
-        "vitest": "^2.1.0",
+        "esbuild": "^0.28.0",
+        "happy-dom": "^20.9.0",
+        "tsx": "^4.22.1",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.6",
         "wawoff2": "^2.0.1"
     }
 }

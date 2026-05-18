@@ -194,10 +194,10 @@
                 groupsByLabel[labelKey] = groupsByLabel[labelKey].concat(lastDice);
             }
             // Format groups for display
-            var diceHtml = labelOrder.map(function(label) {
+            var diceHtml = labelOrder.map((label) => {
                 var dice = groupsByLabel[label];
                 var diceStr = dice.join('+');
-                var total = dice.reduce(function(sum, v) { return sum + v; }, 0);
+                var total = dice.reduce((sum, v) => sum + v, 0);
                 return label ? label + ': ' + diceStr + ' = ' + total : diceStr;
             }).join('<br>');
             modal.querySelector('.notation').textContent = result.notation;
@@ -214,8 +214,12 @@
         DiceRoller.bind('.roll');
 
         tray.debugDie.setupControls(document.getElementById('debug-controls'));
-        tray.debugDie.setOnDieChange(function(sides) {
+        tray.debugDie.setOnDieChange((sides) => {
             DiceRoller.setDebugDie(sides);
+        });
+
+        window.addEventListener('resize', () => {
+            DiceRoller.resize();
         });
 
     </script>

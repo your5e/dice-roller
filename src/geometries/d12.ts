@@ -1,7 +1,7 @@
 import type * as THREE from "three";
-import { DIE_SCALE, FACES, FACE_STANCE, FACE_VERTICES, VERTICES } from "../bodies/d12";
+import { DIE_SCALE, FACE_STANCE, FACE_VERTICES, FACES, VERTICES } from "../bodies/d12";
 import { D12Texture } from "../textures/d12";
-import { Die, createDie } from "./dice";
+import { createDie, Die } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
 const defaultTexture = new D12Texture();

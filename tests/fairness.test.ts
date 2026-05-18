@@ -1,4 +1,3 @@
-import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
 import { createD4 } from "../src/geometries/d4";
 import { createD6 } from "../src/geometries/d6";
@@ -24,6 +23,7 @@ const CHI_SQUARED_CRITICAL: Record<number, number> = {
 };
 
 const ROLLS = 10_000;
+const TEST_TIMEOUT = 30_000;
 
 function chiSquared(observed: number[], expected: number): number {
     return observed.reduce((sum, o) => sum + ((o - expected) ** 2) / expected, 0);
@@ -40,37 +40,34 @@ const dice: { name: string; create: () => Promise<Die> }[] = [
 ];
 
 describe("Monte Carlo method fairness", () => {
-    it.each(dice)("$name distribution is fair", async ({ name, create }) => {
-        const sample = await create();
-        const faces = sample.physics.faces.length;
-        const df = faces - 1;
-        const critical = CHI_SQUARED_CRITICAL[df];
+    it.each(dice)(
+        "$name distribution is fair",
+        async ({ create }) => {
+            const sample = await create();
+            const faces = sample.physics.faces.length;
+            const df = faces - 1;
+            const critical = CHI_SQUARED_CRITICAL[df];
 
-        const counts = new Map<number, number>();
-        for (const face of sample.physics.faces) {
-            counts.set(face.value, 0);
-        }
-
-        const start = performance.now();
-        for (let i = 0; i < ROLLS; i++) {
-            const tray = createTray(5, 5);
-            const die = await create();
-            const result = roll(tray, [die.physics])[0];
-            const count = counts.get(result);
-            if (count === undefined) {
-                throw new Error(`Unexpected result: ${result}`);
+            const counts = new Map<number, number>();
+            for (const face of sample.physics.faces) {
+                counts.set(face.value, 0);
             }
-            counts.set(result, count + 1);
-        }
-        const elapsed = performance.now() - start;
 
-        const expected = ROLLS / faces;
-        const chi2 = chiSquared([...counts.values()], expected);
+            for (let i = 0; i < ROLLS; i++) {
+                const tray = createTray(5, 5);
+                const die = await create();
+                const result = roll(tray, [die.physics])[0];
+                const count = counts.get(result);
+                if (count === undefined) {
+                    throw new Error(`Unexpected result: ${result}`);
+                }
+                counts.set(result, count + 1);
+            }
+            const expected = ROLLS / faces;
+            const chi2 = chiSquared([...counts.values()], expected);
 
-        console.log(`\n  ${name}: ${ROLLS} rolls in ${(elapsed / 1000).toFixed(2)}s`);
-        console.log(`  Counts: ${[...counts.entries()].map(([v, c]) => `${v}:${c}`).join(", ")}`);
-        console.log(`  Chi-squared: ${chi2.toFixed(2)} (critical: ${critical})`);
-
-        expect(chi2, "distribution appears biased").toBeLessThan(critical);
-    });
+            expect(chi2, "distribution appears biased").toBeLessThan(critical);
+        },
+        TEST_TIMEOUT,
+    );
 });

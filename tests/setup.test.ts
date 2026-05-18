@@ -9,4 +9,8 @@ describe("DiceRoller", () => {
     it("exports bind as a function", () => {
         expect(typeof DiceRoller.bind).toBe("function");
     });
+
+    it("exports resize as a function", () => {
+        expect(typeof DiceRoller.resize).toBe("function");
+    });
 });

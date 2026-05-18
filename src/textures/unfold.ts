@@ -1,9 +1,8 @@
 import * as THREE from "three";
 import type { DieFaces } from "../geometries/chamfer";
-import { edgeAngle, normalFromVertices, perpendicular } from "../geometry";
-import { DEG_TO_RAD } from "../geometry";
+import { DEG_TO_RAD, edgeAngle, normalFromVertices, perpendicular } from "../geometry";
 import { drawIcon } from "../icons";
-import type { DieTexture, Point, TextureOptions } from "./dice";
+import type { DieTexture, Point } from "./dice";
 
 export type UnfoldData = { centre: Point; rotation: number };
 
@@ -180,9 +179,6 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
             const edgeX = b.x - a.x;
             const edgeY = b.y - a.y;
-            const midX = (a.x + b.x) / 2;
-            const midY = (a.y + b.y) / 2;
-
             const perp = perpendicular(edgeX, edgeY);
 
             return {
@@ -215,8 +211,6 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         }
 
         protected calculateCrownPoints(vertex: number): Point[] {
-            const n = this.faces[0].vertices.length;
-
             // the first face drawn "owns" each attached crown and strip
             const facesWithVertex = this.faces.filter((f) =>
                 f.vertices.includes(vertex),
@@ -258,8 +252,8 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         protected getTextRotation(
             face: number,
             pts: Point[],
-            centreX: number,
-            centreY: number,
+            _centreX: number,
+            _centreY: number,
         ): number {
             const faceData = this.faces.find((f) => f.value === face);
             const stance = faceData?.stance ?? 0;
@@ -270,11 +264,11 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         }
 
         protected drawFaces(ctx: CanvasRenderingContext2D): void {
-            for (const [face, layout] of this.faceLayout) {
+            for (const [face, _] of this.faceLayout) {
                 const data = this.faceData.get(face);
                 if (!data) continue;
                 const pts = data.points;
-                this.drawFaceBackground(ctx, face, pts);
+                this.drawFaceBackground(ctx, pts);
                 this.drawFaceIcon(ctx, face, pts);
                 this.drawFaceNumerals(ctx, face, pts);
             }
@@ -282,7 +276,6 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
         protected drawFaceBackground(
             ctx: CanvasRenderingContext2D,
-            face: number,
             pts: Point[],
         ): void {
             ctx.fillStyle = this.faceColour ?? this.bgColour;
@@ -349,7 +342,6 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         }
 
         protected buildFaceLayout(): void {
-            const n = this.faces[0].vertices.length;
             const placed: number[] = [];
 
             // place the first face

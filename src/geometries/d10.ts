@@ -1,16 +1,16 @@
 import type * as THREE from "three";
 import {
     DIE_SCALE,
-    FACES,
     FACE_STANCE,
     FACE_VERTICES,
-    PERCENTILE_FACES,
+    FACES,
     PERCENTILE_FACE_STANCE,
     PERCENTILE_FACE_VERTICES,
+    PERCENTILE_FACES,
     VERTICES,
 } from "../bodies/d10";
 import { D10Texture, DPercentileTexture } from "../textures/d10";
-import { Die, createDie } from "./dice";
+import { createDie, Die } from "./dice";
 
 const d10GeometryCache = new Map<number, THREE.BufferGeometry>();
 const percentileGeometryCache = new Map<number, THREE.BufferGeometry>();

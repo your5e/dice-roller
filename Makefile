@@ -13,7 +13,7 @@ lint:
 	npx tsc --noEmit
 
 test-code:
-	npx vitest run --exclude tests/fairness.test.ts
+	npx vitest run --exclude tests/fairness.test.ts --exclude tests/throws.test.ts
 
 test-all:
 	npm test

@@ -1,4 +1,4 @@
-import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d12";
+import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d12";
 import { DEG_TO_RAD } from "../geometry";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { Unfoldable } from "./unfold";

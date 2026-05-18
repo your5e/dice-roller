@@ -165,13 +165,19 @@ export abstract class DieTexture {
         };
 
         for (const [face, data] of this.faceData) {
-            data.points.forEach((pt, i) => check(pt, `Face ${face} point ${i}`));
+            for (const [i, pt] of data.points.entries()) {
+                check(pt, `Face ${face} point ${i}`);
+            }
         }
         for (const [key, data] of this.stripData) {
-            data.points.forEach((pt, i) => check(pt, `Strip ${key} point ${i}`));
+            for (const [i, pt] of data.points.entries()) {
+                check(pt, `Strip ${key} point ${i}`);
+            }
         }
         for (const [vertex, data] of this.crownData) {
-            data.points.forEach((pt, i) => check(pt, `Crown ${vertex} point ${i}`));
+            for (const [i, pt] of data.points.entries()) {
+                check(pt, `Crown ${vertex} point ${i}`);
+            }
         }
     }
 

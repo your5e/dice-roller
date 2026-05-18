@@ -2,13 +2,13 @@ import * as THREE from "three";
 import {
     DIE_MASS,
     DIE_SCALE,
-    FACES,
     FACE_STANCE,
     FACE_VERTICES,
+    FACES,
     VERTICES,
 } from "../bodies/d4";
 import { D4Texture } from "../textures/d4";
-import { Die, createDie } from "./dice";
+import { createDie, Die } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
 const defaultTexture = new D4Texture();

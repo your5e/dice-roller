@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { normalFromVertices } from "../geometry";
-import { type PhysicsDie, createDieBody } from "../physics/dice";
+import { createDieBody, type PhysicsDie } from "../physics/dice";
 import type { DieTexture } from "../textures/dice";
-import { CHAMFER, type DieFaces, createChamferedGeometry } from "./chamfer";
+import { CHAMFER, createChamferedGeometry, type DieFaces } from "./chamfer";
 
 export abstract class Die {
     constructor(

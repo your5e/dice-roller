@@ -10,13 +10,13 @@ import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
 import { getLabelStyle } from "./labels";
 import {
-    type Tray as PhysicsTray,
-    TIME_STEP,
     applyThrowVelocity,
     createTray as createPhysicsTray,
     isSettled,
     offsetToEdge,
+    type Tray as PhysicsTray,
     packDice,
+    TIME_STEP,
 } from "./physics/tray";
 import { D4Texture } from "./textures/d4";
 import { D6Texture } from "./textures/d6";
@@ -43,13 +43,38 @@ export type TrayState = {
     debugDie: DebugDieController;
 };
 
-function resizeCamera(tray: TrayState, halfSize: number): void {
-    const aspect = tray.container.clientWidth / tray.container.clientHeight;
-    tray.camera.left = -halfSize * aspect;
-    tray.camera.right = halfSize * aspect;
-    tray.camera.top = halfSize;
-    tray.camera.bottom = -halfSize;
+export function getTrayDimensions(
+    aspect: number,
+    size: number,
+): { halfWidth: number; halfDepth: number } {
+    const halfWidth = size * Math.sqrt(aspect);
+    const halfDepth = size / Math.sqrt(aspect);
+    return { halfWidth, halfDepth };
+}
+
+function resizeCamera(tray: TrayState, halfWidth: number, halfDepth: number): void {
+    tray.camera.left = -halfWidth;
+    tray.camera.right = halfWidth;
+    tray.camera.top = halfDepth;
+    tray.camera.bottom = -halfDepth;
     tray.camera.updateProjectionMatrix();
+}
+
+function setCameraSize(
+    tray: TrayState,
+    size: number,
+): { halfWidth: number; halfDepth: number } {
+    const aspect = tray.container.clientWidth / tray.container.clientHeight;
+    const dims = getTrayDimensions(aspect, size);
+    resizeCamera(tray, dims.halfWidth, dims.halfDepth);
+    return dims;
+}
+
+export function resize(tray: TrayState): void {
+    const width = tray.container.clientWidth;
+    const height = tray.container.clientHeight;
+    tray.renderer.setSize(width, height);
+    resizeCamera(tray, tray.physicsTray.halfWidth, tray.physicsTray.halfDepth);
 }
 
 export function createTray(container: HTMLElement): TrayState {
@@ -87,7 +112,8 @@ export function createTray(container: HTMLElement): TrayState {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    const physicsTray = createPhysicsTray(10, 10);
+    const { halfWidth, halfDepth } = getTrayDimensions(aspect, 10);
+    const physicsTray = createPhysicsTray(halfWidth, halfDepth);
     const debugDie = new DebugDieController();
 
     const state: TrayState = {
@@ -103,7 +129,7 @@ export function createTray(container: HTMLElement): TrayState {
     };
 
     loadVarelaRound().then(async () => {
-        resizeCamera(state, 3);
+        setCameraSize(state, 3);
         const mesh = await debugDie.create();
         scene.add(mesh);
         debugDie.setupInteraction(container);
@@ -146,15 +172,18 @@ async function createRoll(sides: number, options?: TextureOptions): Promise<Roll
 
 export type DiceGroup = { count: number; sides: number; label?: string };
 
-export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
+function clearTray(tray: TrayState): void {
     if (tray.debugDie.mesh) {
         tray.debugDie.remove(tray.scene);
     }
-
     for (const die of tray.dice) {
         tray.scene.remove(die.mesh);
     }
     tray.dice = [];
+}
+
+export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
+    clearTray(tray);
 
     const fromLeft = Math.random() < 0.5;
     const dice: Die[] = [];
@@ -181,8 +210,9 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
         rolls.push(groupRolls);
     }
 
-    let halfSize = 10;
-    tray.physicsTray = createPhysicsTray(halfSize, halfSize);
+    let size = 10;
+    let { halfWidth, halfDepth } = setCameraSize(tray, size);
+    tray.physicsTray = createPhysicsTray(halfWidth, halfDepth);
     packDice(
         dice.map((d) => d.physics),
         tray.physicsTray.world,
@@ -192,20 +222,19 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
     while (true) {
         const allFit = dice.every((die) => {
             const pos = die.physics.body.position;
-            return Math.abs(pos.x) + 1 <= halfSize && Math.abs(pos.z) + 1 <= halfSize;
+            return Math.abs(pos.x) + 1 <= halfWidth && Math.abs(pos.z) + 1 <= halfDepth;
         });
         if (allFit) break;
-        halfSize += 1;
-        tray.physicsTray = createPhysicsTray(halfSize, halfSize);
+        size += 1;
+        ({ halfWidth, halfDepth } = setCameraSize(tray, size));
+        tray.physicsTray = createPhysicsTray(halfWidth, halfDepth);
     }
 
     offsetToEdge(
         dice.map((d) => d.physics),
-        halfSize,
+        halfWidth,
         fromLeft,
     );
-
-    resizeCamera(tray, halfSize);
 
     for (const die of dice) {
         tray.scene.add(die.mesh);
@@ -266,17 +295,9 @@ export function syncDie(die: Die): void {
 }
 
 export async function setDebugDie(tray: TrayState, sides: DebugDieType): Promise<void> {
-    if (tray.debugDie.mesh) {
-        tray.debugDie.remove(tray.scene);
-    }
-
-    for (const die of tray.dice) {
-        tray.scene.remove(die.mesh);
-    }
-    tray.dice = [];
+    clearTray(tray);
     tray.roll = null;
-
-    resizeCamera(tray, 3);
+    setCameraSize(tray, 3);
 
     const mesh = await tray.debugDie.create(sides);
     tray.scene.add(mesh);

@@ -1,7 +1,7 @@
-import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d4";
+import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d4";
 import { drawIcon } from "../icons";
-import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import type { Point } from "./dice";
+import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { Unfoldable } from "./unfold";
 
 export class D4Texture extends Unfoldable(DieTexture) {

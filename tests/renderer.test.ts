@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createD100 } from "../src/geometries/d10";
+import { getTrayDimensions } from "../src/renderer";
+
+const originalCreateElement = document.createElement.bind(document);
 
 beforeEach(() => {
     const mockContext = {
@@ -33,7 +36,7 @@ beforeEach(() => {
                 getContext: () => mockContext,
             } as unknown as HTMLCanvasElement;
         }
-        return document.createElement(tagName);
+        return originalCreateElement(tagName);
     });
 });
 
@@ -84,5 +87,34 @@ describe("d100 dice creation", () => {
 
         const onesValues = d100.dice[1].physics.faces.map((f) => f.value).sort((a, b) => a - b);
         expect(onesValues).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    });
+});
+
+describe("getTrayDimensions", () => {
+    it("returns landscape dimensions for aspect > 1", () => {
+        const { halfWidth, halfDepth } = getTrayDimensions(2, 10);
+        expect(halfWidth).toBeGreaterThan(halfDepth);
+    });
+
+    it("returns portrait dimensions for aspect < 1", () => {
+        const { halfWidth, halfDepth } = getTrayDimensions(0.5, 10);
+        expect(halfWidth).toBeLessThan(halfDepth);
+    });
+
+    it("returns square dimensions for aspect = 1", () => {
+        const { halfWidth, halfDepth } = getTrayDimensions(1, 10);
+        expect(halfWidth).toBe(halfDepth);
+    });
+
+    it("preserves area for landscape", () => {
+        const { halfWidth, halfDepth } = getTrayDimensions(2, 10);
+        const area = halfWidth * halfDepth;
+        expect(area).toBeCloseTo(10 * 10);
+    });
+
+    it("preserves area for portrait", () => {
+        const { halfWidth, halfDepth } = getTrayDimensions(0.5, 10);
+        const area = halfWidth * halfDepth;
+        expect(area).toBeCloseTo(10 * 10);
     });
 });

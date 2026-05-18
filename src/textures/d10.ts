@@ -1,8 +1,8 @@
 import {
-    FACES,
     FACE_VERTICES,
-    PERCENTILE_FACES,
+    FACES,
     PERCENTILE_FACE_VERTICES,
+    PERCENTILE_FACES,
     VERTICES,
 } from "../bodies/d10";
 import {
@@ -37,7 +37,7 @@ abstract class DKiteTexture extends Unfoldable(DieTexture) {
 
     // numbers always point to the apex
     protected getTextRotation(
-        _face: number,
+        _: number,
         pts: Point[],
         centreX: number,
         centreY: number,
@@ -74,7 +74,7 @@ export class DPercentileTexture extends DKiteTexture {
     protected fgColour = "#E8DCC8";
 
     protected override getTextRotation(
-        _face: number,
+        _: number,
         pts: Point[],
         centreX: number,
         centreY: number,
