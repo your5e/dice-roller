@@ -29,6 +29,37 @@ jobs:
           name: dice-roller
           path: dist/
 
+  pages:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dice-roller
+          path: dist/
+
+      - name: Stage pages
+        run: |
+          mkdir _site
+          cp example_roller.html _site/index.html
+          cp -r dist _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+
+      - uses: actions/deploy-pages@v4
+        id: deployment
+
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
