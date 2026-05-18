@@ -1,7 +1,7 @@
 import { type Step, calculate } from "./calculate";
 import type { DebugDieType } from "./debug";
 import { rollDice } from "./dice";
-import { parse } from "./notation";
+import { type ParsedDice, parse } from "./notation";
 import {
     type TrayState,
     createTray,
@@ -12,6 +12,7 @@ import {
 type RollResult = {
     notation: string;
     steps: Step[];
+    labels: Record<string, number>;
     total: number;
 };
 
@@ -20,31 +21,58 @@ type RollCallback = (result: RollResult) => void;
 let activeTray: TrayState | null = null;
 let onRollCallback: RollCallback = (result) => console.log(result);
 
-export function roll(input: string): RollResult {
-    const expressions = parse(input);
+function buildResult(
+    notation: string,
+    expressions: (ParsedDice | null)[],
+    facesByIndex: Map<number, number[]>,
+): RollResult {
     let total = 0;
     const steps: Step[] = [];
+    const labels: Record<string, number> = {};
 
-    for (const expr of expressions) {
+    for (let i = 0; i < expressions.length; i++) {
+        const expr = expressions[i];
         if (expr === null) {
             continue;
         }
 
+        const faces = facesByIndex.get(i);
+        if (!faces) {
+            continue;
+        }
+
         const diceNotation = `${expr.count}d${expr.sides}`;
-        const dice = rollDice(expr.count, expr.sides);
-        steps.push({ [diceNotation]: [...dice] });
+        steps.push({ [diceNotation]: [...faces] });
 
         const result = calculate(
-            dice,
+            faces,
             expr.modifiers,
             expr.bonus,
             () => rollDice(1, expr.sides)[0],
         );
         total += result.total;
         steps.push(...result.steps);
+
+        if (expr.label) {
+            labels[expr.label] = (labels[expr.label] ?? 0) + result.total;
+        }
     }
 
-    return { notation: input, steps, total };
+    return { notation, steps, labels, total };
+}
+
+export function roll(input: string): RollResult {
+    const expressions = parse(input);
+    const facesByIndex = new Map<number, number[]>();
+
+    for (let i = 0; i < expressions.length; i++) {
+        const expr = expressions[i];
+        if (expr !== null) {
+            facesByIndex.set(i, rollDice(expr.count, expr.sides));
+        }
+    }
+
+    return buildResult(input, expressions, facesByIndex);
 }
 
 const animatedDice = new Set([4, 6, 8, 10, 12, 20, 100]);
@@ -57,10 +85,10 @@ function rollWithPhysics(input: string): void {
         return;
     }
 
-    // separate out the physical rolls we can do, the rest are mathematical
+    // roll mathematical dice first to enable quick exit if no physical rolls
     type IndexedExpr = { index: number; expr: NonNullable<(typeof expressions)[0]> };
     const animated: IndexedExpr[] = [];
-    const mathematical: IndexedExpr[] = [];
+    const facesByIndex = new Map<number, number[]>();
 
     for (let i = 0; i < expressions.length; i++) {
         const expr = expressions[i];
@@ -70,25 +98,12 @@ function rollWithPhysics(input: string): void {
         if (animatedDice.has(expr.sides)) {
             animated.push({ index: i, expr });
         } else {
-            mathematical.push({ index: i, expr });
+            facesByIndex.set(i, rollDice(expr.count, expr.sides));
         }
     }
 
-    // roll mathematically first, in order to quick exit if no physical rolls
-    type MathResult = { faces: number[]; calcResult: ReturnType<typeof calculate> };
-    const mathResults = new Map<number, MathResult>();
-    for (const { index, expr } of mathematical) {
-        const faces = rollDice(expr.count, expr.sides);
-        const calcResult = calculate(
-            faces,
-            expr.modifiers,
-            expr.bonus,
-            () => rollDice(1, expr.sides)[0],
-        );
-        mathResults.set(index, { faces, calcResult });
-    }
     if (animated.length === 0) {
-        onRollCallback(roll(input));
+        onRollCallback(buildResult(input, expressions, facesByIndex));
         return;
     }
 
@@ -98,39 +113,10 @@ function rollWithPhysics(input: string): void {
         sides: expr.sides,
     }));
     rollInTray(activeTray, groups).then((groupedFaces) => {
-        let total = 0;
-        const steps: Step[] = [];
-
-        // Combine results in original order
-        let animatedIndex = 0;
-        for (let i = 0; i < expressions.length; i++) {
-            const expr = expressions[i];
-            if (expr === null) {
-                continue;
-            }
-
-            const diceNotation = `${expr.count}d${expr.sides}`;
-            const mathResult = mathResults.get(i);
-
-            if (mathResult) {
-                steps.push({ [diceNotation]: mathResult.faces });
-                total += mathResult.calcResult.total;
-                steps.push(...mathResult.calcResult.steps);
-            } else {
-                const faces = groupedFaces[animatedIndex++];
-                steps.push({ [diceNotation]: faces });
-                const calcResult = calculate(
-                    faces,
-                    expr.modifiers,
-                    expr.bonus,
-                    () => Math.floor(Math.random() * expr.sides) + 1,
-                );
-                total += calcResult.total;
-                steps.push(...calcResult.steps);
-            }
+        for (let i = 0; i < animated.length; i++) {
+            facesByIndex.set(animated[i].index, groupedFaces[i]);
         }
-
-        onRollCallback({ notation: input, steps, total });
+        onRollCallback(buildResult(input, expressions, facesByIndex));
     });
 }
 

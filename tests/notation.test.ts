@@ -684,4 +684,103 @@ describe("parse", () => {
             expect(parse("1d20-1kh1")).toEqual([null]);
         });
     });
+
+    describe("labels", () => {
+        it("parses labelled expressions", () => {
+            expect(parse("slashing:2d6")).toEqual([
+                {
+                    label: "slashing",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [],
+                    bonus: 0,
+                },
+            ]);
+
+            expect(parse("fire:1d8+3")).toEqual([
+                {
+                    label: "fire",
+                    count: 1,
+                    sides: 8,
+                    modifiers: [],
+                    bonus: 3,
+                },
+            ]);
+
+            expect(parse("cold:2d6kh1")).toEqual([
+                {
+                    label: "cold",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [{ type: "kh", value: 1 }],
+                    bonus: 0,
+                },
+            ]);
+        });
+
+        it("parses multiple labelled expressions", () => {
+            expect(parse("slashing:2d6+3 fire:2d6")).toEqual([
+                {
+                    label: "slashing",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [],
+                    bonus: 3,
+                },
+                {
+                    label: "fire",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [],
+                    bonus: 0,
+                },
+            ]);
+        });
+
+        it("parses mixed labelled and unlabelled expressions", () => {
+            expect(parse("1d20 slashing:2d6+3")).toEqual([
+                {
+                    count: 1,
+                    sides: 20,
+                    modifiers: [],
+                    bonus: 0,
+                },
+                {
+                    label: "slashing",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [],
+                    bonus: 3,
+                },
+            ]);
+        });
+
+        it("normalises labels to lowercase", () => {
+            expect(parse("FIRE:2d6")).toEqual([
+                {
+                    label: "fire",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [],
+                    bonus: 0,
+                },
+            ]);
+
+            expect(parse("Slashing:1d8")).toEqual([
+                {
+                    label: "slashing",
+                    count: 1,
+                    sides: 8,
+                    modifiers: [],
+                    bonus: 0,
+                },
+            ]);
+        });
+
+        it("rejects invalid labels", () => {
+            expect(parse(":2d6")).toEqual([null]);
+            expect(parse("123:2d6")).toEqual([null]);
+            expect(parse("fire-damage:2d6")).toEqual([null]);
+        });
+    });
 });

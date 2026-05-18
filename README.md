@@ -47,6 +47,10 @@ Rerolling _until_ the result is 2 or more would be `1d20rm2`.
 _**Minimum score.**_ Some low rolls can be treated as automatically higher. A
 Rogue's Reliable Talent treats any roll of 9 or lower as a 10, `1d20m10`.
 
+_**Labels.**_ An expression can be labelled, if there is a need to group
+different dice together (eg `fire:2d6 fire:1d4`) or to differentiate rolled
+dice (eg `fire:1d8 lightning:1d8`). Labels are `a-z` only, case insensitive.
+
 _**Modifier.**_ Some rolls have a static value added or subtracted, such as
 attack rolls adding your ability and proficiency bonus, `1d20+7`.
 

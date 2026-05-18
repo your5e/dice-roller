@@ -139,4 +139,61 @@ describe("roll", () => {
             expect(seen.size).toBeGreaterThanOrEqual(20);
         });
     });
+
+    describe("labels", () => {
+        it("returns empty labels for unlabelled expressions", () => {
+            const result = roll("2d6+3");
+
+            expect(result.labels).toEqual({});
+            expect(result.total).toBeGreaterThanOrEqual(5);
+            expect(result.total).toBeLessThanOrEqual(15);
+        });
+
+        it("returns labelled totals for labelled expressions", () => {
+            const result = roll("slashing:2d6+3");
+
+            expect(result.labels.slashing).toBeGreaterThanOrEqual(5);
+            expect(result.labels.slashing).toBeLessThanOrEqual(15);
+            expect(result.total).toBe(result.labels.slashing);
+        });
+
+        it("returns multiple labelled totals", () => {
+            const result = roll("slashing:2d6+3 fire:1d6");
+
+            expect(result.labels.slashing).toBeGreaterThanOrEqual(5);
+            expect(result.labels.slashing).toBeLessThanOrEqual(15);
+            expect(result.labels.fire).toBeGreaterThanOrEqual(1);
+            expect(result.labels.fire).toBeLessThanOrEqual(6);
+            expect(result.total).toBe(result.labels.slashing + result.labels.fire);
+        });
+
+        it("accumulates same labels", () => {
+            const result = roll("fire:1d6 fire:1d4");
+
+            expect(result.labels.fire).toBeGreaterThanOrEqual(2);
+            expect(result.labels.fire).toBeLessThanOrEqual(10);
+            expect(result.total).toBe(result.labels.fire);
+        });
+
+        it("accumulates labels case-insensitively", () => {
+            const result = roll("fire:2d6 FIRE:2d6");
+
+            expect(Object.keys(result.labels)).toEqual(["fire"]);
+            expect(result.labels.fire).toBeGreaterThanOrEqual(4);
+            expect(result.labels.fire).toBeLessThanOrEqual(24);
+            expect(result.total).toBe(result.labels.fire);
+        });
+
+        it("handles mixed labelled and unlabelled", () => {
+            const result = roll("1d20 slashing:2d6");
+
+            expect(result.labels).toEqual({
+                slashing: expect.any(Number),
+            });
+            expect(result.labels.slashing).toBeGreaterThanOrEqual(2);
+            expect(result.labels.slashing).toBeLessThanOrEqual(12);
+            expect(result.total).toBeGreaterThanOrEqual(3);
+            expect(result.total).toBeLessThanOrEqual(32);
+        });
+    });
 });

@@ -9,6 +9,7 @@ Dice notation supported:
 - `rrbN` — reroll recursively if below N, eg `1d20rrb2` (can't ever roll a 1)
 - `mN` — minimum N, eg `1d20m10` (any number 1–9 is treated as a 10)
 - `+N` / `-N` — arithmetic modifier applied to the final result, eg `2d8+4`
+- `label:` — prefix to label an expression, eg `slashing:2d6+3 fire:2d6`
 
 Final result is always the total of all dice rolled after modifiers are
 applied. Modifiers are applied left to right:
@@ -31,4 +32,4 @@ slashing damage plus fire damage. Distinguishing the types in the
 result is needed to apply resistances/vulnerabilities correctly. Add
 `label:` before the expression to name that part of the roll.
 
-- [ ] support labelled dice groups in notation and roll result
+- [X] support labelled dice groups in notation and roll result

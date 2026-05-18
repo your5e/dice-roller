@@ -6,6 +6,7 @@ export type Modifier = {
 };
 
 export type ParsedDice = {
+    label?: string;
     count: number;
     sides: number;
     modifiers: Modifier[];
@@ -20,7 +21,16 @@ export function parse(input: string): (ParsedDice | null)[] {
     return expressions.map(parseExpression);
 }
 
-function parseExpression(expression: string): ParsedDice | null {
+function parseExpression(exp: string): ParsedDice | null {
+    let label: string | undefined;
+    let expression = exp;
+
+    const labelMatch = expression.match(/^([a-z]+):/i);
+    if (labelMatch) {
+        label = labelMatch[1].toLowerCase();
+        expression = expression.slice(labelMatch[0].length);
+    }
+
     const diceMatch = expression.match(/^(\d+)d(\d+)/i);
     if (!diceMatch) {
         return null;
@@ -77,7 +87,11 @@ function parseExpression(expression: string): ParsedDice | null {
         return null;
     }
 
-    return { count, sides, modifiers, bonus };
+    const result: ParsedDice = { count, sides, modifiers, bonus };
+    if (label) {
+        result.label = label;
+    }
+    return result;
 }
 
 function validateModifier(
