@@ -1,4 +1,4 @@
-.PHONY: all build lint test templates
+.PHONY: all build ci lint test templates
 
 all: lint test build
 
@@ -13,6 +13,11 @@ lint:
 	npx tsc --noEmit
 
 test-code:
+	npx vitest run --exclude tests/fairness.test.ts
+
+test-all:
 	npm test
 
 test: lint test-code
+
+ci: lint test-all
