@@ -1,14 +1,13 @@
 import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d20";
-import { DebugMixin, DieTexture, TemplateMixin } from "./dice";
+import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { Unfoldable } from "./unfold";
 
 export class D20Texture extends Unfoldable(DieTexture) {
     protected faces = FACES;
     protected vertices = VERTICES;
     protected faceVertices = FACE_VERTICES;
-    protected faceColour = "#e07000";
-    protected stripColour = "#e07000";
-    protected crownColour = "#e07000";
+    protected bgColour = "#f08020";
+    protected fgColour = "#1a1a1a";
 
     get startRotation(): number {
         return 0;
@@ -23,8 +22,13 @@ export class D20Texture extends Unfoldable(DieTexture) {
         return 0.75;
     }
 
-    constructor() {
+    protected override getIconScale(): number {
+        return 0.8 * (this.iconScale ?? 1);
+    }
+
+    constructor(options?: TextureOptions) {
         super();
+        if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
 }

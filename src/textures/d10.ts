@@ -5,7 +5,13 @@ import {
     PERCENTILE_FACE_VERTICES,
     VERTICES,
 } from "../bodies/d10";
-import { DebugMixin, DieTexture, type Point, TemplateMixin } from "./dice";
+import {
+    DebugMixin,
+    DieTexture,
+    type Point,
+    TemplateMixin,
+    type TextureOptions,
+} from "./dice";
 import { Unfoldable } from "./unfold";
 
 // base class for kite-faced dice (d10 and d%)
@@ -25,6 +31,10 @@ abstract class DKiteTexture extends Unfoldable(DieTexture) {
         return 1.35;
     }
 
+    protected override getIconScale(): number {
+        return 0.9 * (this.iconScale ?? 1);
+    }
+
     // numbers always point to the apex
     protected getTextRotation(
         _face: number,
@@ -40,18 +50,16 @@ abstract class DKiteTexture extends Unfoldable(DieTexture) {
 export class D10Texture extends DKiteTexture {
     protected faces = FACES;
     protected faceVertices = FACE_VERTICES;
-    protected faceColour = "#E8DCC8";
-    protected stripColour = "#E8DCC8";
-    protected crownColour = "#E8DCC8";
-    protected numberColour = "#1a1a1a";
-    protected underlineColour = "#1a1a1a";
+    protected bgColour = "#E8DCC8";
+    protected fgColour = "#1a1a1a";
 
     protected getFaceLabel(face: number): string {
         return String(face % 10);
     }
 
-    constructor() {
+    constructor(options?: TextureOptions) {
         super();
+        if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
 }
@@ -62,11 +70,8 @@ export class D10DebugTexture extends DebugMixin(D10Texture) {}
 export class DPercentileTexture extends DKiteTexture {
     protected faces = PERCENTILE_FACES;
     protected faceVertices = PERCENTILE_FACE_VERTICES;
-    protected faceColour = "#3a3a3a";
-    protected stripColour = "#3a3a3a";
-    protected crownColour = "#3a3a3a";
-    protected numberColour = "#E8DCC8";
-    protected underlineColour = "#E8DCC8";
+    protected bgColour = "#3a3a3a";
+    protected fgColour = "#E8DCC8";
 
     protected override getTextRotation(
         _face: number,
@@ -82,8 +87,9 @@ export class DPercentileTexture extends DKiteTexture {
         return String(face % 100).padStart(2, "0");
     }
 
-    constructor() {
+    constructor(options?: TextureOptions) {
         super();
+        if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
 }

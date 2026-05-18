@@ -41,7 +41,9 @@ function buildResult(
             continue;
         }
 
-        const diceNotation = `${expr.count}d${expr.sides}`;
+        const diceNotation = expr.label
+            ? `${expr.label}:${expr.count}d${expr.sides}`
+            : `${expr.count}d${expr.sides}`;
         steps.push({ [diceNotation]: [...faces] });
 
         const result = calculate(
@@ -111,6 +113,7 @@ function rollWithPhysics(input: string): void {
     const groups = animated.map(({ expr }) => ({
         count: expr.count,
         sides: expr.sides,
+        label: expr.label,
     }));
     rollInTray(activeTray, groups).then((groupedFaces) => {
         for (let i = 0; i < animated.length; i++) {

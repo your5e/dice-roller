@@ -71,7 +71,6 @@ export async function createDie<T extends Die>(
     texture: DieTexture,
     geometryCache: Map<number, THREE.BufferGeometry>,
     size: number,
-    customTexture?: THREE.Texture,
     mass?: number,
     readDown = false,
 ): Promise<T> {
@@ -92,7 +91,7 @@ export async function createDie<T extends Die>(
     }
 
     const material = new THREE.MeshPhysicalMaterial({
-        map: customTexture ?? (await texture.createTexture()),
+        map: await texture.createTexture(),
         roughness: 0.5,
         clearcoat: 0.3,
         clearcoatRoughness: 0.4,

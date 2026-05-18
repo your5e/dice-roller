@@ -14,8 +14,8 @@ import { Die, createDie } from "./dice";
 
 const d10GeometryCache = new Map<number, THREE.BufferGeometry>();
 const percentileGeometryCache = new Map<number, THREE.BufferGeometry>();
-const d10Texture = new D10Texture();
-const percentileTexture = new DPercentileTexture();
+const defaultD10Texture = new D10Texture();
+const defaultPercentileTexture = new DPercentileTexture();
 
 export class D10 extends Die {
     protected faceVertices = FACE_VERTICES;
@@ -60,42 +60,35 @@ export class DPercentile extends Die {
     }
 }
 
-export async function createD10(size = 1, texture?: THREE.Texture): Promise<D10> {
-    return createDie(
-        D10,
-        DIE_SCALE,
-        VERTICES,
-        FACES,
-        d10Texture,
-        d10GeometryCache,
-        size,
-        texture,
-    );
+export async function createD10(
+    size = 1,
+    texture: D10Texture = defaultD10Texture,
+): Promise<D10> {
+    return createDie(D10, DIE_SCALE, VERTICES, FACES, texture, d10GeometryCache, size);
 }
 
 export async function createPercentile(
     size = 1,
-    texture?: THREE.Texture,
+    texture: DPercentileTexture = defaultPercentileTexture,
 ): Promise<DPercentile> {
     return createDie(
         DPercentile,
         DIE_SCALE,
         VERTICES,
         PERCENTILE_FACES,
-        percentileTexture,
+        texture,
         percentileGeometryCache,
         size,
-        texture,
     );
 }
 
 export async function createD100(
     size = 1,
-    tensTexture?: THREE.Texture,
-    onesTexture?: THREE.Texture,
+    d10Texture: D10Texture = defaultD10Texture,
+    percentileTexture: DPercentileTexture = defaultPercentileTexture,
 ) {
-    const tens = await createPercentile(size, tensTexture);
-    const ones = await createD10(size, onesTexture);
+    const tens = await createPercentile(size, percentileTexture);
+    const ones = await createD10(size, d10Texture);
     return {
         dice: [tens, ones],
         readResult() {

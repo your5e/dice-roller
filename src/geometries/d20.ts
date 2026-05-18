@@ -4,7 +4,7 @@ import { D20Texture } from "../textures/d20";
 import { Die, createDie } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
-const d20Texture = new D20Texture();
+const defaultTexture = new D20Texture();
 
 export class D20 extends Die {
     protected faceVertices = FACE_VERTICES;
@@ -12,15 +12,9 @@ export class D20 extends Die {
     protected faceStance = FACE_STANCE;
 }
 
-export async function createD20(size = 1, texture?: THREE.Texture): Promise<D20> {
-    return createDie(
-        D20,
-        DIE_SCALE,
-        VERTICES,
-        FACES,
-        d20Texture,
-        geometryCache,
-        size,
-        texture,
-    );
+export async function createD20(
+    size = 1,
+    texture: D20Texture = defaultTexture,
+): Promise<D20> {
+    return createDie(D20, DIE_SCALE, VERTICES, FACES, texture, geometryCache, size);
 }

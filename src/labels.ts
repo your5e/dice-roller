@@ -1,22 +1,91 @@
 export type LabelStyle = {
     colour: string;
+    fgColour?: string;
+    iconColour?: string;
+    iconScale?: number;
     icon?: string;
 };
 
 const LABEL_STYLES: Record<string, LabelStyle> = {
-    acid: { colour: "#7fff00", icon: "flask-round" },
-    bludgeoning: { colour: "#808080", icon: "hammer" },
-    cold: { colour: "#5bcefa", icon: "snowflake" },
-    fire: { colour: "#e25822", icon: "flame" },
-    force: { colour: "#ff00ff", icon: "sparkles" },
-    lightning: { colour: "#f5e642", icon: "zap" },
-    necrotic: { colour: "#4a0a4a", icon: "bone" },
-    piercing: { colour: "#a0a0a0", icon: "locate" },
-    poison: { colour: "#8b008b", icon: "skull" },
-    psychic: { colour: "#ff69b4", icon: "brain" },
-    radiant: { colour: "#fffacd", icon: "sun" },
-    slashing: { colour: "#c0c0c0", icon: "sword" },
-    thunder: { colour: "#7b68ee", icon: "volume-2" },
+    acid: {
+        colour: "#dfff00",
+        fgColour: "#000000",
+        iconColour: "#c0e000",
+        icon: "flask-round",
+    },
+    bludgeoning: {
+        colour: "#808080",
+        fgColour: "#ffffff",
+        iconColour: "#a0a0a0",
+        icon: "hammer",
+    },
+    cold: {
+        colour: "#95e2fd",
+        fgColour: "#000000",
+        iconColour: "#5bcefa",
+        icon: "snowflake",
+    },
+    fire: {
+        colour: "#ffb800",
+        fgColour: "#000000",
+        iconColour: "#ffffaa",
+        icon: "flame",
+    },
+    force: {
+        colour: "#d0e8e8",
+        fgColour: "#000000",
+        iconColour: "#a8d0d0",
+        icon: "target",
+    },
+    lightning: {
+        colour: "#e8e0ff",
+        fgColour: "#000000",
+        iconColour: "#c8c0e0",
+        icon: "zap",
+    },
+    necrotic: {
+        colour: "#2a4a2a",
+        fgColour: "#ffffff",
+        iconColour: "#6e886e",
+        icon: "skull",
+    },
+    piercing: {
+        colour: "#808080",
+        fgColour: "#ffffff",
+        iconColour: "#a0a0a0",
+        iconScale: 0.8,
+        icon: "navigation-off",
+    },
+    poison: {
+        colour: "#8b9a00",
+        fgColour: "#000000",
+        iconColour: "#aebb40",
+        icon: "droplet",
+    },
+    psychic: {
+        colour: "#e8a0b0",
+        fgColour: "#000000",
+        iconColour: "#c080b0",
+        icon: "brain",
+    },
+    radiant: {
+        colour: "#fff5a0",
+        fgColour: "#000000",
+        iconColour: "#d4a000",
+        icon: "sparkle",
+    },
+    slashing: {
+        colour: "#808080",
+        fgColour: "#ffffff",
+        iconColour: "#a0a0a0",
+        icon: "sword",
+    },
+    thunder: {
+        colour: "#8b7355",
+        fgColour: "#ffffff",
+        iconColour: "#b3a086",
+        icon: "audio-lines",
+    },
 };
 
 function hashString(str: string): number {
@@ -36,9 +105,9 @@ function hashToColour(hash: number): string {
     return hslToHex(hue, saturation, lightness);
 }
 
-function hslToHex(h: number, s: number, l: number): string {
-    s /= 100;
-    l /= 100;
+function hslToHex(h: number, sPct: number, lPct: number): string {
+    const s = sPct / 100;
+    const l = lPct / 100;
     const a = s * Math.min(l, 1 - l);
     const f = (n: number) => {
         const k = (n + h / 30) % 12;

@@ -11,7 +11,7 @@ import { D4Texture } from "../textures/d4";
 import { Die, createDie } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
-const d4Texture = new D4Texture();
+const defaultTexture = new D4Texture();
 
 export class D4 extends Die {
     protected faceVertices = FACE_VERTICES;
@@ -27,16 +27,18 @@ export class D4 extends Die {
     }
 }
 
-export async function createD4(size = 1, texture?: THREE.Texture): Promise<D4> {
+export async function createD4(
+    size = 1,
+    texture: D4Texture = defaultTexture,
+): Promise<D4> {
     return createDie(
         D4,
         DIE_SCALE,
         VERTICES,
         FACES,
-        d4Texture,
+        texture,
         geometryCache,
         size,
-        texture,
         DIE_MASS,
         true,
     );

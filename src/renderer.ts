@@ -8,6 +8,7 @@ import { createD10, createD100 } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
+import { getLabelStyle } from "./labels";
 import {
     type Tray as PhysicsTray,
     TIME_STEP,
@@ -17,6 +18,13 @@ import {
     offsetToEdge,
     packDice,
 } from "./physics/tray";
+import { D4Texture } from "./textures/d4";
+import { D6Texture } from "./textures/d6";
+import { D8Texture } from "./textures/d8";
+import { D10Texture, DPercentileTexture } from "./textures/d10";
+import { D12Texture } from "./textures/d12";
+import { D20Texture } from "./textures/d20";
+import type { TextureOptions } from "./textures/dice";
 
 type RollState = {
     onSettle: () => void;
@@ -111,28 +119,32 @@ interface Roll {
     readResult(): number;
 }
 
-async function createRoll(sides: number): Promise<Roll> {
+async function createRoll(sides: number, options?: TextureOptions): Promise<Roll> {
     switch (sides) {
         case 4:
-            return await createD4();
+            return await createD4(1, options ? new D4Texture(options) : undefined);
         case 6:
-            return await createD6();
+            return await createD6(1, options ? new D6Texture(options) : undefined);
         case 8:
-            return await createD8();
+            return await createD8(1, options ? new D8Texture(options) : undefined);
         case 10:
-            return await createD10();
+            return await createD10(1, options ? new D10Texture(options) : undefined);
         case 12:
-            return await createD12();
+            return await createD12(1, options ? new D12Texture(options) : undefined);
         case 20:
-            return await createD20();
+            return await createD20(1, options ? new D20Texture(options) : undefined);
         case 100:
-            return await createD100();
+            return await createD100(
+                1,
+                options ? new D10Texture(options) : undefined,
+                options ? new DPercentileTexture(options) : undefined,
+            );
         default:
             throw new Error(`No geometry for d${sides}`);
     }
 }
 
-type DiceGroup = { count: number; sides: number };
+export type DiceGroup = { count: number; sides: number; label?: string };
 
 export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
     if (tray.debugDie.mesh) {
@@ -148,10 +160,21 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
     const dice: Die[] = [];
     const rolls: Roll[][] = [];
 
-    for (const { count, sides } of groups) {
+    for (const { count, sides, label } of groups) {
         const groupRolls: Roll[] = [];
+        let options: TextureOptions | undefined;
+        if (label) {
+            const style = getLabelStyle(label);
+            options = {
+                bgColour: style.colour,
+                fgColour: style.fgColour,
+                iconColour: style.iconColour,
+                iconScale: style.iconScale,
+                icon: style.icon,
+            };
+        }
         for (let i = 0; i < count; i++) {
-            const roll = await createRoll(sides);
+            const roll = await createRoll(sides, options);
             dice.push(...roll.dice);
             groupRolls.push(roll);
         }

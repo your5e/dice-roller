@@ -2,7 +2,8 @@ import * as THREE from "three";
 import type { DieFaces } from "../geometries/chamfer";
 import { edgeAngle, normalFromVertices, perpendicular } from "../geometry";
 import { DEG_TO_RAD } from "../geometry";
-import type { DieTexture, Point } from "./dice";
+import { drawIcon } from "../icons";
+import type { DieTexture, Point, TextureOptions } from "./dice";
 
 export type UnfoldData = { centre: Point; rotation: number };
 
@@ -274,6 +275,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 if (!data) continue;
                 const pts = data.points;
                 this.drawFaceBackground(ctx, face, pts);
+                this.drawFaceIcon(ctx, face, pts);
                 this.drawFaceNumerals(ctx, face, pts);
             }
         }
@@ -283,7 +285,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             face: number,
             pts: Point[],
         ): void {
-            ctx.fillStyle = this.faceColour;
+            ctx.fillStyle = this.faceColour ?? this.bgColour;
             ctx.beginPath();
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let i = 1; i < pts.length; i++) {
@@ -291,6 +293,26 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             }
             ctx.closePath();
             ctx.fill();
+        }
+
+        protected drawFaceIcon(
+            ctx: CanvasRenderingContext2D,
+            face: number,
+            pts: Point[],
+        ): void {
+            if (!this.icon) return;
+
+            const centreX = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+            const centreY = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+            const textRotation = this.getTextRotation(face, pts, centreX, centreY);
+            const faceH = this.getFaceHeight();
+            const iconSize = faceH * this.scale * 0.8 * this.getIconScale();
+
+            ctx.save();
+            ctx.translate(centreX, centreY);
+            ctx.rotate(textRotation);
+            drawIcon(ctx, this.icon, 0, 0, iconSize, this.getIconColour());
+            ctx.restore();
         }
 
         protected drawFaceNumerals(
@@ -319,8 +341,9 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 0,
                 fontPx,
                 this.fontFamily,
-                this.numberColour,
-                this.underlineColour,
+                this.numberColour ?? this.fgColour,
+                this.underlineColour ?? this.fgColour,
+                this.icon ? (this.faceColour ?? this.bgColour) : undefined,
             );
             ctx.restore();
         }

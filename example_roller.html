@@ -129,6 +129,20 @@
     <span class="roll" data-roll="8d6">fireball</span>
     <span class="roll" data-roll="fire:4d6 radiant:4d6">flame strike</span>
     <span class="roll" data-roll="bludgeoning:2d8 cold:4d6">ice storm</span>
+    <span class="roll" data-roll="acid:1d6 bludgeoning:1d6 cold:1d6 fire:1d6 force:1d6 lightning:1d6 necrotic:1d6 piercing:1d6 poison:1d6 psychic:1d6 radiant:1d6 slashing:1d6 thunder:1d6">all the damage</span>
+    <span class="roll" data-roll="acid:1d4 acid:1d6 acid:1d8 acid:1d10 acid:1d12 acid:1d20">acid</span>
+    <span class="roll" data-roll="bludgeoning:1d4 bludgeoning:1d6 bludgeoning:1d8 bludgeoning:1d10 bludgeoning:1d12 bludgeoning:1d20">bludgeoning</span>
+    <span class="roll" data-roll="cold:1d4 cold:1d6 cold:1d8 cold:1d10 cold:1d12 cold:1d20">cold</span>
+    <span class="roll" data-roll="fire:1d4 fire:1d6 fire:1d8 fire:1d10 fire:1d12 fire:1d20">fire</span>
+    <span class="roll" data-roll="force:1d4 force:1d6 force:1d8 force:1d10 force:1d12 force:1d20">force</span>
+    <span class="roll" data-roll="lightning:1d4 lightning:1d6 lightning:1d8 lightning:1d10 lightning:1d12 lightning:1d20">lightning</span>
+    <span class="roll" data-roll="necrotic:1d4 necrotic:1d6 necrotic:1d8 necrotic:1d10 necrotic:1d12 necrotic:1d20">necrotic</span>
+    <span class="roll" data-roll="piercing:1d4 piercing:1d6 piercing:1d8 piercing:1d10 piercing:1d12 piercing:1d20">piercing</span>
+    <span class="roll" data-roll="poison:1d4 poison:1d6 poison:1d8 poison:1d10 poison:1d12 poison:1d20">poison</span>
+    <span class="roll" data-roll="psychic:1d4 psychic:1d6 psychic:1d8 psychic:1d10 psychic:1d12 psychic:1d20">psychic</span>
+    <span class="roll" data-roll="radiant:1d4 radiant:1d6 radiant:1d8 radiant:1d10 radiant:1d12 radiant:1d20">radiant</span>
+    <span class="roll" data-roll="slashing:1d4 slashing:1d6 slashing:1d8 slashing:1d10 slashing:1d12 slashing:1d20">slashing</span>
+    <span class="roll" data-roll="thunder:1d4 thunder:1d6 thunder:1d8 thunder:1d10 thunder:1d12 thunder:1d20">thunder</span>
 
     <h2>Special Modifiers</h2>
     <span class="roll" data-roll="1d20rb2">halfling luck</span>
@@ -148,26 +162,46 @@
 
         function showResult(result) {
             console.log(result);
-            // Collect final dice for each expression
-            // A new expression starts when we see a XdY key
-            var finalDice = [];
+            // Collect final dice for each expression, grouped by label
+            var groupsByLabel = {};
+            var labelOrder = [];
+            var currentLabel = null;
             var lastDice = null;
             for (var i = 0; i < result.steps.length; i++) {
                 var key = Object.keys(result.steps[i])[0];
                 var values = result.steps[i][key];
-                if (/^\d+d\d+$/.test(key)) {
+                var match = key.match(/^(?:([^:]+):)?(\d+d\d+)$/);
+                if (match) {
                     // New expression starting - save previous if any
                     if (lastDice !== null) {
-                        finalDice = finalDice.concat(lastDice);
+                        var labelKey = currentLabel || '';
+                        if (!groupsByLabel[labelKey]) {
+                            groupsByLabel[labelKey] = [];
+                            labelOrder.push(labelKey);
+                        }
+                        groupsByLabel[labelKey] = groupsByLabel[labelKey].concat(lastDice);
                     }
+                    currentLabel = match[1] || null;
                 }
                 lastDice = values;
             }
             if (lastDice !== null) {
-                finalDice = finalDice.concat(lastDice);
+                var labelKey = currentLabel || '';
+                if (!groupsByLabel[labelKey]) {
+                    groupsByLabel[labelKey] = [];
+                    labelOrder.push(labelKey);
+                }
+                groupsByLabel[labelKey] = groupsByLabel[labelKey].concat(lastDice);
             }
+            // Format groups for display
+            var diceHtml = labelOrder.map(function(label) {
+                var dice = groupsByLabel[label];
+                var diceStr = dice.join('+');
+                var total = dice.reduce(function(sum, v) { return sum + v; }, 0);
+                return label ? label + ': ' + diceStr + ' = ' + total : diceStr;
+            }).join('<br>');
             modal.querySelector('.notation').textContent = result.notation;
-            modal.querySelector('.dice').textContent = finalDice.join(' + ');
+            modal.querySelector('.dice').innerHTML = diceHtml;
             modal.querySelector('.total').textContent = result.total;
             modal.classList.add('visible');
             clearTimeout(hideTimeout);

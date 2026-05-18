@@ -280,34 +280,20 @@ export class DebugDieController {
 
     private async createDieOfType(sides: DebugDieType): Promise<Die> {
         switch (sides) {
-            case 4: {
-                const texture = await new D4DebugTexture().createTexture();
-                return await createD4(1, texture);
-            }
-            case 6: {
-                const texture = await new D6DebugTexture().createTexture();
-                return await createD6(1, texture);
-            }
-            case 8: {
-                const texture = await new D8DebugTexture().createTexture();
-                return await createD8(1, texture);
-            }
-            case 10: {
-                const texture = await new D10DebugTexture().createTexture();
-                return await createD10(1, texture);
-            }
-            case 100: {
-                const texture = await new DPercentileDebugTexture().createTexture();
-                return await createPercentile(1, texture);
-            }
-            case 12: {
-                const texture = await new D12DebugTexture().createTexture();
-                return await createD12(1, texture);
-            }
-            case 20: {
-                const texture = await new D20DebugTexture().createTexture();
-                return await createD20(1, texture);
-            }
+            case 4:
+                return await createD4(1, new D4DebugTexture());
+            case 6:
+                return await createD6(1, new D6DebugTexture());
+            case 8:
+                return await createD8(1, new D8DebugTexture());
+            case 10:
+                return await createD10(1, new D10DebugTexture());
+            case 100:
+                return await createPercentile(1, new DPercentileDebugTexture());
+            case 12:
+                return await createD12(1, new D12DebugTexture());
+            case 20:
+                return await createD20(1, new D20DebugTexture());
         }
     }
 

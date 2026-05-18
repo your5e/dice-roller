@@ -1,14 +1,13 @@
 import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d6";
-import { DebugMixin, DieTexture, TemplateMixin } from "./dice";
+import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { Unfoldable } from "./unfold";
 
 export class D6Texture extends Unfoldable(DieTexture) {
     protected faces = FACES;
     protected vertices = VERTICES;
     protected faceVertices = FACE_VERTICES;
-    protected faceColour = "#cc3333";
-    protected stripColour = "#cc3333";
-    protected crownColour = "#cc3333";
+    protected bgColour = "#cc3333";
+    protected fgColour = "#ffffff";
 
     get startRotation(): number {
         return 0;
@@ -18,8 +17,9 @@ export class D6Texture extends Unfoldable(DieTexture) {
         return this.pixelDensity * Math.sqrt(2);
     }
 
-    constructor() {
+    constructor(options?: TextureOptions) {
         super();
+        if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
 }

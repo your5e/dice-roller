@@ -1,5 +1,6 @@
 import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d4";
-import { DebugMixin, DieTexture, TemplateMixin } from "./dice";
+import { drawIcon } from "../icons";
+import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import type { Point } from "./dice";
 import { Unfoldable } from "./unfold";
 
@@ -7,9 +8,8 @@ export class D4Texture extends Unfoldable(DieTexture) {
     protected faces = FACES;
     protected vertices = VERTICES;
     protected faceVertices = FACE_VERTICES;
-    protected faceColour = "#33aa55";
-    protected stripColour = "#33aa55";
-    protected crownColour = "#33aa55";
+    protected bgColour = "#2d9449";
+    protected fgColour = "#ffffff";
 
     get startRotation(): number {
         return 0;
@@ -22,6 +22,33 @@ export class D4Texture extends Unfoldable(DieTexture) {
     // triangles taper towards the apex, so the text appears over-scaled
     protected override getShapeFontScale(): number {
         return 0.75;
+    }
+
+    protected override getIconScale(): number {
+        return 0.5 * (this.iconScale ?? 1);
+    }
+
+    protected drawFaceIcon(
+        ctx: CanvasRenderingContext2D,
+        face: number,
+        points: Point[],
+    ): void {
+        if (!this.icon) return;
+
+        const centreX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+        const centreY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+        const faceData = this.faces.find((f) => f.value === face);
+        const apexIdx = (faceData?.stance ?? 0) + 2;
+        const apex = points[apexIdx % points.length];
+        const rotation = Math.atan2(apex.y - centreY, apex.x - centreX) + Math.PI / 2;
+        const faceH = this.getFaceHeight();
+        const iconSize = faceH * this.pixelDensity * 0.8 * this.getIconScale();
+
+        ctx.save();
+        ctx.translate(centreX, centreY);
+        ctx.rotate(rotation);
+        drawIcon(ctx, this.icon, 0, 0, iconSize, this.getIconColour());
+        ctx.restore();
     }
 
     // a traditional d4 each face has three numbers, as they point to the apex
@@ -56,8 +83,9 @@ export class D4Texture extends Unfoldable(DieTexture) {
                 0,
                 fontPx,
                 this.fontFamily,
-                this.numberColour,
-                this.underlineColour,
+                this.numberColour ?? this.fgColour,
+                this.underlineColour ?? this.fgColour,
+                this.icon ? (this.faceColour ?? this.bgColour) : undefined,
             );
             ctx.restore();
         }
@@ -75,8 +103,9 @@ export class D4Texture extends Unfoldable(DieTexture) {
         throw new Error(`No opposite face found for vertex ${vertexIndex}`);
     }
 
-    constructor() {
+    constructor(options?: TextureOptions) {
         super();
+        if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
 }

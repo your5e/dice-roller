@@ -2,6 +2,19 @@ import * as THREE from "three";
 import { CHAMFER } from "../geometries/chamfer";
 import { perpendicular } from "../geometry";
 
+export type TextureOptions = {
+    bgColour?: string;
+    fgColour?: string;
+    faceColour?: string;
+    stripColour?: string;
+    crownColour?: string;
+    numberColour?: string;
+    underlineColour?: string;
+    icon?: string;
+    iconColour?: string;
+    iconScale?: number;
+};
+
 export type Point = { x: number; y: number };
 export type UV = { u: number; v: number };
 
@@ -44,12 +57,15 @@ const DEBUG_COLOURS: { hex: string; name: string }[] = [
 export abstract class DieTexture {
     protected abstract faceVertices: Record<number, number[]>;
     protected abstract faces: { value: number }[];
-    protected abstract faceColour: string;
-    protected abstract stripColour: string;
-    protected abstract crownColour: string;
     protected abstract get edgeLength(): number;
-    protected numberColour = "#ffffff";
-    protected underlineColour = "#ffffff";
+    protected abstract bgColour: string;
+    protected abstract fgColour: string;
+    protected faceColour?: string;
+    protected stripColour?: string;
+    protected crownColour?: string;
+    protected numberColour?: string;
+    protected underlineColour?: string;
+    protected iconColour?: string;
     protected fontFamily = "Varela Round, sans-serif";
     protected fontWeight = 400;
     protected fontSize = 1.2;
@@ -59,6 +75,8 @@ export abstract class DieTexture {
     private textureCache: { current: THREE.CanvasTexture | null } = { current: null };
     public width = 0;
     public height = 0;
+    protected icon?: string;
+    protected iconScale?: number;
 
     protected get pixelDensity(): number {
         return 100;
@@ -356,7 +374,7 @@ export abstract class DieTexture {
     protected drawStrips(ctx: CanvasRenderingContext2D): void {
         for (const data of this.stripData.values()) {
             const [p1, p2, p3, p4] = data.points;
-            ctx.fillStyle = this.stripColour;
+            ctx.fillStyle = this.stripColour ?? this.bgColour;
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
@@ -369,7 +387,7 @@ export abstract class DieTexture {
 
     protected drawCrowns(ctx: CanvasRenderingContext2D): void {
         for (const data of this.crownData.values()) {
-            ctx.fillStyle = this.crownColour;
+            ctx.fillStyle = this.crownColour ?? this.bgColour;
             ctx.beginPath();
             ctx.moveTo(data.points[0].x, data.points[0].y);
             for (let i = 1; i < data.points.length; i++) {
@@ -393,12 +411,23 @@ export abstract class DieTexture {
         fontFamily: string,
         colour: string,
         underlineColour: string,
+        outlineColour?: string,
     ): void {
         const valueStr = this.getFaceLabel(value);
-        ctx.fillStyle = colour;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.font = `${this.fontWeight} ${fontPx}px ${fontFamily}`;
+
+        const drawChar = (ch: string, cx: number) => {
+            if (outlineColour) {
+                ctx.strokeStyle = outlineColour;
+                ctx.lineWidth = fontPx * 0.08;
+                ctx.lineJoin = "round";
+                ctx.strokeText(ch, cx, y);
+            }
+            ctx.fillStyle = colour;
+            ctx.fillText(ch, cx, y);
+        };
 
         if (valueStr.length > 1) {
             // tighten double-digit faces manually as the CSS property doesn't do it
@@ -408,11 +437,11 @@ export abstract class DieTexture {
             let offsetX = x - totalWidth / 2;
             for (const ch of valueStr) {
                 offsetX += ctx.measureText(ch).width / 2;
-                ctx.fillText(ch, offsetX, y);
+                drawChar(ch, offsetX);
                 offsetX += ctx.measureText(ch).width / 2 + letterSpacing;
             }
         } else {
-            ctx.fillText(valueStr, x, y);
+            drawChar(valueStr, x);
         }
 
         // underline 6 and 9 to distinguish them
@@ -454,6 +483,14 @@ export abstract class DieTexture {
     protected getShapeFontScale(): number {
         return 1.0;
     }
+
+    protected getIconScale(): number {
+        return 1.0 * (this.iconScale ?? 1);
+    }
+
+    protected getIconColour(): string {
+        return this.iconColour ?? this.fgColour;
+    }
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: mixin pattern requires any
@@ -462,11 +499,10 @@ type DieTextureConstructor = new (...args: any[]) => DieTexture;
 export function TemplateMixin<T extends DieTextureConstructor>(Base: T) {
     // @ts-expect-error: mixin applied to concrete subclass, not abstract base
     return class extends Base {
-        protected faceColour = "#ffffff";
+        protected bgColour = "#ffffff";
+        protected fgColour = "#e8e8e8";
         protected stripColour = "#f8f8f8";
         protected crownColour = "#f0f0f0";
-        protected numberColour = "#e8e8e8";
-        protected underlineColour = "#e8e8e8";
     };
 }
 
@@ -476,11 +512,10 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
         protected override get pixelDensity(): number {
             return 200;
         }
-        protected faceColour = "#f0f0f0";
+        protected bgColour = "#f0f0f0";
+        protected fgColour = "#000000";
         protected stripColour = "#ffffff";
         protected crownColour = "#ffffff";
-        protected numberColour = "#000000";
-        protected underlineColour = "#000000";
         protected fontFamily =
             "Inter, Roboto, 'Helvetica Neue', 'Arial Nova', 'Nimbus Sans', Arial, sans-serif";
         protected fontWeight = 200;

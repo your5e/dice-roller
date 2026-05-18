@@ -1,15 +1,14 @@
 import { FACES, FACE_VERTICES, VERTICES } from "../bodies/d12";
 import { DEG_TO_RAD } from "../geometry";
-import { DebugMixin, DieTexture, TemplateMixin } from "./dice";
+import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { Unfoldable } from "./unfold";
 
 export class D12Texture extends Unfoldable(DieTexture) {
     protected faces = FACES;
     protected vertices = VERTICES;
     protected faceVertices = FACE_VERTICES;
-    protected faceColour = "#e6b800";
-    protected stripColour = "#e6b800";
-    protected crownColour = "#e6b800";
+    protected bgColour = "#e6b800";
+    protected fgColour = "#1a1a1a";
 
     // this puts the first flower horizontal, not the first face
     get startRotation(): number {
@@ -20,8 +19,13 @@ export class D12Texture extends Unfoldable(DieTexture) {
         return this.pixelDensity * 2 * Math.sin(36 * DEG_TO_RAD);
     }
 
-    constructor() {
+    protected override getIconScale(): number {
+        return 0.9 * (this.iconScale ?? 1);
+    }
+
+    constructor(options?: TextureOptions) {
         super();
+        if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
 }

@@ -1,5 +1,4 @@
 import { performance } from "node:perf_hooks";
-import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { createD4 } from "../src/geometries/d4";
 import { createD6 } from "../src/geometries/d6";
@@ -24,8 +23,6 @@ const CHI_SQUARED_CRITICAL: Record<number, number> = {
     19: 36.191,
 };
 
-const mockTexture = new THREE.Texture();
-
 const ROLLS = 10_000;
 
 function chiSquared(observed: number[], expected: number): number {
@@ -33,13 +30,13 @@ function chiSquared(observed: number[], expected: number): number {
 }
 
 const dice: { name: string; create: () => Promise<Die> }[] = [
-    { name: "d4", create: () => createD4(1, mockTexture) },
-    { name: "d6", create: () => createD6(1, mockTexture) },
-    { name: "d8", create: () => createD8(1, mockTexture) },
-    { name: "d10", create: () => createD10(1, mockTexture) },
-    { name: "d12", create: () => createD12(1, mockTexture) },
-    { name: "d20", create: () => createD20(1, mockTexture) },
-    { name: "d%", create: () => createPercentile(1, mockTexture) },
+    { name: "d4", create: () => createD4(1) },
+    { name: "d6", create: () => createD6(1) },
+    { name: "d8", create: () => createD8(1) },
+    { name: "d10", create: () => createD10(1) },
+    { name: "d12", create: () => createD12(1) },
+    { name: "d20", create: () => createD20(1) },
+    { name: "d%", create: () => createPercentile(1) },
 ];
 
 describe("Monte Carlo method fairness", () => {

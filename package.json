@@ -3,8 +3,8 @@
     "version": "0.1.0",
     "type": "module",
     "scripts": {
-        "test": "vitest run",
-        "build": "esbuild src/index.ts --bundle --format=iife --global-name=DiceRoller --outfile=dist/dice-roller.js"
+        "build": "tsx scripts/build.ts",
+        "test": "vitest run"
     },
     "dependencies": {
         "cannon-es": "^0.20.0",

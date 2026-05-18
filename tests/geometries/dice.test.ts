@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createD4 } from "../../src/geometries/d4";
 import { createD6 } from "../../src/geometries/d6";
 import { createD8 } from "../../src/geometries/d8";
@@ -8,43 +8,6 @@ import { createD12 } from "../../src/geometries/d12";
 import { createD20 } from "../../src/geometries/d20";
 import type { Die } from "../../src/geometries/dice";
 import { normalFromVertices } from "../../src/geometry";
-
-// Mock canvas for texture creation in d20
-beforeEach(() => {
-    const mockContext = {
-        fillStyle: "",
-        strokeStyle: "",
-        lineWidth: 0,
-        textAlign: "",
-        textBaseline: "",
-        font: "",
-        letterSpacing: "",
-        beginPath: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        closePath: vi.fn(),
-        fill: vi.fn(),
-        stroke: vi.fn(),
-        save: vi.fn(),
-        restore: vi.fn(),
-        translate: vi.fn(),
-        rotate: vi.fn(),
-        fillText: vi.fn(),
-        roundRect: vi.fn(),
-        measureText: vi.fn(() => ({ width: 10 })),
-    };
-
-    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
-        if (tagName === "canvas") {
-            return {
-                width: 0,
-                height: 0,
-                getContext: () => mockContext,
-            } as unknown as HTMLCanvasElement;
-        }
-        return document.createElement(tagName);
-    });
-});
 
 function assertTrianglesWoundOutward(die: Die) {
     const geometry = die.mesh.geometry;
@@ -79,65 +42,58 @@ function assertTrianglesWoundOutward(die: Die) {
 
 describe("dice geometries", () => {
     it("d4 has all triangles wound outward", async () => {
-        const texture = new THREE.Texture();
-        assertTrianglesWoundOutward(await createD4(0.5, texture));
+        assertTrianglesWoundOutward(await createD4(0.5));
     });
 
     it("d6 has all triangles wound outward", async () => {
-        const texture = new THREE.Texture();
-        assertTrianglesWoundOutward(await createD6(0.5, texture));
+        assertTrianglesWoundOutward(await createD6(0.5));
     });
 
     it("d8 has all triangles wound outward", async () => {
-        const texture = new THREE.Texture();
-        assertTrianglesWoundOutward(await createD8(0.5, texture));
+        assertTrianglesWoundOutward(await createD8(0.5));
     });
 
     it("d10 has all triangles wound outward", async () => {
-        const texture = new THREE.Texture();
-        assertTrianglesWoundOutward(await createD10(0.5, texture));
+        assertTrianglesWoundOutward(await createD10(0.5));
     });
 
     it("d12 has all triangles wound outward", async () => {
-        const texture = new THREE.Texture();
-        assertTrianglesWoundOutward(await createD12(0.5, texture));
+        assertTrianglesWoundOutward(await createD12(0.5));
     });
 
     it("d20 has all triangles wound outward", async () => {
-        const texture = new THREE.Texture();
-        assertTrianglesWoundOutward(await createD20(0.5, texture));
+        assertTrianglesWoundOutward(await createD20(0.5));
     });
-
 });
 
 describe("dice default orientations", () => {
     it("d4 has a default orientation", async () => {
-        const die = await createD4(0.5, new THREE.Texture());
+        const die = await createD4(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
     });
 
     it("d6 has a default orientation", async () => {
-        const die = await createD6(0.5, new THREE.Texture());
+        const die = await createD6(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
     });
 
     it("d8 has a default orientation", async () => {
-        const die = await createD8(0.5, new THREE.Texture());
+        const die = await createD8(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
     });
 
     it("d10 has a default orientation", async () => {
-        const die = await createD10(0.5, new THREE.Texture());
+        const die = await createD10(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
     });
 
     it("d12 has a default orientation", async () => {
-        const die = await createD12(0.5, new THREE.Texture());
+        const die = await createD12(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
     });
 
     it("d20 has a default orientation", async () => {
-        const die = await createD20(0.5, new THREE.Texture());
+        const die = await createD20(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
     });
 
