@@ -28,7 +28,7 @@ export const FACES: DieFaces = [
 
     // petals of the first flower
     { value: 11, vertices: [12, 0, 8, 4, 14], stance: 1, adjacent: 1 },
-    { value: 7, vertices: [17, 2, 10, 11, 3], stance: 3, adjacent: 1 },
+    { value: 7, vertices: [17, 2, 10, 11, 3], stance: 0, adjacent: 1 },
     { value: 3, vertices: [0, 16, 1, 9, 8], stance: 4, adjacent: 1 },
     { value: 9, vertices: [10, 2, 12, 14, 6], stance: 0, adjacent: 1 },
 

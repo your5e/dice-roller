@@ -20,22 +20,22 @@ export const FACES: DieFaces = [
     { value: 1, vertices: [0, 10, 2], stance: 0 },
     { value: 19, vertices: [0, 6, 10], stance: 0 },
     { value: 11, vertices: [6, 11, 10], stance: 0 },
-    { value: 5, vertices: [1, 11, 6], stance: 0 },
+    { value: 5, vertices: [1, 11, 6], stance: 2 },
 
     { value: 15, vertices: [7, 10, 11], stance: 0 },
-    { value: 17, vertices: [2, 10, 7], stance: 0 },
+    { value: 17, vertices: [2, 10, 7], stance: 2 },
     { value: 9, vertices: [3, 7, 11], stance: 0 },
-    { value: 13, vertices: [1, 3, 11], stance: 0 },
+    { value: 13, vertices: [1, 3, 11], stance: 2 },
 
     { value: 7, vertices: [3, 5, 7], stance: 0 },
-    { value: 18, vertices: [2, 7, 5], stance: 0 },
+    { value: 18, vertices: [2, 7, 5], stance: 1 },
     { value: 2, vertices: [3, 9, 5], stance: 0 },
-    { value: 20, vertices: [1, 9, 3], stance: 0 },
+    { value: 20, vertices: [1, 9, 3], stance: 1 },
 
     { value: 10, vertices: [5, 9, 8], stance: 0 },
     { value: 16, vertices: [2, 5, 8], stance: 0 },
     { value: 6, vertices: [4, 8, 9], stance: 0 },
-    { value: 4, vertices: [1, 4, 9], stance: 0 },
+    { value: 4, vertices: [1, 4, 9], stance: 2 },
 
     { value: 12, vertices: [0, 8, 4], stance: 0 },
     { value: 14, vertices: [0, 4, 6], stance: 0 },

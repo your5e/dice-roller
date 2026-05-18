@@ -21,11 +21,11 @@ export const FACES: DieFaces = [
     { value: 1, vertices: [0, 1, 2], stance: 0 },
     { value: 6, vertices: [5, 2, 1], stance: 0 },
     { value: 5, vertices: [5, 3, 2], stance: 0 },
-    { value: 2, vertices: [0, 2, 3], stance: 0 },
-    { value: 4, vertices: [0, 4, 1], stance: 0 },
-    { value: 7, vertices: [5, 1, 4], stance: 0 },
-    { value: 8, vertices: [5, 4, 3], stance: 0 },
-    { value: 3, vertices: [0, 3, 4], stance: 0 },
+    { value: 2, vertices: [0, 2, 3], stance: 1 },
+    { value: 4, vertices: [0, 4, 1], stance: 1 },
+    { value: 7, vertices: [5, 1, 4], stance: 2 },
+    { value: 8, vertices: [5, 4, 3], stance: 1 },
+    { value: 3, vertices: [0, 3, 4], stance: 2 },
 ];
 
 export const FACE_VERTICES: Record<number, number[]> = Object.fromEntries(
