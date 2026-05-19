@@ -10,7 +10,7 @@ export type PhysicsDie = {
     readFace: () => number;
 };
 
-const DEFAULT_MASS = 1;
+const DEFAULT_MASS = 0.1;
 
 export function createDieBody(
     vertices: THREE.Vector3[],
@@ -31,7 +31,7 @@ export function createDieBody(
         shape,
         material: diceMaterial,
         linearDamping: 0.3, // scale: 0 = vacuum, 0.3 = air, 1.0 = honey
-        angularDamping: 0.3,
+        angularDamping: 0.5,
         allowSleep: true,
         sleepSpeedLimit: 0.05,
         sleepTimeLimit: 0.1,

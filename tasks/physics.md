@@ -8,7 +8,8 @@ simulation.
 - [X] renderer integration: visualise the roll in the tray, report result when settled
 - [X] "throw" dice into the tray from the side, not drop from above
 - [X] align the tray to the available space in the web page
-- [ ] portrait rolling for mobile
+- [X] portrait rolling for mobile
+- [X] improve the mass of the dice, they seem a bit soft
 - [ ] allow mouse/finger swipe to control throw direction and force
 - [ ] detect cocked dice (no face sufficiently horizontal) and reroll them
 - [ ] dropped dice go away (how?)

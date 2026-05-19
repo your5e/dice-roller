@@ -12,7 +12,8 @@ export const TIME_STEP = 1 / 60;
 const MAX_SIMULATION_TIME = 10;
 
 export const diceMaterial = new CANNON.Material("dice");
-const trayMaterial = new CANNON.Material("tray");
+const floorMaterial = new CANNON.Material("floor");
+const wallMaterial = new CANNON.Material("wall");
 
 export function isSettled(die: PhysicsDie): boolean {
     const speed = die.body.velocity.length();
@@ -78,11 +79,8 @@ export function packDice(dice: PhysicsDie[], world: CANNON.World): void {
     }
 }
 
-export function offsetToEdge(
-    dice: PhysicsDie[],
-    halfWidth: number,
-    fromLeft: boolean,
-): void {
+export function offsetToEdge(dice: PhysicsDie[], tray: Tray, whichSide: boolean): void {
+    const isPortrait = tray.halfDepth > tray.halfWidth;
     let minX = Number.POSITIVE_INFINITY;
     let maxX = Number.NEGATIVE_INFINITY;
     let minZ = Number.POSITIVE_INFINITY;
@@ -97,8 +95,19 @@ export function offsetToEdge(
         maxZ = Math.max(maxZ, pos.z + r);
     }
 
-    const offsetX = fromLeft ? -halfWidth - minX + 0.2 : halfWidth - maxX - 0.2;
-    const offsetZ = -(minZ + maxZ) / 2;
+    let offsetX: number;
+    let offsetZ: number;
+    if (isPortrait) {
+        offsetX = -(minX + maxX) / 2;
+        offsetZ = whichSide
+            ? tray.halfDepth - maxZ - 0.2
+            : -tray.halfDepth - minZ + 0.2;
+    } else {
+        offsetX = whichSide
+            ? -tray.halfWidth - minX + 0.2
+            : tray.halfWidth - maxX - 0.2;
+        offsetZ = -(minZ + maxZ) / 2;
+    }
 
     for (const die of dice) {
         const pos = die.body.position;
@@ -108,12 +117,27 @@ export function offsetToEdge(
 
 export function applyThrowVelocity(
     die: PhysicsDie,
-    fromLeft: boolean,
-    halfWidth: number,
+    tray: Tray,
+    whichSide: boolean,
 ): void {
-    const baseAngle = fromLeft ? 0 : Math.PI;
+    const isPortrait = tray.halfDepth > tray.halfWidth;
+    const baseAngle = isPortrait
+        ? whichSide
+            ? -Math.PI / 2
+            : Math.PI / 2
+        : whichSide
+          ? 0
+          : Math.PI;
     const throwAngle = baseAngle + (Math.random() - 0.5) * (Math.PI / 2);
-    const throwSpeed = (2 + Math.random() * 12) * (halfWidth / 6);
+
+    // Calculate distance to far wall, use it to determine throw speed
+    const pos = die.body.position;
+    const distance = isPortrait
+        ? Math.abs((whichSide ? -tray.halfDepth : tray.halfDepth) - pos.z)
+        : Math.abs((whichSide ? tray.halfWidth : -tray.halfWidth) - pos.x);
+    const k = 1.5;
+    const perturbation = 0.8 + Math.random() * 0.4;
+    const throwSpeed = k * distance * perturbation;
 
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,
@@ -136,7 +160,7 @@ export type Tray = {
 
 export function createTray(halfWidth: number, halfDepth: number): Tray {
     const world = new CANNON.World({
-        gravity: new CANNON.Vec3(0, -9.82, 0),
+        gravity: new CANNON.Vec3(0, -20, 0),
         allowSleep: true,
     });
     const solver = new CANNON.SplitSolver(new CANNON.GSSolver());
@@ -146,9 +170,15 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     // friction: 0 = ice, 0.5 = wood, 1.0 = rubber
     // restitution: 0 = clay, 0.5 = wood, 1.0 = superball
     world.addContactMaterial(
-        new CANNON.ContactMaterial(trayMaterial, diceMaterial, {
+        new CANNON.ContactMaterial(floorMaterial, diceMaterial, {
             friction: 0.5,
             restitution: 0.3,
+        }),
+    );
+    world.addContactMaterial(
+        new CANNON.ContactMaterial(wallMaterial, diceMaterial, {
+            friction: 0.3,
+            restitution: 0.8,
         }),
     );
     world.addContactMaterial(
@@ -161,7 +191,7 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     const groundBody = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: new CANNON.Plane(),
-        material: trayMaterial,
+        material: floorMaterial,
     });
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     world.addBody(groundBody);
@@ -176,7 +206,7 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     const leftWall = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: verticalWallShape,
-        material: trayMaterial,
+        material: wallMaterial,
     });
     leftWall.position.set(-halfWidth - WALL_THICKNESS, TRAY_WALL_HEIGHT, 0);
     world.addBody(leftWall);
@@ -184,7 +214,7 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     const rightWall = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: verticalWallShape,
-        material: trayMaterial,
+        material: wallMaterial,
     });
     rightWall.position.set(halfWidth + WALL_THICKNESS, TRAY_WALL_HEIGHT, 0);
     world.addBody(rightWall);
@@ -192,7 +222,7 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     const backWall = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: horizontalWallShape,
-        material: trayMaterial,
+        material: wallMaterial,
     });
     backWall.position.set(0, TRAY_WALL_HEIGHT, -halfDepth - WALL_THICKNESS);
     world.addBody(backWall);
@@ -200,7 +230,7 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     const frontWall = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: horizontalWallShape,
-        material: trayMaterial,
+        material: wallMaterial,
     });
     frontWall.position.set(0, TRAY_WALL_HEIGHT, halfDepth + WALL_THICKNESS);
     world.addBody(frontWall);
@@ -213,13 +243,14 @@ export type RollOptions = {
 };
 
 export function roll(tray: Tray, dice: PhysicsDie[], options?: RollOptions): number[] {
-    const { world, halfWidth } = tray;
-    const fromLeft = Math.random() < 0.5;
+    const { world } = tray;
+    const whichSide = Math.random() < 0.5;
 
     packDice(dice, world);
-    offsetToEdge(dice, halfWidth, fromLeft);
+    offsetToEdge(dice, tray, whichSide);
+
     for (const die of dice) {
-        applyThrowVelocity(die, fromLeft, halfWidth);
+        applyThrowVelocity(die, tray, whichSide);
         world.addBody(die.body);
     }
 

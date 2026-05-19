@@ -185,7 +185,7 @@ function clearTray(tray: TrayState): void {
 export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
     clearTray(tray);
 
-    const fromLeft = Math.random() < 0.5;
+    const whichSide = Math.random() < 0.5;
     const dice: Die[] = [];
     const rolls: Roll[][] = [];
 
@@ -222,7 +222,9 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
     while (true) {
         const allFit = dice.every((die) => {
             const pos = die.physics.body.position;
-            return Math.abs(pos.x) + 1 <= halfWidth && Math.abs(pos.z) + 1 <= halfDepth;
+            return (
+                Math.abs(pos.x) + 1 <= halfWidth / 2 && Math.abs(pos.z) + 1 <= halfDepth
+            );
         });
         if (allFit) break;
         size += 1;
@@ -232,8 +234,8 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
 
     offsetToEdge(
         dice.map((d) => d.physics),
-        halfWidth,
-        fromLeft,
+        tray.physicsTray,
+        whichSide,
     );
 
     for (const die of dice) {
@@ -245,7 +247,7 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
     tray.dice = dice;
 
     for (const die of dice) {
-        applyThrowVelocity(die.physics, fromLeft, tray.physicsTray.halfWidth);
+        applyThrowVelocity(die.physics, tray.physicsTray, whichSide);
     }
 
     return new Promise((resolve) => {

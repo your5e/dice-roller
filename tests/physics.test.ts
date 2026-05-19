@@ -180,7 +180,7 @@ describe("Throw behaviour", () => {
         const die = await createD6(0.5);
 
         packDice([die.physics], tray.world);
-        offsetToEdge([die.physics], halfWidth, true);
+        offsetToEdge([die.physics], tray, true);
 
         const r = (die.physics.body.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
         const x = die.physics.body.position.x;
@@ -193,7 +193,7 @@ describe("Throw behaviour", () => {
         const die = await createD6(0.5);
 
         packDice([die.physics], tray.world);
-        offsetToEdge([die.physics], halfWidth, false);
+        offsetToEdge([die.physics], tray, false);
 
         const r = (die.physics.body.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
         const x = die.physics.body.position.x;
@@ -202,9 +202,10 @@ describe("Throw behaviour", () => {
 
     it("dice are thrown towards positive X from left", async () => {
         const halfWidth = 5;
+        const tray = createTray(halfWidth, 5);
         const die = await createD6(0.5);
 
-        applyThrowVelocity(die.physics, true, halfWidth);
+        applyThrowVelocity(die.physics, tray, true);
 
         const vx = die.physics.body.velocity.x;
         expect(vx, "die should be moving towards positive X").toBeGreaterThan(0);
@@ -212,9 +213,10 @@ describe("Throw behaviour", () => {
 
     it("dice are thrown towards negative X from right", async () => {
         const halfWidth = 5;
+        const tray = createTray(halfWidth, 5);
         const die = await createD6(0.5);
 
-        applyThrowVelocity(die.physics, false, halfWidth);
+        applyThrowVelocity(die.physics, tray, false);
 
         const vx = die.physics.body.velocity.x;
         expect(vx, "die should be moving towards negative X").toBeLessThan(0);
@@ -335,7 +337,7 @@ describe("Dice positioning", () => {
                 ...Array.from({ length: 12 }, () => createD12(0.5)),
             ]);
             packDice(dice.map((d) => d.physics), tray.world);
-            offsetToEdge(dice.map((d) => d.physics), halfWidth, true);
+            offsetToEdge(dice.map((d) => d.physics), tray, true);
 
             for (const [i, die] of dice.entries()) {
                 const pos = getPosition(die);
@@ -356,7 +358,7 @@ describe("Dice positioning", () => {
                 ...Array.from({ length: 12 }, () => createD12(0.5)),
             ]);
             packDice(dice.map((d) => d.physics), tray.world);
-            offsetToEdge(dice.map((d) => d.physics), halfWidth, false);
+            offsetToEdge(dice.map((d) => d.physics), tray, false);
 
             for (const [i, die] of dice.entries()) {
                 const pos = getPosition(die);
@@ -375,7 +377,7 @@ describe("Dice positioning", () => {
             const tray = createTray(halfWidth, 5);
             const dice = await Promise.all(Array.from({ length: 10 }, () => createD6(0.5)));
             packDice(dice.map((d) => d.physics), tray.world);
-            offsetToEdge(dice.map((d) => d.physics), halfWidth, true);
+            offsetToEdge(dice.map((d) => d.physics), tray, true);
 
             const positions = dice.map(getPosition);
             const avgX = positions.reduce((sum, p) => sum + p.x, 0) / positions.length;
@@ -388,12 +390,40 @@ describe("Dice positioning", () => {
             const tray = createTray(halfWidth, 5);
             const dice = await Promise.all(Array.from({ length: 10 }, () => createD6(0.5)));
             packDice(dice.map((d) => d.physics), tray.world);
-            offsetToEdge(dice.map((d) => d.physics), halfWidth, false);
+            offsetToEdge(dice.map((d) => d.physics), tray, false);
 
             const positions = dice.map(getPosition);
             const avgX = positions.reduce((sum, p) => sum + p.x, 0) / positions.length;
 
             expect(avgX, "cluster should be in right half").toBeGreaterThan(0);
+        });
+
+        it("no die starts past the midpoint when thrown from left", async () => {
+            const halfWidth = 10;
+            const tray = createTray(halfWidth, 10);
+            const dice = await Promise.all(Array.from({ length: 10 }, () => createD6(0.5)));
+            packDice(dice.map((d) => d.physics), tray.world);
+            offsetToEdge(dice.map((d) => d.physics), tray, true);
+
+            for (const [i, die] of dice.entries()) {
+                const pos = getPosition(die);
+                const r = getBoundingRadius(die);
+                expect(pos.x + r, `die ${i} extends past midpoint`).toBeLessThan(0);
+            }
+        });
+
+        it("no die starts past the midpoint when thrown from right", async () => {
+            const halfWidth = 10;
+            const tray = createTray(halfWidth, 10);
+            const dice = await Promise.all(Array.from({ length: 10 }, () => createD6(0.5)));
+            packDice(dice.map((d) => d.physics), tray.world);
+            offsetToEdge(dice.map((d) => d.physics), tray, false);
+
+            for (const [i, die] of dice.entries()) {
+                const pos = getPosition(die);
+                const r = getBoundingRadius(die);
+                expect(pos.x - r, `die ${i} extends past midpoint`).toBeGreaterThan(0);
+            }
         });
     });
 
