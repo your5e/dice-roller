@@ -11,8 +11,7 @@ simulation.
 - [X] portrait rolling for mobile
 - [X] improve the mass of the dice, they seem a bit soft
 - [ ] allow mouse/finger swipe to control throw direction and force
-- [ ] detect cocked dice (no face sufficiently horizontal) and reroll them
+- [X] detect cocked dice (no face sufficiently horizontal) and reroll them
 - [ ] dropped dice go away (how?)
-- [ ] rerolled dice get actually rerolled
-        - no established die gets changed as a result
+- [X] rerolled dice get actually rerolled
 - [X] monte carlo fairness test

@@ -2,9 +2,11 @@ import * as CANNON from "cannon-es";
 import { describe, expect, it } from "vitest";
 import { createD6 } from "../src/geometries/d6";
 import { createD12 } from "../src/geometries/d12";
+import { createD20 } from "../src/geometries/d20";
 import {
-    applyThrowVelocity,
+    applyFullThrow,
     boundingSpheresOverlap,
+    COCKED_THRESHOLD,
     createTray,
     offsetToEdge,
     packDice,
@@ -57,6 +59,29 @@ describe("d6 body", () => {
     });
 });
 
+describe("Cocked dice detection", () => {
+    const thresholdAngle = Math.acos(COCKED_THRESHOLD);
+    const delta = Math.PI / 180; // 1°
+
+    it("flat die is not cocked", async () => {
+        const die = await createD6(0.5);
+        die.physics.body.quaternion.set(0, 0, 0, 1);
+        expect(die.physics.isCocked(COCKED_THRESHOLD)).toBe(false);
+    });
+
+    it("mostly flat die is not cocked", async () => {
+        const die = await createD6(0.5);
+        die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), thresholdAngle - delta);
+        expect(die.physics.isCocked(COCKED_THRESHOLD)).toBe(false);
+    });
+
+    it("die just past threshold is cocked", async () => {
+        const die = await createD6(0.5);
+        die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), thresholdAngle + delta);
+        expect(die.physics.isCocked(COCKED_THRESHOLD)).toBe(true);
+    });
+});
+
 describe("Tray", () => {
     it("returns a valid face value when a die settles", async () => {
         const tray = createTray(5, 5);
@@ -65,7 +90,7 @@ describe("Tray", () => {
         packDice([die.physics]);
         const result = await simulateThrow(tray, [die.physics]).result;
 
-        expect(result).toEqual({ faces: [expect.any(Number)] });
+        expect(result).toEqual({ faces: [expect.any(Number)], rerollCount: expect.any(Number) });
         if ("faces" in result) {
             expect(result.faces[0]).toBeGreaterThanOrEqual(1);
             expect(result.faces[0]).toBeLessThanOrEqual(6);
@@ -83,6 +108,7 @@ describe("Tray", () => {
 
         expect(result).toEqual({
             faces: [expect.any(Number), expect.any(Number), expect.any(Number)],
+            rerollCount: expect.any(Number),
         });
         if ("faces" in result) {
             for (const face of result.faces) {
@@ -201,7 +227,7 @@ describe("Throw behaviour", () => {
         const tray = createTray(halfWidth, 5);
         const die = await createD6(0.5);
 
-        applyThrowVelocity(die.physics, tray, true, 0, 1);
+        applyFullThrow(die.physics, tray, true, 0, 1);
 
         const vx = die.physics.body.velocity.x;
         expect(vx, "die should be moving towards positive X").toBeGreaterThan(0);
@@ -212,7 +238,7 @@ describe("Throw behaviour", () => {
         const tray = createTray(halfWidth, 5);
         const die = await createD6(0.5);
 
-        applyThrowVelocity(die.physics, tray, false, 0, 1);
+        applyFullThrow(die.physics, tray, false, 0, 1);
 
         const vx = die.physics.body.velocity.x;
         expect(vx, "die should be moving towards negative X").toBeLessThan(0);
@@ -254,7 +280,7 @@ describe("syncDie", () => {
         }).result;
 
         expect(syncCount).toBeGreaterThan(0);
-        expect(result).toEqual({ faces: [expect.any(Number)] });
+        expect(result).toEqual({ faces: [expect.any(Number)], rerollCount: expect.any(Number) });
         expect(die.mesh.position.y).toBeGreaterThan(0);
     });
 });
@@ -338,10 +364,10 @@ describe("Dice positioning", () => {
             for (const [i, die] of dice.entries()) {
                 const pos = getPosition(die);
                 const r = getBoundingRadius(die);
-                expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThan(-halfWidth);
-                expect(pos.x + r, `die ${i} outside right wall`).toBeLessThan(halfWidth);
-                expect(pos.z - r, `die ${i} outside back wall`).toBeGreaterThan(-halfDepth);
-                expect(pos.z + r, `die ${i} outside front wall`).toBeLessThan(halfDepth);
+                expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThanOrEqual(-halfWidth);
+                expect(pos.x + r, `die ${i} outside right wall`).toBeLessThanOrEqual(halfWidth);
+                expect(pos.z - r, `die ${i} outside back wall`).toBeGreaterThanOrEqual(-halfDepth);
+                expect(pos.z + r, `die ${i} outside front wall`).toBeLessThanOrEqual(halfDepth);
             }
         });
 
@@ -359,10 +385,10 @@ describe("Dice positioning", () => {
             for (const [i, die] of dice.entries()) {
                 const pos = getPosition(die);
                 const r = getBoundingRadius(die);
-                expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThan(-halfWidth);
-                expect(pos.x + r, `die ${i} outside right wall`).toBeLessThan(halfWidth);
-                expect(pos.z - r, `die ${i} outside back wall`).toBeGreaterThan(-halfDepth);
-                expect(pos.z + r, `die ${i} outside front wall`).toBeLessThan(halfDepth);
+                expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThanOrEqual(-halfWidth);
+                expect(pos.x + r, `die ${i} outside right wall`).toBeLessThanOrEqual(halfWidth);
+                expect(pos.z - r, `die ${i} outside back wall`).toBeGreaterThanOrEqual(-halfDepth);
+                expect(pos.z + r, `die ${i} outside front wall`).toBeLessThanOrEqual(halfDepth);
             }
         });
     });
@@ -477,7 +503,7 @@ describe("simulateThrow() cancel", () => {
         const result = await simulation.result;
 
         expect(steps).toBeGreaterThan(5);
-        expect(result).toEqual({ faces: [expect.any(Number)] });
+        expect(result).toEqual({ faces: [expect.any(Number)], rerollCount: expect.any(Number) });
         if ("faces" in result) {
             expect(result.faces[0]).toBeGreaterThanOrEqual(1);
             expect(result.faces[0]).toBeLessThanOrEqual(6);
@@ -486,34 +512,67 @@ describe("simulateThrow() cancel", () => {
 });
 
 describe("tray resize", () => {
-    it("preserves landscape aspect ratio when tray grows", async () => {
+    it("preserves landscape aspect ratio and fits dice in one half", async () => {
         const tray = createTray(2, 1);
-        const dice = (await Promise.all(Array.from({ length: 20 }, () => createD6(1)))).map((d) => d.physics);
+        const dice = (await Promise.all(Array.from({ length: 100 }, () => createD20(1)))).map((d) => d.physics);
         packDice(dice);
         resizeToFitDice(tray, dice);
+        offsetToEdge(dice, tray, true);
+
         expect(tray.halfWidth).toBeGreaterThan(2);
         expect(tray.halfDepth).toBeGreaterThan(1);
         expect(tray.halfWidth / tray.halfDepth).toBeCloseTo(2);
+
+        for (const [i, die] of dice.entries()) {
+            const pos = die.body.position;
+            const r = (die.body.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
+            expect(pos.x + r, `die ${i} crosses midpoint`).toBeLessThanOrEqual(0);
+            expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThanOrEqual(-tray.halfWidth);
+            expect(pos.z + r, `die ${i} outside front wall`).toBeLessThanOrEqual(tray.halfDepth);
+            expect(pos.z - r, `die ${i} outside back wall`).toBeGreaterThanOrEqual(-tray.halfDepth);
+        }
     });
 
-    it("preserves portrait aspect ratio when tray grows", async () => {
+    it("preserves portrait aspect ratio and fits dice in one half", async () => {
         const tray = createTray(1, 2);
-        const dice = (await Promise.all(Array.from({ length: 20 }, () => createD6(1)))).map((d) => d.physics);
+        const dice = (await Promise.all(Array.from({ length: 100 }, () => createD20(1)))).map((d) => d.physics);
         packDice(dice);
         resizeToFitDice(tray, dice);
+        offsetToEdge(dice, tray, true);
+
         expect(tray.halfWidth).toBeGreaterThan(1);
         expect(tray.halfDepth).toBeGreaterThan(2);
         expect(tray.halfWidth / tray.halfDepth).toBeCloseTo(0.5);
+
+        for (const [i, die] of dice.entries()) {
+            const pos = die.body.position;
+            const r = (die.body.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
+            expect(pos.z - r, `die ${i} crosses midpoint`).toBeGreaterThanOrEqual(0);
+            expect(pos.z + r, `die ${i} outside front wall`).toBeLessThanOrEqual(tray.halfDepth);
+            expect(pos.x + r, `die ${i} outside right wall`).toBeLessThanOrEqual(tray.halfWidth);
+            expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThanOrEqual(-tray.halfWidth);
+        }
     });
 
-    it("preserves square aspect ratio when tray grows", async () => {
+    it("preserves square aspect ratio and fits dice in one half", async () => {
         const tray = createTray(1, 1);
-        const dice = (await Promise.all(Array.from({ length: 20 }, () => createD6(1)))).map((d) => d.physics);
+        const dice = (await Promise.all(Array.from({ length: 100 }, () => createD20(1)))).map((d) => d.physics);
         packDice(dice);
         resizeToFitDice(tray, dice);
+        offsetToEdge(dice, tray, true);
+
         expect(tray.halfWidth).toBeGreaterThan(1);
         expect(tray.halfDepth).toBeGreaterThan(1);
         expect(tray.halfWidth / tray.halfDepth).toBeCloseTo(1);
+
+        for (const [i, die] of dice.entries()) {
+            const pos = die.body.position;
+            const r = (die.body.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
+            expect(pos.x + r, `die ${i} crosses midpoint`).toBeLessThanOrEqual(0);
+            expect(pos.x - r, `die ${i} outside left wall`).toBeGreaterThanOrEqual(-tray.halfWidth);
+            expect(pos.z + r, `die ${i} outside front wall`).toBeLessThanOrEqual(tray.halfDepth);
+            expect(pos.z - r, `die ${i} outside back wall`).toBeGreaterThanOrEqual(-tray.halfDepth);
+        }
     });
 
     it("does not shrink below minimum size", async () => {

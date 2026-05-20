@@ -8,6 +8,8 @@ export type PhysicsDie = {
     body: CANNON.Body;
     faces: DieFaces;
     readFace: () => number;
+    isCocked: (threshold: number) => boolean;
+    liftProgress: number;
 };
 
 const DEFAULT_MASS = 0.1;
@@ -40,16 +42,19 @@ export function createDieBody(
     return {
         body,
         faces,
-        readFace: () => readFaceUp(body, vertices, faces, readDown),
+        readFace: () => findTopFace(body, vertices, faces, readDown).value,
+        isCocked: (threshold: number) =>
+            findTopFace(body, vertices, faces, readDown).dot < threshold,
+        liftProgress: 0,
     };
 }
 
-function readFaceUp(
+function findTopFace(
     body: CANNON.Body,
     vertices: THREE.Vector3[],
     faces: DieFaces,
     readDown = false,
-): number {
+): { value: number; dot: number } {
     const up = new CANNON.Vec3(0, readDown ? -1 : 1, 0);
     let bestValue = faces[0].value;
     let bestDot = Number.NEGATIVE_INFINITY;
@@ -70,5 +75,5 @@ function readFaceUp(
         }
     }
 
-    return bestValue;
+    return { value: bestValue, dot: bestDot };
 }

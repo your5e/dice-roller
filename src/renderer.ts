@@ -10,7 +10,7 @@ import type { Die } from "./geometries/dice";
 import { getLabelStyle } from "./labels";
 import type { PhysicsDie } from "./physics/dice";
 import {
-    applyThrowVelocity,
+    applyFullThrow,
     createTray,
     offsetToEdge,
     packDice,
@@ -179,6 +179,7 @@ export function removeDice(physicsTray: Tray, stage?: Stage): void {
 export type ThrowOptions = {
     stage?: Stage;
     whichSide?: boolean;
+    rerollCocked?: boolean;
 };
 
 export async function throwDice(
@@ -255,7 +256,7 @@ export async function throwDice(
         );
     }
     for (const die of physicsDice) {
-        applyThrowVelocity(
+        applyFullThrow(
             die,
             physicsTray,
             whichSide,
@@ -266,6 +267,8 @@ export async function throwDice(
 
     // chuck 'em!
     const simulation = simulateThrow(physicsTray, physicsDice, {
+        whichSide,
+        rerollCocked: options?.rerollCocked,
         onStep: stage
             ? async () => {
                   resizeCamera(stage, physicsTray.halfWidth, physicsTray.halfDepth);
@@ -311,7 +314,7 @@ function startAnimationLoop(state: Stage): void {
 }
 
 export function syncDie(die: Die): void {
-    const { body } = die.physics;
+    const { body, liftProgress } = die.physics;
     die.mesh.position.set(body.position.x, body.position.y, body.position.z);
     die.mesh.quaternion.set(
         body.quaternion.x,
@@ -319,4 +322,6 @@ export function syncDie(die: Die): void {
         body.quaternion.z,
         body.quaternion.w,
     );
+    const scale = 1 + liftProgress * 3;
+    die.mesh.scale.set(scale, scale, scale);
 }

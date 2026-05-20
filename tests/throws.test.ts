@@ -69,7 +69,7 @@ async function runTrials(
             throwDice(
                 physicsTray,
                 [{ count: diceCount, sides: 6 }],
-                { whichSide },
+                { whichSide, rerollCocked: false },
             ),
             timeoutAfter(TRIAL_TIMEOUT),
         ]);

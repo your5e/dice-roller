@@ -8,6 +8,7 @@ export const WALL_THICKNESS = 0.5;
 
 export const SETTLE_THRESHOLD = 0.01;
 export const TIME_STEP = 1 / 60;
+export const COCKED_THRESHOLD = 0.98;
 
 let lastYield = 0;
 
@@ -122,13 +123,9 @@ export function offsetToEdge(dice: PhysicsDie[], tray: Tray, whichSide: boolean)
     let offsetZ: number;
     if (isPortrait) {
         offsetX = -(minX + maxX) / 2;
-        offsetZ = whichSide
-            ? tray.halfDepth - maxZ - 0.2
-            : -tray.halfDepth - minZ + 0.2;
+        offsetZ = whichSide ? tray.halfDepth - maxZ : -tray.halfDepth - minZ;
     } else {
-        offsetX = whichSide
-            ? -tray.halfWidth - minX + 0.2
-            : tray.halfWidth - maxX - 0.2;
+        offsetX = whichSide ? -tray.halfWidth - minX : tray.halfWidth - maxX;
         offsetZ = -(minZ + maxZ) / 2;
     }
 
@@ -138,13 +135,7 @@ export function offsetToEdge(dice: PhysicsDie[], tray: Tray, whichSide: boolean)
     }
 }
 
-export function applyThrowVelocity(
-    die: PhysicsDie,
-    tray: Tray,
-    whichSide: boolean,
-    positionRank: number,
-    total: number,
-): void {
+function getThrowAngle(tray: Tray, whichSide: boolean, spread: number): number {
     const isPortrait = tray.halfDepth > tray.halfWidth;
     const baseAngle = isPortrait
         ? whichSide
@@ -153,7 +144,18 @@ export function applyThrowVelocity(
         : whichSide
           ? 0
           : Math.PI;
-    const throwAngle = baseAngle + (Math.random() - 0.5) * (Math.PI / 2);
+    return baseAngle + (Math.random() - 0.5) * spread;
+}
+
+export function applyFullThrow(
+    die: PhysicsDie,
+    tray: Tray,
+    whichSide: boolean,
+    positionRank: number,
+    total: number,
+): void {
+    const isPortrait = tray.halfDepth > tray.halfWidth;
+    const throwAngle = getThrowAngle(tray, whichSide, Math.PI / 2);
 
     // aim for most dice thrown to reach the far wall...
     const pos = die.body.position;
@@ -163,7 +165,7 @@ export function applyThrowVelocity(
 
     // ...but taper the velocity off when lots of dice are rolled, so we don't
     // end up with a pile of dice on the far wall
-    const baseK = 1.6;
+    const baseK = 1.65;
     const taperStrength = total > 6 ? Math.min(0.55, 0.15 + (total - 7) / 20) : 0;
     const taper = 1 - taperStrength + positionRank * taperStrength;
     const k = baseK * taper;
@@ -183,6 +185,91 @@ export function applyThrowVelocity(
         (Math.random() - 0.5) * 10,
         (Math.random() - 0.5) * 10,
     );
+}
+
+function applyGentleThrow(die: PhysicsDie, tray: Tray, whichSide: boolean): void {
+    const isPortrait = tray.halfDepth > tray.halfWidth;
+    const throwAngle = getThrowAngle(tray, whichSide, Math.PI / 4);
+
+    // aim to stop at the midpoint (not pass it)
+    const pos = die.body.position;
+    const distance = isPortrait ? Math.abs(pos.z) : Math.abs(pos.x);
+    const k = 1.1;
+    const perturbation = 0.8 + Math.random() * 0.4;
+    const throwSpeed = k * distance * perturbation;
+
+    die.body.velocity.set(
+        Math.cos(throwAngle) * throwSpeed,
+        -2 - Math.random() * 4,
+        Math.sin(throwAngle) * throwSpeed,
+    );
+
+    die.body.angularVelocity.set(
+        (Math.random() - 0.5) * 6,
+        (Math.random() - 0.5) * 6,
+        (Math.random() - 0.5) * 6,
+    );
+}
+
+type ReturningDie = {
+    die: PhysicsDie;
+    targetPos: CANNON.Vec3;
+    progress: number;
+    whichSide: boolean;
+};
+
+const POP_DURATION = 0.15;
+const POP_STEPS = POP_DURATION / TIME_STEP;
+
+function getRerollTarget(tray: Tray, whichSide: boolean): CANNON.Vec3 {
+    const isPortrait = tray.halfDepth > tray.halfWidth;
+    const edgeHalf = isPortrait ? tray.halfWidth : tray.halfDepth;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const offset = side * (0.2 + Math.random() * 0.7) * edgeHalf;
+
+    if (isPortrait) {
+        return new CANNON.Vec3(
+            offset,
+            2,
+            whichSide ? -tray.halfDepth + 0.5 : tray.halfDepth - 0.5,
+        );
+    }
+    return new CANNON.Vec3(
+        whichSide ? -tray.halfWidth + 0.5 : tray.halfWidth - 0.5,
+        2,
+        offset,
+    );
+}
+
+function startReturn(die: PhysicsDie, tray: Tray, whichSide: boolean): ReturningDie {
+    die.body.type = CANNON.Body.KINEMATIC;
+    die.body.velocity.setZero();
+    die.body.angularVelocity.setZero();
+
+    return {
+        die,
+        targetPos: getRerollTarget(tray, whichSide),
+        progress: 0,
+        whichSide,
+    };
+}
+
+function stepReturn(returning: ReturningDie): boolean {
+    returning.progress += 1 / POP_STEPS;
+    returning.die.liftProgress = Math.min(returning.progress, 1);
+    return returning.progress >= 1;
+}
+
+function launchReroll(returning: ReturningDie, tray: Tray): void {
+    const { die, whichSide } = returning;
+
+    die.liftProgress = 0;
+    die.body.type = CANNON.Body.DYNAMIC;
+    die.body.position.copy(returning.targetPos);
+    die.body.quaternion.copy(randomQuaternion());
+    die.body.wakeUp();
+
+    applyGentleThrow(die, tray, whichSide);
 }
 
 export type Simulation = {
@@ -314,9 +401,15 @@ export function resizeTray(tray: Tray, halfWidth: number, halfDepth: number): vo
 export function resizeToFitDice(tray: Tray, dice: PhysicsDie[]): void {
     const bounds = getPackedBounds(dice);
     const aspect = tray.initialHalfWidth / tray.initialHalfDepth;
+    const isPortrait = tray.initialHalfDepth > tray.initialHalfWidth;
+
+    // the dice about to be thrown must fit in one half of the tray
+    const effectiveHalfWidth = isPortrait ? bounds.halfWidth : bounds.halfWidth * 2;
+    const effectiveHalfDepth = isPortrait ? bounds.halfDepth * 2 : bounds.halfDepth;
+
     const size = Math.max(
-        bounds.halfWidth / Math.sqrt(aspect),
-        bounds.halfDepth * Math.sqrt(aspect),
+        effectiveHalfWidth / Math.sqrt(aspect),
+        effectiveHalfDepth * Math.sqrt(aspect),
     );
     const halfWidth = Math.max(tray.initialHalfWidth, size * Math.sqrt(aspect));
     const halfDepth = Math.max(tray.initialHalfDepth, size / Math.sqrt(aspect));
@@ -325,9 +418,13 @@ export function resizeToFitDice(tray: Tray, dice: PhysicsDie[]): void {
 
 export type SimulateOptions = {
     onStep?: () => void | Promise<void>;
+    whichSide?: boolean;
+    rerollCocked?: boolean;
 };
 
-export type SimulateResult = { faces: number[] } | { cancelled: true };
+export type SimulateResult =
+    | { faces: number[]; rerollCount: number }
+    | { cancelled: true };
 
 export function simulateThrow(
     tray: Tray,
@@ -342,13 +439,25 @@ export function simulateThrow(
         // yield -- allow cancel to be called before simulation starts
         await Promise.resolve();
 
+        let rerollCount = 0;
+        const side = options?.whichSide ?? Math.random() < 0.5;
         const maxSteps = MAX_SIMULATION_TIME / TIME_STEP;
+        const returning: ReturningDie[] = [];
+
         for (let step = 0; step < maxSteps; step++) {
             if (cancelled) {
                 return { cancelled: true };
             }
 
             world.step(TIME_STEP);
+
+            // animate returning dice
+            for (let i = returning.length - 1; i >= 0; i--) {
+                if (stepReturn(returning[i])) {
+                    launchReroll(returning[i], tray);
+                    returning.splice(i, 1);
+                }
+            }
 
             if (options?.onStep) {
                 await options.onStep();
@@ -358,12 +467,34 @@ export function simulateThrow(
                 await new Promise((resolve) => setTimeout(resolve, 0));
             }
 
-            if (dice.every(isSettled)) {
+            let allSettled = true;
+            for (const die of dice) {
+                // skip dice that are returning to throw position
+                if (returning.some((r) => r.die === die)) {
+                    allSettled = false;
+                    continue;
+                }
+                if (!isSettled(die)) {
+                    allSettled = false;
+                    continue;
+                }
+                const radius = (die.body.shapes[0] as CANNON.ConvexPolyhedron)
+                    .boundingSphereRadius;
+                const tooHigh = die.body.position.y > radius * 1.5;
+                const rerollCocked = options?.rerollCocked ?? true;
+                if (tooHigh || (rerollCocked && die.isCocked(COCKED_THRESHOLD))) {
+                    rerollCount++;
+                    returning.push(startReturn(die, tray, side));
+                    allSettled = false;
+                }
+            }
+
+            if (allSettled) {
                 break;
             }
         }
 
-        return { faces: dice.map((die) => die.readFace()) };
+        return { faces: dice.map((die) => die.readFace()), rerollCount };
     })();
 
     return {
