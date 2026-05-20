@@ -26,6 +26,10 @@ export abstract class Die {
         return String(value);
     }
 
+    abstract replaceTexture(
+        options: import("../textures/dice").TextureOptions,
+    ): Promise<void>;
+
     defaultOrientation(): THREE.Quaternion {
         return this.orientToFace(1);
     }

@@ -24,7 +24,7 @@ import { D8Texture } from "./textures/d8";
 import { D10Texture, DPercentileTexture } from "./textures/d10";
 import { D12Texture } from "./textures/d12";
 import { D20Texture } from "./textures/d20";
-import type { TextureOptions } from "./textures/dice";
+import { DROPPED_COLOURS, type TextureOptions } from "./textures/dice";
 
 export type Stage = {
     container: HTMLElement;
@@ -75,7 +75,7 @@ export function createStage(container: HTMLElement, existingTray?: Tray): Stage 
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a1a);
+    scene.background = null;
 
     // top-down orthographic camera
     const aspect = width / height;
@@ -100,7 +100,7 @@ export function createStage(container: HTMLElement, existingTray?: Tray): Stage 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
@@ -328,4 +328,11 @@ export function syncDie(die: Die): void {
     );
     const scale = 1 + liftProgress * 3;
     die.mesh.scale.set(scale, scale, scale);
+}
+
+export async function markDieDropped(die: Die): Promise<void> {
+    const material = die.mesh.material as THREE.MeshPhysicalMaterial;
+    material.transparent = true;
+    material.alphaTest = 0.25;
+    await die.replaceTexture(DROPPED_COLOURS);
 }

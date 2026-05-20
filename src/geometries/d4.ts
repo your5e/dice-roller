@@ -8,6 +8,7 @@ import {
     VERTICES,
 } from "../bodies/d4";
 import { D4Texture } from "../textures/d4";
+import type { TextureOptions } from "../textures/dice";
 import { createDie, Die } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
@@ -24,6 +25,11 @@ export class D4 extends Die {
         return new THREE.Quaternion()
             .setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
             .multiply(base);
+    }
+
+    async replaceTexture(options: TextureOptions): Promise<void> {
+        const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map = await new D4Texture(options).createTexture();
     }
 }
 

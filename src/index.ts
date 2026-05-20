@@ -1,16 +1,55 @@
 import { calculate, type Step } from "./calculate";
 import { rollDice } from "./dice";
-import { type ParsedDice, parse } from "./notation";
+import { type Modifier, type ParsedDice, parse } from "./notation";
 import { createTray, type Tray } from "./physics/tray";
 import {
     createStage,
     type DiceGroup,
     getTrayDimensions,
+    markDieDropped,
     removeDice,
     type Stage,
     setCameraSize,
     throwDice,
 } from "./renderer";
+
+function getDroppedIndices(values: number[], modifiers: Modifier[]): number[] {
+    let currentIndices = values.map((_, i) => i);
+    let currentValues = [...values];
+
+    for (const mod of modifiers) {
+        if (
+            mod.type === "kh" ||
+            mod.type === "kl" ||
+            mod.type === "dh" ||
+            mod.type === "dl"
+        ) {
+            const indexed = currentValues.map((value, i) => ({
+                value,
+                originalIndex: currentIndices[i],
+            }));
+            indexed.sort((a, b) => a.value - b.value);
+
+            let keptIndices: number[];
+            if (mod.type === "kh") {
+                keptIndices = indexed.slice(-mod.value).map((x) => x.originalIndex);
+            } else if (mod.type === "kl") {
+                keptIndices = indexed.slice(0, mod.value).map((x) => x.originalIndex);
+            } else if (mod.type === "dh") {
+                keptIndices = indexed.slice(0, -mod.value).map((x) => x.originalIndex);
+            } else {
+                keptIndices = indexed.slice(mod.value).map((x) => x.originalIndex);
+            }
+
+            const keptSet = new Set(keptIndices);
+            currentIndices = currentIndices.filter((i) => keptSet.has(i));
+            currentValues = currentIndices.map((i) => values[i]);
+        }
+    }
+
+    const keptSet = new Set(currentIndices);
+    return values.map((_, i) => i).filter((i) => !keptSet.has(i));
+}
 
 type Expression = {
     notation: string;
@@ -150,6 +189,19 @@ export function roll(
         for (let i = 0; i < animated.length; i++) {
             facesByIndex.set(animated[i].index, result.faces[i]);
         }
+
+        const markDropped: Promise<void>[] = [];
+        let diceOffset = 0;
+        for (let i = 0; i < animated.length; i++) {
+            const { expr } = animated[i];
+            const faces = result.faces[i];
+            const droppedIndices = getDroppedIndices(faces, expr.modifiers);
+            for (const idx of droppedIndices) {
+                markDropped.push(markDieDropped(result.dice[diceOffset + idx]));
+            }
+            diceOffset += expr.count;
+        }
+        await Promise.all(markDropped);
 
         const rollResult = buildResult(input, expressions, facesByIndex);
         onRollCallback(rollResult);

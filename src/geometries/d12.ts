@@ -1,6 +1,7 @@
 import type * as THREE from "three";
 import { DIE_SCALE, FACE_STANCE, FACE_VERTICES, FACES, VERTICES } from "../bodies/d12";
 import { D12Texture } from "../textures/d12";
+import type { TextureOptions } from "../textures/dice";
 import { createDie, Die } from "./dice";
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
@@ -10,6 +11,11 @@ export class D12 extends Die {
     protected faceVertices = FACE_VERTICES;
     protected meshVertices = VERTICES;
     protected faceStance = FACE_STANCE;
+
+    async replaceTexture(options: TextureOptions): Promise<void> {
+        const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map = await new D12Texture(options).createTexture();
+    }
 }
 
 export async function createD12(

@@ -1,5 +1,7 @@
+import type * as THREE from "three";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { onRoll, roll, tray } from "../src/index";
+import type { Tray } from "../src/physics/tray";
 
 describe("roll", () => {
     beforeEach(() => {
@@ -93,6 +95,54 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(3);
         expect(result.total).toBeLessThanOrEqual(18);
+    });
+
+    it("replaces texture on dropped dice (dl)", async () => {
+        const physicsTray = tray() as Tray;
+        await roll("4d6dl1", { sync: true });
+
+        const dice = physicsTray.dice;
+        expect(dice).toHaveLength(4);
+
+        const values = dice.map((d) => d.readResult());
+        const minValue = Math.min(...values);
+        const droppedIndex = values.indexOf(minValue);
+
+        const textures = dice.map(
+            (d) => (d.mesh.material as THREE.MeshPhysicalMaterial).map,
+        );
+
+        // kept dice share the same cached texture
+        const keptTextures = textures.filter((_, i) => i !== droppedIndex);
+        expect(keptTextures[0]).toBe(keptTextures[1]);
+        expect(keptTextures[1]).toBe(keptTextures[2]);
+
+        // dropped die has a different texture
+        expect(textures[droppedIndex]).not.toBe(keptTextures[0]);
+    });
+
+    it("replaces texture on dropped dice (kh)", async () => {
+        const physicsTray = tray() as Tray;
+        await roll("4d6kh3", { sync: true });
+
+        const dice = physicsTray.dice;
+        expect(dice).toHaveLength(4);
+
+        const values = dice.map((d) => d.readResult());
+        const minValue = Math.min(...values);
+        const droppedIndex = values.indexOf(minValue);
+
+        const textures = dice.map(
+            (d) => (d.mesh.material as THREE.MeshPhysicalMaterial).map,
+        );
+
+        // kept dice share the same cached texture
+        const keptTextures = textures.filter((_, i) => i !== droppedIndex);
+        expect(keptTextures[0]).toBe(keptTextures[1]);
+        expect(keptTextures[1]).toBe(keptTextures[2]);
+
+        // dropped die has a different texture
+        expect(textures[droppedIndex]).not.toBe(keptTextures[0]);
     });
 
     it("applies positive modifiers", async () => {

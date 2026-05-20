@@ -33,3 +33,10 @@ result is needed to apply resistances/vulnerabilities correctly. Add
 `label:` before the expression to name that part of the roll.
 
 - [X] support labelled dice groups in notation and roll result
+
+We should also support reroll when the _total_ is too low.
+
+- [ ] create new character (4d6dl1 for six stats) should reroll all 24 dice if
+      the total of kept dice is below a threshold
+- [ ] create new character stat (4d6dl1) and reroll all 4 dice if the total
+      after dropping is below 6

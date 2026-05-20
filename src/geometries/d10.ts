@@ -10,6 +10,7 @@ import {
     VERTICES,
 } from "../bodies/d10";
 import { D10Texture, DPercentileTexture } from "../textures/d10";
+import type { TextureOptions } from "../textures/dice";
 import { createDie, Die } from "./dice";
 
 const d10GeometryCache = new Map<number, THREE.BufferGeometry>();
@@ -35,6 +36,11 @@ export class D10 extends Die {
         const apex = this.meshVertices[verts[0]].clone().applyQuaternion(faceUpQuat);
         return Math.atan2(apex.x, apex.z) + Math.PI;
     }
+
+    async replaceTexture(options: TextureOptions): Promise<void> {
+        const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map = await new D10Texture(options).createTexture();
+    }
 }
 
 export class DPercentile extends Die {
@@ -57,6 +63,11 @@ export class DPercentile extends Die {
         const verts = this.faceVertices[faceValue];
         const apex = this.meshVertices[verts[0]].clone().applyQuaternion(faceUpQuat);
         return Math.atan2(apex.x, apex.z) + Math.PI;
+    }
+
+    async replaceTexture(options: TextureOptions): Promise<void> {
+        const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map = await new DPercentileTexture(options).createTexture();
     }
 }
 

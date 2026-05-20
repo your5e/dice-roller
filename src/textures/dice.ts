@@ -54,6 +54,13 @@ export const DEBUG_COLOURS: { hex: string; name: string }[] = [
     { hex: "#808080", name: "grey" },
 ];
 
+export const DROPPED_COLOURS: TextureOptions = {
+    faceColour: "transparent",
+    stripColour: "rgba(255, 255, 255, 0.66)",
+    crownColour: "rgba(255, 255, 255, 0.66)",
+    numberColour: "rgba(255, 255, 255, 0.66)",
+};
+
 export abstract class DieTexture {
     protected abstract faceVertices: Record<number, number[]>;
     protected abstract faces: { value: number }[];

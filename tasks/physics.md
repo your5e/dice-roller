@@ -12,6 +12,6 @@ simulation.
 - [X] improve the mass of the dice, they seem a bit soft
 - [ ] allow mouse/finger swipe to control throw direction and force
 - [X] detect cocked dice (no face sufficiently horizontal) and reroll them
-- [ ] dropped dice go away (how?)
+- [X] dropped dice go away (how?)
 - [X] rerolled dice get actually rerolled
 - [X] monte carlo fairness test
