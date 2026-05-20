@@ -59,6 +59,7 @@ export class D10Texture extends DKiteTexture {
 
     constructor(options?: TextureOptions) {
         super();
+        this.options = options;
         if (options) Object.assign(this, options);
         this.buildLayoutData();
     }
@@ -89,6 +90,7 @@ export class DPercentileTexture extends DKiteTexture {
 
     constructor(options?: TextureOptions) {
         super();
+        this.options = options;
         if (options) Object.assign(this, options);
         this.buildLayoutData();
     }

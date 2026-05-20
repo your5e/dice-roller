@@ -67,22 +67,31 @@ function shuffledIndices(length: number): number[] {
 export function packDice(dice: PhysicsDie[]): void {
     const placementOrder = shuffledIndices(dice.length);
     const placed: PhysicsDie[] = [];
+    let lastRadius = 0;
     for (let i = 0; i < dice.length; i++) {
         const die = dice[placementOrder[i]];
         die.body.quaternion.copy(randomQuaternion());
 
         const angle = i * GOLDEN_ANGLE;
-        let radius = 0;
-        for (let attempt = 0; attempt < 400; attempt++) {
+        let radius = lastRadius;
+        while (true) {
             const x = radius * Math.cos(angle);
             const z = radius * Math.sin(angle);
             die.body.position.set(x, 2, z);
-            if (!placed.some((other) => boundingSpheresOverlap(die.body, other.body))) {
+            let overlaps = false;
+            for (let j = placed.length - 1; j >= 0; j--) {
+                if (boundingSpheresOverlap(die.body, placed[j].body)) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (!overlaps) {
                 break;
             }
             radius += 0.05;
         }
         placed.push(die);
+        lastRadius = radius;
     }
 }
 

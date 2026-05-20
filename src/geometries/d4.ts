@@ -29,6 +29,7 @@ export class D4 extends Die {
 
     async replaceTexture(options: TextureOptions): Promise<void> {
         const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map?.dispose();
         material.map = await new D4Texture(options).createTexture();
     }
 }

@@ -61,7 +61,24 @@ export const DROPPED_COLOURS: TextureOptions = {
     numberColour: "rgba(255, 255, 255, 0.66)",
 };
 
+const textureCache = new Map<string, THREE.CanvasTexture>();
+
+function optionsKey(options?: TextureOptions): string {
+    if (!options) return "";
+    const sorted = Object.keys(options)
+        .sort()
+        .reduce(
+            (obj, key) => {
+                obj[key] = options[key as keyof TextureOptions];
+                return obj;
+            },
+            {} as Record<string, unknown>,
+        );
+    return JSON.stringify(sorted);
+}
+
 export abstract class DieTexture {
+    protected options?: TextureOptions;
     protected abstract faceVertices: Record<number, number[]>;
     protected abstract faces: { value: number }[];
     protected abstract get edgeLength(): number;
@@ -79,7 +96,6 @@ export abstract class DieTexture {
     protected faceData = new Map<number, FaceData>();
     protected stripData = new Map<string, StripData>();
     protected crownData = new Map<number, CrownData>();
-    private textureCache: { current: THREE.CanvasTexture | null } = { current: null };
     public width = 0;
     public height = 0;
     protected icon?: string;
@@ -232,13 +248,13 @@ export abstract class DieTexture {
     }
 
     async createTexture(): Promise<THREE.CanvasTexture> {
-        if (this.textureCache.current) {
-            return this.textureCache.current;
-        }
+        const cacheKey = `${this.constructor.name}:${optionsKey(this.options)}`;
+        const cached = textureCache.get(cacheKey);
+        if (cached) return cached;
 
         const canvas = await this.createCanvas();
         const texture = this.createTextureFromCanvas(canvas);
-        this.textureCache.current = texture;
+        textureCache.set(cacheKey, texture);
 
         return texture;
     }

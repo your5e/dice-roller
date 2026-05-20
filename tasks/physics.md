@@ -13,5 +13,6 @@ simulation.
 - [ ] allow mouse/finger swipe to control throw direction and force
 - [X] detect cocked dice (no face sufficiently horizontal) and reroll them
 - [X] dropped dice go away (how?)
-- [X] rerolled dice get actually rerolled
+- [ ] rerolled dice get actually rerolled
 - [X] monte carlo fairness test
+- [ ] extend the max run time on more complex roll simulations

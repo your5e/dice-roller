@@ -39,6 +39,7 @@ export class D10 extends Die {
 
     async replaceTexture(options: TextureOptions): Promise<void> {
         const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map?.dispose();
         material.map = await new D10Texture(options).createTexture();
     }
 }
@@ -67,6 +68,7 @@ export class DPercentile extends Die {
 
     async replaceTexture(options: TextureOptions): Promise<void> {
         const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map?.dispose();
         material.map = await new DPercentileTexture(options).createTexture();
     }
 }

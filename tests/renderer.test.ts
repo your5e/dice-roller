@@ -1,7 +1,21 @@
+import type * as THREE from "three";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createD100 } from "../src/geometries/d10";
+import { createD4 } from "../src/geometries/d4";
+import { createD6 } from "../src/geometries/d6";
+import { createD8 } from "../src/geometries/d8";
+import { createD10, createD100 } from "../src/geometries/d10";
+import { createD12 } from "../src/geometries/d12";
+import { createD20 } from "../src/geometries/d20";
+import type { Die } from "../src/geometries/dice";
 import { createTray } from "../src/physics/tray";
-import { getTrayDimensions, throwDice } from "../src/renderer";
+import { getTrayDimensions, removeDice, throwDice } from "../src/renderer";
+import { D4Texture } from "../src/textures/d4";
+import { D6Texture } from "../src/textures/d6";
+import { D8Texture } from "../src/textures/d8";
+import { D10Texture, DPercentileTexture } from "../src/textures/d10";
+import { D12Texture } from "../src/textures/d12";
+import { D20Texture } from "../src/textures/d20";
+import type { DieTexture, TextureOptions } from "../src/textures/dice";
 
 const originalCreateElement = document.createElement.bind(document);
 
@@ -142,4 +156,80 @@ describe("concurrent throwDice calls", () => {
         expect(resultB).toHaveProperty("faces");
         expect(tray.dice).toHaveLength(1);
     });
+});
+
+describe("removeDice", () => {
+    it("disposes geometry, material, and texture", async () => {
+        const tray = createTray(5, 5);
+        const die = await createD6();
+
+        tray.world.addBody(die.physics.body);
+        tray.dice = [die];
+
+        const geometryDispose = vi.spyOn(die.mesh.geometry, "dispose");
+        const material = die.mesh.material as THREE.MeshPhysicalMaterial;
+        const materialDispose = vi.spyOn(material, "dispose");
+        expect(material.map).not.toBeNull();
+        const textureDispose = vi.spyOn(material.map as THREE.Texture, "dispose");
+
+        removeDice(tray);
+
+        expect(geometryDispose).toHaveBeenCalled();
+        expect(materialDispose).toHaveBeenCalled();
+        expect(textureDispose).toHaveBeenCalled();
+        expect(tray.dice).toHaveLength(0);
+    });
+});
+
+describe("texture caching", () => {
+    const dieTypes: {
+        name: string;
+        create: (texture?: DieTexture) => Promise<Die>;
+        Texture: new (options?: TextureOptions) => DieTexture;
+    }[] = [
+        { name: "d4", create: (t) => createD4(1, t as D4Texture), Texture: D4Texture },
+        { name: "d6", create: (t) => createD6(1, t as D6Texture), Texture: D6Texture },
+        { name: "d8", create: (t) => createD8(1, t as D8Texture), Texture: D8Texture },
+        { name: "d10", create: (t) => createD10(1, t as D10Texture), Texture: D10Texture },
+        { name: "d12", create: (t) => createD12(1, t as D12Texture), Texture: D12Texture },
+        { name: "d20", create: (t) => createD20(1, t as D20Texture), Texture: D20Texture },
+        {
+            name: "percentile",
+            create: async (t) => (await createD100(1, undefined, t as DPercentileTexture)).dice[1],
+            Texture: DPercentileTexture,
+        },
+    ];
+
+    it.each(dieTypes)(
+        "$name reuses the same texture for multiple dice with default options",
+        async ({ create }) => {
+            const die1 = await create();
+            const die2 = await create();
+            const die3 = await create();
+
+            const material1 = die1.mesh.material as THREE.MeshPhysicalMaterial;
+            const material2 = die2.mesh.material as THREE.MeshPhysicalMaterial;
+            const material3 = die3.mesh.material as THREE.MeshPhysicalMaterial;
+
+            expect(material1.map).toBe(material2.map);
+            expect(material2.map).toBe(material3.map);
+        },
+    );
+
+    it.each(dieTypes)(
+        "$name reuses the same texture for dice with identical options",
+        async ({ create, Texture }) => {
+            const options = { bgColour: "#ff0000" };
+            const die1 = await create(new Texture(options));
+            const die2 = await create(new Texture(options));
+            const die3 = await create(new Texture(options));
+
+            const material1 = die1.mesh.material as THREE.MeshPhysicalMaterial;
+            const material2 = die2.mesh.material as THREE.MeshPhysicalMaterial;
+            const material3 = die3.mesh.material as THREE.MeshPhysicalMaterial;
+
+            expect(material1.map).toBe(material2.map);
+            expect(material2.map).toBe(material3.map);
+        },
+    );
 });

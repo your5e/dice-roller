@@ -19,6 +19,7 @@ export class D6Texture extends Unfoldable(DieTexture) {
 
     constructor(options?: TextureOptions) {
         super();
+        this.options = options;
         if (options) Object.assign(this, options);
         this.buildLayoutData();
     }

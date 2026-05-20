@@ -267,6 +267,17 @@ export function bind(selector: string): void {
     }
 }
 
-export { DebugDieController, type DebugDieType } from "./debug";
+export { createD4 } from "./geometries/d4";
+export { createD6 } from "./geometries/d6";
+export { createD8 } from "./geometries/d8";
+export { createD10, createPercentile } from "./geometries/d10";
+export { createD12 } from "./geometries/d12";
+export { createD20 } from "./geometries/d20";
 export type { Stage } from "./renderer";
+export { D4DebugTexture } from "./textures/d4";
+export { D6DebugTexture } from "./textures/d6";
+export { D8DebugTexture } from "./textures/d8";
+export { D10DebugTexture, DPercentileDebugTexture } from "./textures/d10";
+export { D12DebugTexture } from "./textures/d12";
+export { D20DebugTexture } from "./textures/d20";
 export { removeDice, setCameraSize };

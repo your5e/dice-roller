@@ -34,6 +34,7 @@ export type Stage = {
     physicsTray: Tray;
     rolling: boolean;
     animationId: number | null;
+    onUpdate?: () => void;
 };
 
 export function getTrayDimensions(
@@ -172,6 +173,7 @@ export function removeDice(physicsTray: Tray, stage?: Stage): void {
         if (stage) {
             stage.scene.remove(die.mesh);
         }
+        die.dispose();
     }
     physicsTray.dice = [];
 }
@@ -312,6 +314,7 @@ export async function throwDice(
 function startAnimationLoop(state: Stage): void {
     function animate(): void {
         state.animationId = requestAnimationFrame(animate);
+        state.onUpdate?.();
         state.renderer.render(state.scene, state.camera);
     }
     animate();

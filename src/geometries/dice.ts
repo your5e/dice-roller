@@ -10,6 +10,13 @@ export abstract class Die {
         public physics: PhysicsDie,
     ) {}
 
+    dispose(): void {
+        this.mesh.geometry.dispose();
+        const material = this.mesh.material as THREE.MeshPhysicalMaterial;
+        material.map?.dispose();
+        material.dispose();
+    }
+
     protected abstract faceVertices: Record<number, number[]>;
     protected abstract meshVertices: THREE.Vector3[];
     protected abstract faceStance: Record<number, number>;

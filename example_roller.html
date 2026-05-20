@@ -153,17 +153,212 @@
     <script src="dist/dice-roller.js"></script>
     <script>
         var tray = DiceRoller.tray('#dice-tray');
-        var debugDie = new DiceRoller.DebugDieController();
-
         var modal = document.getElementById('result-modal');
+        var diceTrayEl = document.getElementById('dice-tray');
+        var debugControlsEl = document.getElementById('debug-controls');
 
+        // Debug die state
+        var debugDie = null;
+        var splash = null;
+        var autoRotate = true;
+        var targetFace = 0;
+        var animationStart = 0;
+        var pausing = true;
+        var dragging = false;
+        var lastDragEnd = 0;
+        var startQuaternion = null;
+        var targetQuaternion = null;
+
+        var ROTATE_DURATION = 2000;
+        var PAUSE_DURATION = 1000;
+        var RESUME_DELAY = 2000;
+
+        var dieCreators = {
+            4: function() { return DiceRoller.createD4(1, new DiceRoller.D4DebugTexture()); },
+            6: function() { return DiceRoller.createD6(1, new DiceRoller.D6DebugTexture()); },
+            8: function() { return DiceRoller.createD8(1, new DiceRoller.D8DebugTexture()); },
+            10: function() { return DiceRoller.createD10(1, new DiceRoller.D10DebugTexture()); },
+            12: function() { return DiceRoller.createD12(1, new DiceRoller.D12DebugTexture()); },
+            20: function() { return DiceRoller.createD20(1, new DiceRoller.D20DebugTexture()); },
+            100: function() { return DiceRoller.createPercentile(1, new DiceRoller.DPercentileDebugTexture()); }
+        };
+
+        function createDebugDie(sides) {
+            return dieCreators[sides]().then(function(die) {
+                debugDie = die;
+                die.mesh.position.y = 1;
+                targetQuaternion = die.defaultOrientation();
+                if (targetQuaternion) {
+                    die.mesh.quaternion.copy(targetQuaternion);
+                }
+                targetFace = 0;
+                pausing = true;
+                animationStart = performance.now();
+
+                tray.scene.add(die.mesh);
+                tray.physicsTray.dice.push(die);
+                DiceRoller.setCameraSize(tray, 3);
+
+                if (!splash) {
+                    splash = document.createElement('div');
+                    splash.style.cssText = 'position:absolute;top:8px;right:8px;font-size:24px;font-weight:bold;color:#fff;opacity:0.7;font-family:system-ui,sans-serif;pointer-events:none;';
+                    diceTrayEl.appendChild(splash);
+                }
+
+                updateFaceSelect();
+            });
+        }
+
+        function updateDebugDie() {
+            // Check if die was removed by a roll
+            if (debugDie && !tray.physicsTray.dice.includes(debugDie)) {
+                debugDie = null;
+                if (splash) {
+                    splash.remove();
+                    splash = null;
+                }
+                return;
+            }
+
+            if (!debugDie) return;
+
+            var mesh = debugDie.mesh;
+            var q = mesh.quaternion;
+            debugDie.physics.body.quaternion.set(q.x, q.y, q.z, q.w);
+
+            if (splash) {
+                splash.textContent = String(debugDie.physics.readFace());
+            }
+
+            if (dragging) return;
+
+            var now = performance.now();
+
+            if (autoRotate && lastDragEnd > 0 && now - lastDragEnd < RESUME_DELAY) {
+                targetFace = debugDie.physics.readFace();
+                targetQuaternion = null;
+                pausing = true;
+                animationStart = now;
+                return;
+            }
+
+            var elapsed = now - animationStart;
+
+            if (pausing) {
+                if (autoRotate && elapsed >= PAUSE_DURATION) {
+                    var faceValues = debugDie.physics.faces.map(function(f) { return f.value; }).sort(function(a, b) { return a - b; });
+                    var currentIndex = faceValues.indexOf(targetFace);
+                    var nextIndex = (currentIndex + 1) % faceValues.length;
+                    targetFace = faceValues[nextIndex];
+                    startQuaternion = mesh.quaternion.clone();
+                    targetQuaternion = debugDie.orientToFace(targetFace);
+                    animationStart = now;
+                    pausing = false;
+                }
+            } else {
+                if (startQuaternion && targetQuaternion) {
+                    var t = Math.min(elapsed / ROTATE_DURATION, 1);
+                    var eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                    mesh.quaternion.copy(startQuaternion).slerp(targetQuaternion, eased);
+
+                    if (t >= 1) {
+                        mesh.quaternion.copy(targetQuaternion);
+                        pausing = true;
+                        animationStart = now;
+                    }
+                }
+            }
+        }
+
+        // Drag interaction
+        var lastX = 0, lastY = 0;
+        diceTrayEl.addEventListener('mousedown', function(e) {
+            if (!debugDie) return;
+            dragging = true;
+            startQuaternion = null;
+            targetQuaternion = null;
+            autoRotate = false;
+            if (autoRotateCheckbox) autoRotateCheckbox.checked = false;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        window.addEventListener('mousemove', function(e) {
+            if (!dragging || !debugDie) return;
+            var deltaX = e.clientX - lastX;
+            var deltaY = e.clientY - lastY;
+            var rotZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -deltaX * 0.01);
+            var rotX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deltaY * 0.01);
+            debugDie.mesh.quaternion.premultiply(rotZ).premultiply(rotX);
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        window.addEventListener('mouseup', function() {
+            if (dragging) {
+                dragging = false;
+                lastDragEnd = performance.now();
+            }
+        });
+
+        // Debug controls - die type buttons
+        [4, 6, 8, 10, 12, 20, 100].forEach(function(sides) {
+            var btn = document.createElement('button');
+            btn.textContent = sides === 100 ? 'd%' : 'd' + sides;
+            btn.addEventListener('click', function() {
+                createDebugDie(sides);
+            });
+            debugControlsEl.appendChild(btn);
+        });
+
+        // Face select dropdown
+        var faceSelect = document.createElement('select');
+        faceSelect.addEventListener('change', function(e) {
+            if (!debugDie) return;
+            var face = Number(e.target.value);
+            startQuaternion = debugDie.mesh.quaternion.clone();
+            targetQuaternion = debugDie.orientToFace(face);
+            targetFace = face;
+            animationStart = performance.now();
+            pausing = false;
+        });
+        debugControlsEl.appendChild(faceSelect);
+
+        function updateFaceSelect() {
+            if (!debugDie) return;
+            faceSelect.innerHTML = '';
+            var faceValues = debugDie.physics.faces.map(function(f) { return f.value; }).sort(function(a, b) { return a - b; });
+            faceValues.forEach(function(value) {
+                var option = document.createElement('option');
+                option.value = String(value);
+                option.textContent = debugDie.getFaceLabel(value);
+                faceSelect.appendChild(option);
+            });
+            faceSelect.value = String(targetFace || faceValues[0]);
+        }
+
+        // Auto-rotate checkbox
+        var autoRotateLabel = document.createElement('label');
+        var autoRotateCheckbox = document.createElement('input');
+        autoRotateCheckbox.type = 'checkbox';
+        autoRotateCheckbox.checked = autoRotate;
+        autoRotateCheckbox.addEventListener('change', function(e) {
+            autoRotate = e.target.checked;
+            if (autoRotate && debugDie) {
+                targetFace = 0;
+                pausing = true;
+                animationStart = performance.now();
+            }
+        });
+        autoRotateLabel.appendChild(autoRotateCheckbox);
+        autoRotateLabel.appendChild(document.createTextNode(' Auto-rotate'));
+        debugControlsEl.appendChild(autoRotateLabel);
+
+        // Result modal
         function hideModal() {
             modal.classList.remove('visible');
         }
 
         function showResult(result) {
             console.log(result);
-            // Collect final dice for each expression, grouped by label
             var groupsByLabel = {};
             var labelOrder = [];
             for (var i = 0; i < result.expressions.length; i++) {
@@ -185,11 +380,10 @@
                     groupsByLabel[label] = groupsByLabel[label].concat(lastDice);
                 }
             }
-            // Format groups for display
-            var diceHtml = labelOrder.map((label) => {
+            var diceHtml = labelOrder.map(function(label) {
                 var dice = groupsByLabel[label];
                 var diceStr = dice.join('+');
-                var total = dice.reduce((sum, v) => sum + v, 0);
+                var total = dice.reduce(function(sum, v) { return sum + v; }, 0);
                 return label ? label + ': ' + diceStr + ' = ' + total : diceStr;
             }).join('<br>');
             modal.querySelector('.notation').textContent = result.notation;
@@ -199,32 +393,12 @@
         }
 
         modal.addEventListener('click', hideModal);
-
         DiceRoller.onRoll(showResult);
         DiceRoller.bind('.roll');
 
-        tray.onUpdate = function() {
-            debugDie.update();
-        };
+        tray.onUpdate = updateDebugDie;
 
-        DiceRoller.setCameraSize(tray, 3);
-        debugDie.create().then(function(mesh) {
-            tray.scene.add(mesh);
-            tray.physicsTray.dice.push(debugDie.currentDie);
-            debugDie.setupInteraction(document.getElementById('dice-tray'));
-        });
-
-        debugDie.setupControls(document.getElementById('debug-controls'));
-        debugDie.setOnDieChange(function(sides) {
-            DiceRoller.removeDice(tray.physicsTray, tray);
-            DiceRoller.setCameraSize(tray, 3);
-            debugDie.create(sides).then(function(mesh) {
-                tray.scene.add(mesh);
-                tray.physicsTray.dice.push(debugDie.currentDie);
-                debugDie.setupInteraction(document.getElementById('dice-tray'));
-            });
-        });
-
+        createDebugDie(12);
     </script>
 </body>
 </html>
