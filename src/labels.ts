@@ -1,3 +1,5 @@
+import { DEBUG_COLOURS } from "./textures/dice";
+
 export type LabelStyle = {
     colour: string;
     fgColour?: string;
@@ -88,41 +90,51 @@ const LABEL_STYLES: Record<string, LabelStyle> = {
     },
 };
 
-function hashString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash;
+const colourNameToIndex = new Map<string, number>(
+    DEBUG_COLOURS.map((c, i) => [c.name, i]),
+);
+
+function fgColourForHex(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+    return luminance > 150 ? "#000000" : "#ffffff";
+}
+
+export function getLabelStyles(labels: string[]): Map<string, LabelStyle> {
+    const result = new Map<string, LabelStyle>();
+    const usedIndices = new Set<number>();
+
+    // first pass: known damage types and colour names
+    for (const label of labels) {
+        const known = LABEL_STYLES[label];
+        if (known) {
+            result.set(label, known);
+            continue;
+        }
+        const namedIndex = colourNameToIndex.get(label);
+        if (namedIndex !== undefined) {
+            const { hex } = DEBUG_COLOURS[namedIndex];
+            result.set(label, { colour: hex, fgColour: fgColourForHex(hex) });
+            usedIndices.add(namedIndex);
+        }
     }
-    return Math.abs(hash);
-}
 
-function hashToColour(hash: number): string {
-    const hue = hash % 360;
-    const saturation = 50 + (hash % 30);
-    const lightness = 40 + (hash % 20);
-    return hslToHex(hue, saturation, lightness);
-}
+    // second pass: assign remaining labels to available slots
+    let nextIndex = 0;
+    for (const label of labels) {
+        if (result.has(label)) continue;
 
-function hslToHex(h: number, sPct: number, lPct: number): string {
-    const s = sPct / 100;
-    const l = lPct / 100;
-    const a = s * Math.min(l, 1 - l);
-    const f = (n: number) => {
-        const k = (n + h / 30) % 12;
-        const colour = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-        return Math.round(255 * colour)
-            .toString(16)
-            .padStart(2, "0");
-    };
-    return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-export function getLabelStyle(label: string): LabelStyle {
-    const known = LABEL_STYLES[label];
-    if (known) {
-        return known;
+        while (usedIndices.has(nextIndex) && nextIndex < DEBUG_COLOURS.length) {
+            nextIndex++;
+        }
+        const index = nextIndex % DEBUG_COLOURS.length;
+        const { hex } = DEBUG_COLOURS[index];
+        result.set(label, { colour: hex, fgColour: fgColourForHex(hex) });
+        usedIndices.add(index);
+        nextIndex++;
     }
-    return { colour: hashToColour(hashString(label)) };
+
+    return result;
 }

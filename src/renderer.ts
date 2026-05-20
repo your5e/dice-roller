@@ -7,7 +7,7 @@ import { createD10, createD100 } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
-import { getLabelStyle } from "./labels";
+import { getLabelStyles } from "./labels";
 import type { PhysicsDie } from "./physics/dice";
 import {
     applyFullThrow,
@@ -196,11 +196,15 @@ export async function throwDice(
     if (physicsTray.generation !== myGeneration) return { cancelled: true };
     removeDice(physicsTray, stage);
 
+    const labels = groups.map((g) => g.label).filter((l): l is string => !!l);
+    const labelStyles = getLabelStyles(labels);
+
     const dice: Die[] = [];
     for (const { count, sides, label } of groups) {
         let options: TextureOptions | undefined;
         if (label) {
-            const style = getLabelStyle(label);
+            const style = labelStyles.get(label);
+            if (!style) throw new Error(`No style for label "${label}"`);
             options = {
                 bgColour: style.colour,
                 fgColour: style.fgColour,

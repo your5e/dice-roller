@@ -122,6 +122,7 @@
 
     <h2>Ability Score Generation</h2>
     <span class="roll">4d6dl1</span>
+    <span class="roll" data-roll="str:4d6dl1 dex:4d6dl1 con:4d6dl1 int:4d6dl1 wis:4d6dl1 cha:4d6dl1">new character</span>
 
     <h2>Damage Rolls</h2>
     <span class="roll">2d6+3</span>
@@ -154,10 +155,8 @@
         var debugDie = new DiceRoller.DebugDieController();
 
         var modal = document.getElementById('result-modal');
-        var hideTimeout;
 
         function hideModal() {
-            clearTimeout(hideTimeout);
             modal.classList.remove('visible');
         }
 
@@ -196,8 +195,6 @@
             modal.querySelector('.dice').innerHTML = diceHtml;
             modal.querySelector('.total').textContent = result.total;
             modal.classList.add('visible');
-            clearTimeout(hideTimeout);
-            hideTimeout = setTimeout(hideModal, 5000);
         }
 
         modal.addEventListener('click', hideModal);

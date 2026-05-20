@@ -36,7 +36,7 @@ export type CrownData = {
 
 // colours from "List of 20 Simple, Distinct Colors" by Sasha Trubetskoy
 // https://sashamaps.net/docs/resources/20-colors/
-const DEBUG_COLOURS: { hex: string; name: string }[] = [
+export const DEBUG_COLOURS: { hex: string; name: string }[] = [
     { hex: "#e6194b", name: "red" },
     { hex: "#3cb44b", name: "green" },
     { hex: "#ffe119", name: "yellow" },
