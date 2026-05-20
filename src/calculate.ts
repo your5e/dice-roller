@@ -1,6 +1,6 @@
 import type { Modifier } from "./notation";
 
-export type Step = Record<string, number[]>;
+export type Step = Record<string, number | number[]>;
 
 type Result = {
     steps: Step[];

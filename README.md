@@ -11,24 +11,57 @@ common adjustments, such as advantage/disadvantage.
 <script src="dice-roller.js"></script>
 <script>
   DiceRoller.tray('#dice-box');
+  DiceRoller.onRoll(function(result) {
+    alert('You rolled ' + result.total);
+  });
   DiceRoller.bind('.rollable');
+  DiceRoller.roll('2d20kh1+5');
 </script>
 ```
 
-`.tray(elem)` creates the "rolling tray" that the dice will be animated in,
-could be a specific element or the entire page.
+`.tray(selector)` creates the "rolling tray" that the dice will be animated
+in. Could be a specific element or the entire page.
 
-`.bind(selector)` will make any click on the specified matching elements
-trigger a roll in the tray. If the matched elements have the `data-roll`
-attribute, that is used for the dice notation, otherwise it is found in
-the text of the element.
+`.bind(selector)` makes any click on matching elements trigger a roll in the
+tray. If the matched elements have the `data-roll` attribute, that is used
+for the dice notation, otherwise it is found in the text of the element.
+
+`.roll(input)` rolls dice with a custom input. If a tray exists, dice are
+animated, otherwise results are just simulated physics.
+
+`.onRoll(callback)` sets the callback that receives roll results:
+
+```javascript
+{
+  notation: 'fire:2d6+3 1d20',
+  total: 26,
+  label_totals: { fire: 9, '': 17 },
+  expressions: [
+    {
+      notation: 'fire:2d6+3',
+      label: 'fire',
+      steps: [{ '2d6': [4, 2] }, { bonus: 3 }],
+      total: 9
+    },
+    {
+      notation: '1d20',
+      steps: [{ '1d20': [17] }],
+      total: 17
+    }
+  ]
+}
+```
 
 
 ## Dice notation
 
-The expression of a roll uses a notation. It starts with the die or dice to
-roll, `1d20`, `8d6`. Always the number of dice to roll, even when only one,
-and the type of die. This can then be modified in various ways.
+A dice roll notation is a string, which contains expressions for a group of
+dice being rolled, in the format "{number to roll}{of what die}". Roleplaying
+games typically refer to a die by the number of faces, so a `d6` is a cubic
+die, `d20` is an icosahedral die. The simplest would be to roll one die:
+`1d6`. The notation can include many expressions, separated by at least one
+space: `2d8 3d6`. Each expression may include any of the following
+modifications.
 
 _**Keeping a subset.**_ When rolling multiple dice and keeping only those that
 are high or low enough, such as rolling advantage `2d20kh1`, disadvantage
@@ -60,7 +93,9 @@ whereas `4d6kh3rb2` would roll, keep the highest 3 and _then_ reroll any that
 are a 1. So if the original roll was all 1s, the former notation would give a
 better chance of a high total as you reroll all four dice.
 
-Any part of the expression being invalid makes the entire expression invalid.
+Any part of an expression being invalid makes the entire expression invalid,
+but not the full notation. For example, `1d20blep` generates no rolls, but
+`1d20blep 2d6` would roll two six-sided dice and return their total.
 
 
 ## Adding a new die

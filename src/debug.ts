@@ -41,6 +41,10 @@ export class DebugDieController {
         return this.die?.mesh ?? null;
     }
 
+    get currentDie(): Die | null {
+        return this.die;
+    }
+
     setOnDieChange(callback: (sides: DebugDieType) => void): void {
         this.onDieChange = callback;
     }

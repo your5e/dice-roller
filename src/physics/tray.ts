@@ -1,4 +1,5 @@
 import * as CANNON from "cannon-es";
+import type { Die } from "../geometries/dice";
 import type { PhysicsDie } from "./dice";
 
 // wall tall enough to contain bouncing dice
@@ -7,6 +8,8 @@ export const WALL_THICKNESS = 0.5;
 
 export const SETTLE_THRESHOLD = 0.01;
 export const TIME_STEP = 1 / 60;
+
+let lastYield = 0;
 
 // should settle within 5 seconds, so 10 gives a margin for error
 const MAX_SIMULATION_TIME = 10;
@@ -39,44 +42,64 @@ function randomQuaternion(): CANNON.Quaternion {
     );
 }
 
-export function bodiesOverlap(
-    a: CANNON.Body,
-    b: CANNON.Body,
-    world: CANNON.World,
-): boolean {
-    a.updateAABB();
-    b.updateAABB();
-
-    const contacts: CANNON.ContactEquation[] = [];
-    world.narrowphase.getContacts([a], [b], world, contacts, [], [], []);
-
-    return contacts.length > 0;
+export function boundingSpheresOverlap(a: CANNON.Body, b: CANNON.Body): boolean {
+    // bounding spheres touch corners; inscribed spheres touch faces
+    // ratio varies by shape (0.58 for cubes, 0.79 for icosahedra)
+    // 0.85 allows tighter packing with margin for random orientations
+    const scale = 0.85;
+    const radiusA = (a.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
+    const radiusB = (b.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
+    const distance = a.position.distanceTo(b.position);
+    return distance < (radiusA + radiusB) * scale;
 }
 
-export function packDice(dice: PhysicsDie[], world: CANNON.World): void {
-    let lastRadius = 0;
+function shuffledIndices(length: number): number[] {
+    // distribute the difference dice requested throughout the initial position
+    const indices = Array.from({ length }, (_, i) => i);
+    for (let i = length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices;
+}
 
+export function packDice(dice: PhysicsDie[]): void {
+    const placementOrder = shuffledIndices(dice.length);
+    const placed: PhysicsDie[] = [];
     for (let i = 0; i < dice.length; i++) {
-        const die = dice[i];
+        const die = dice[placementOrder[i]];
         die.body.quaternion.copy(randomQuaternion());
 
         const angle = i * GOLDEN_ANGLE;
-        let radius = lastRadius;
-        for (let attempt = 0; attempt < 100; attempt++) {
+        let radius = 0;
+        for (let attempt = 0; attempt < 400; attempt++) {
             const x = radius * Math.cos(angle);
             const z = radius * Math.sin(angle);
             die.body.position.set(x, 2, z);
-            if (
-                !dice
-                    .slice(0, i)
-                    .some((other) => bodiesOverlap(die.body, other.body, world))
-            ) {
+            if (!placed.some((other) => boundingSpheresOverlap(die.body, other.body))) {
                 break;
             }
-            radius += 0.2;
+            radius += 0.05;
         }
-        lastRadius = Math.max(lastRadius, radius);
+        placed.push(die);
     }
+}
+
+export function getPackedBounds(dice: PhysicsDie[]): {
+    halfWidth: number;
+    halfDepth: number;
+} {
+    let maxX = 0;
+    let maxZ = 0;
+
+    for (const die of dice) {
+        const pos = die.body.position;
+        const r = (die.body.shapes[0] as CANNON.ConvexPolyhedron).boundingSphereRadius;
+        maxX = Math.max(maxX, Math.abs(pos.x) + r);
+        maxZ = Math.max(maxZ, Math.abs(pos.z) + r);
+    }
+
+    return { halfWidth: maxX, halfDepth: maxZ };
 }
 
 export function offsetToEdge(dice: PhysicsDie[], tray: Tray, whichSide: boolean): void {
@@ -119,6 +142,8 @@ export function applyThrowVelocity(
     die: PhysicsDie,
     tray: Tray,
     whichSide: boolean,
+    positionRank: number,
+    total: number,
 ): void {
     const isPortrait = tray.halfDepth > tray.halfWidth;
     const baseAngle = isPortrait
@@ -130,12 +155,20 @@ export function applyThrowVelocity(
           : Math.PI;
     const throwAngle = baseAngle + (Math.random() - 0.5) * (Math.PI / 2);
 
-    // Calculate distance to far wall, use it to determine throw speed
+    // aim for most dice thrown to reach the far wall...
     const pos = die.body.position;
     const distance = isPortrait
         ? Math.abs((whichSide ? -tray.halfDepth : tray.halfDepth) - pos.z)
         : Math.abs((whichSide ? tray.halfWidth : -tray.halfWidth) - pos.x);
-    const k = 1.5;
+
+    // ...but taper the velocity off when lots of dice are rolled, so we don't
+    // end up with a pile of dice on the far wall
+    const baseK = 1.6;
+    const taperStrength = total > 6 ? Math.min(0.55, 0.15 + (total - 7) / 20) : 0;
+    const taper = 1 - taperStrength + positionRank * taperStrength;
+    const k = baseK * taper;
+
+    // always with a soupçon of randomness
     const perturbation = 0.8 + Math.random() * 0.4;
     const throwSpeed = k * distance * perturbation;
 
@@ -152,11 +185,61 @@ export function applyThrowVelocity(
     );
 }
 
+export type Simulation = {
+    cancel: () => Promise<void>;
+    result: Promise<SimulateResult>;
+};
+
 export type Tray = {
     world: CANNON.World;
     halfWidth: number;
     halfDepth: number;
+    initialHalfWidth: number;
+    initialHalfDepth: number;
+    walls: CANNON.Body[];
+    dice: Die[];
+    simulation: Simulation | undefined;
+    generation: number;
 };
+
+function createWalls(halfWidth: number, halfDepth: number): CANNON.Body[] {
+    const verticalWallShape = new CANNON.Box(
+        new CANNON.Vec3(WALL_THICKNESS, TRAY_WALL_HEIGHT, halfDepth),
+    );
+    const horizontalWallShape = new CANNON.Box(
+        new CANNON.Vec3(halfWidth, TRAY_WALL_HEIGHT, WALL_THICKNESS),
+    );
+
+    const leftWall = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape: verticalWallShape,
+        material: wallMaterial,
+    });
+    leftWall.position.set(-halfWidth - WALL_THICKNESS, TRAY_WALL_HEIGHT, 0);
+
+    const rightWall = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape: verticalWallShape,
+        material: wallMaterial,
+    });
+    rightWall.position.set(halfWidth + WALL_THICKNESS, TRAY_WALL_HEIGHT, 0);
+
+    const backWall = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape: horizontalWallShape,
+        material: wallMaterial,
+    });
+    backWall.position.set(0, TRAY_WALL_HEIGHT, -halfDepth - WALL_THICKNESS);
+
+    const frontWall = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape: horizontalWallShape,
+        material: wallMaterial,
+    });
+    frontWall.position.set(0, TRAY_WALL_HEIGHT, halfDepth + WALL_THICKNESS);
+
+    return [leftWall, rightWall, backWall, frontWall];
+}
 
 export function createTray(halfWidth: number, halfDepth: number): Tray {
     const world = new CANNON.World({
@@ -196,73 +279,98 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     world.addBody(groundBody);
 
-    const verticalWallShape = new CANNON.Box(
-        new CANNON.Vec3(WALL_THICKNESS, TRAY_WALL_HEIGHT, halfDepth),
-    );
-    const horizontalWallShape = new CANNON.Box(
-        new CANNON.Vec3(halfWidth, TRAY_WALL_HEIGHT, WALL_THICKNESS),
-    );
+    const walls = createWalls(halfWidth, halfDepth);
+    for (const wall of walls) {
+        world.addBody(wall);
+    }
 
-    const leftWall = new CANNON.Body({
-        type: CANNON.Body.STATIC,
-        shape: verticalWallShape,
-        material: wallMaterial,
-    });
-    leftWall.position.set(-halfWidth - WALL_THICKNESS, TRAY_WALL_HEIGHT, 0);
-    world.addBody(leftWall);
-
-    const rightWall = new CANNON.Body({
-        type: CANNON.Body.STATIC,
-        shape: verticalWallShape,
-        material: wallMaterial,
-    });
-    rightWall.position.set(halfWidth + WALL_THICKNESS, TRAY_WALL_HEIGHT, 0);
-    world.addBody(rightWall);
-
-    const backWall = new CANNON.Body({
-        type: CANNON.Body.STATIC,
-        shape: horizontalWallShape,
-        material: wallMaterial,
-    });
-    backWall.position.set(0, TRAY_WALL_HEIGHT, -halfDepth - WALL_THICKNESS);
-    world.addBody(backWall);
-
-    const frontWall = new CANNON.Body({
-        type: CANNON.Body.STATIC,
-        shape: horizontalWallShape,
-        material: wallMaterial,
-    });
-    frontWall.position.set(0, TRAY_WALL_HEIGHT, halfDepth + WALL_THICKNESS);
-    world.addBody(frontWall);
-
-    return { world, halfWidth, halfDepth };
+    return {
+        world,
+        halfWidth,
+        halfDepth,
+        initialHalfWidth: halfWidth,
+        initialHalfDepth: halfDepth,
+        walls,
+        dice: [],
+        simulation: undefined,
+        generation: 0,
+    };
 }
 
-export type RollOptions = {
-    onStep?: () => void;
+export function resizeTray(tray: Tray, halfWidth: number, halfDepth: number): void {
+    for (const wall of tray.walls) {
+        tray.world.removeBody(wall);
+    }
+
+    tray.walls = createWalls(halfWidth, halfDepth);
+    for (const wall of tray.walls) {
+        tray.world.addBody(wall);
+    }
+
+    tray.halfWidth = halfWidth;
+    tray.halfDepth = halfDepth;
+}
+
+export function resizeToFitDice(tray: Tray, dice: PhysicsDie[]): void {
+    const bounds = getPackedBounds(dice);
+    const aspect = tray.initialHalfWidth / tray.initialHalfDepth;
+    const size = Math.max(
+        bounds.halfWidth / Math.sqrt(aspect),
+        bounds.halfDepth * Math.sqrt(aspect),
+    );
+    const halfWidth = Math.max(tray.initialHalfWidth, size * Math.sqrt(aspect));
+    const halfDepth = Math.max(tray.initialHalfDepth, size / Math.sqrt(aspect));
+    resizeTray(tray, halfWidth, halfDepth);
+}
+
+export type SimulateOptions = {
+    onStep?: () => void | Promise<void>;
 };
 
-export function roll(tray: Tray, dice: PhysicsDie[], options?: RollOptions): number[] {
+export type SimulateResult = { faces: number[] } | { cancelled: true };
+
+export function simulateThrow(
+    tray: Tray,
+    dice: PhysicsDie[],
+    options?: SimulateOptions,
+): Simulation {
     const { world } = tray;
-    const whichSide = Math.random() < 0.5;
 
-    packDice(dice, world);
-    offsetToEdge(dice, tray, whichSide);
+    let cancelled = false;
 
-    for (const die of dice) {
-        applyThrowVelocity(die, tray, whichSide);
-        world.addBody(die.body);
-    }
+    const result = (async (): Promise<SimulateResult> => {
+        // yield -- allow cancel to be called before simulation starts
+        await Promise.resolve();
 
-    const maxSteps = MAX_SIMULATION_TIME / TIME_STEP;
-    for (let step = 0; step < maxSteps; step++) {
-        world.step(TIME_STEP);
-        options?.onStep?.();
+        const maxSteps = MAX_SIMULATION_TIME / TIME_STEP;
+        for (let step = 0; step < maxSteps; step++) {
+            if (cancelled) {
+                return { cancelled: true };
+            }
 
-        if (dice.every(isSettled)) {
-            break;
+            world.step(TIME_STEP);
+
+            if (options?.onStep) {
+                await options.onStep();
+            } else if (Date.now() - lastYield >= 100) {
+                // yield every 100ms -- allows timeouts in tests to actually stop tests
+                lastYield = Date.now();
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+
+            if (dice.every(isSettled)) {
+                break;
+            }
         }
-    }
 
-    return dice.map((die) => die.readFace());
+        return { faces: dice.map((die) => die.readFace()) };
+    })();
+
+    return {
+        cancel: async () => {
+            cancelled = true;
+            await result;
+        },
+        result,
+    };
 }

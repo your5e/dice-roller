@@ -151,6 +151,7 @@
     <script src="dist/dice-roller.js"></script>
     <script>
         var tray = DiceRoller.tray('#dice-tray');
+        var debugDie = new DiceRoller.DebugDieController();
 
         var modal = document.getElementById('result-modal');
         var hideTimeout;
@@ -165,33 +166,24 @@
             // Collect final dice for each expression, grouped by label
             var groupsByLabel = {};
             var labelOrder = [];
-            var currentLabel = null;
-            var lastDice = null;
-            for (var i = 0; i < result.steps.length; i++) {
-                var key = Object.keys(result.steps[i])[0];
-                var values = result.steps[i][key];
-                var match = key.match(/^(?:([^:]+):)?(\d+d\d+)$/);
-                if (match) {
-                    // New expression starting - save previous if any
-                    if (lastDice !== null) {
-                        var labelKey = currentLabel || '';
-                        if (!groupsByLabel[labelKey]) {
-                            groupsByLabel[labelKey] = [];
-                            labelOrder.push(labelKey);
-                        }
-                        groupsByLabel[labelKey] = groupsByLabel[labelKey].concat(lastDice);
+            for (var i = 0; i < result.expressions.length; i++) {
+                var expr = result.expressions[i];
+                var label = expr.label || '';
+                var lastDice = null;
+                for (var j = 0; j < expr.steps.length; j++) {
+                    var key = Object.keys(expr.steps[j])[0];
+                    var values = expr.steps[j][key];
+                    if (Array.isArray(values)) {
+                        lastDice = values;
                     }
-                    currentLabel = match[1] || null;
                 }
-                lastDice = values;
-            }
-            if (lastDice !== null) {
-                var labelKey = currentLabel || '';
-                if (!groupsByLabel[labelKey]) {
-                    groupsByLabel[labelKey] = [];
-                    labelOrder.push(labelKey);
+                if (lastDice !== null) {
+                    if (!groupsByLabel[label]) {
+                        groupsByLabel[label] = [];
+                        labelOrder.push(label);
+                    }
+                    groupsByLabel[label] = groupsByLabel[label].concat(lastDice);
                 }
-                groupsByLabel[labelKey] = groupsByLabel[labelKey].concat(lastDice);
             }
             // Format groups for display
             var diceHtml = labelOrder.map((label) => {
@@ -213,13 +205,26 @@
         DiceRoller.onRoll(showResult);
         DiceRoller.bind('.roll');
 
-        tray.debugDie.setupControls(document.getElementById('debug-controls'));
-        tray.debugDie.setOnDieChange((sides) => {
-            DiceRoller.setDebugDie(sides);
+        tray.onUpdate = function() {
+            debugDie.update();
+        };
+
+        DiceRoller.setCameraSize(tray, 3);
+        debugDie.create().then(function(mesh) {
+            tray.scene.add(mesh);
+            tray.physicsTray.dice.push(debugDie.currentDie);
+            debugDie.setupInteraction(document.getElementById('dice-tray'));
         });
 
-        window.addEventListener('resize', () => {
-            DiceRoller.resize();
+        debugDie.setupControls(document.getElementById('debug-controls'));
+        debugDie.setOnDieChange(function(sides) {
+            DiceRoller.removeDice(tray.physicsTray, tray);
+            DiceRoller.setCameraSize(tray, 3);
+            debugDie.create(sides).then(function(mesh) {
+                tray.scene.add(mesh);
+                tray.physicsTray.dice.push(debugDie.currentDie);
+                debugDie.setupInteraction(document.getElementById('dice-tray'));
+            });
         });
 
     </script>

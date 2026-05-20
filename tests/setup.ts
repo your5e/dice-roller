@@ -1,6 +1,11 @@
 import { createCanvas } from "canvas";
 
-// Patch HTMLCanvasElement to use node-canvas in happy-dom
+class Path2DShim {
+    // biome-ignore lint/complexity/noUselessConstructor: shim must accept path string
+    constructor(_d?: string) {}
+}
+globalThis.Path2D = Path2DShim as unknown as typeof Path2D;
+
 const originalGetContext = globalThis.HTMLCanvasElement.prototype.getContext;
 globalThis.HTMLCanvasElement.prototype.getContext = function (
     contextId: string,
@@ -10,7 +15,6 @@ globalThis.HTMLCanvasElement.prototype.getContext = function (
         const nodeCanvas = createCanvas(this.width, this.height);
         const ctx = nodeCanvas.getContext("2d");
 
-        // Sync canvas properties
         Object.defineProperty(this, "width", {
             get: () => nodeCanvas.width,
             set: (v) => {

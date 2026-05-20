@@ -25,7 +25,7 @@ function parseExpression(exp: string): ParsedDice | null {
     let label: string | undefined;
     let expression = exp;
 
-    const labelMatch = expression.match(/^([a-z]+):/i);
+    const labelMatch = expression.match(/^([a-z]*):/i);
     if (labelMatch) {
         label = labelMatch[1].toLowerCase();
         expression = expression.slice(labelMatch[0].length);
@@ -88,7 +88,7 @@ function parseExpression(exp: string): ParsedDice | null {
     }
 
     const result: ParsedDice = { count, sides, modifiers, bonus };
-    if (label) {
+    if (label !== undefined) {
         result.label = label;
     }
     return result;

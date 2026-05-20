@@ -777,8 +777,19 @@ describe("parse", () => {
             ]);
         });
 
+        it("accepts empty label", () => {
+            expect(parse(":2d6")).toEqual([
+                {
+                    label: "",
+                    count: 2,
+                    sides: 6,
+                    modifiers: [],
+                    bonus: 0,
+                },
+            ]);
+        });
+
         it("rejects invalid labels", () => {
-            expect(parse(":2d6")).toEqual([null]);
             expect(parse("123:2d6")).toEqual([null]);
             expect(parse("fire-damage:2d6")).toEqual([null]);
         });

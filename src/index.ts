@@ -1,38 +1,65 @@
 import { calculate, type Step } from "./calculate";
-import type { DebugDieType } from "./debug";
 import { rollDice } from "./dice";
 import { type ParsedDice, parse } from "./notation";
+import { createTray, type Tray } from "./physics/tray";
 import {
-    createTray,
-    resize as resizeTray,
-    roll as rollInTray,
-    setDebugDie as setDebugDieInTray,
-    type TrayState,
+    createStage,
+    type DiceGroup,
+    getTrayDimensions,
+    removeDice,
+    type Stage,
+    setCameraSize,
+    throwDice,
 } from "./renderer";
+
+type Expression = {
+    notation: string;
+    label?: string;
+    steps: Step[];
+    total: number;
+};
 
 type RollResult = {
     notation: string;
-    steps: Step[];
-    labels: Record<string, number>;
     total: number;
+    label_totals: Record<string, number>;
+    expressions: Expression[];
 };
 
 type RollCallback = (result: RollResult) => void;
 
-let activeTray: TrayState | null = null;
-let onRollCallback: RollCallback = (result) => console.log(result);
+let currentTray: Tray | undefined;
+let currentStage: Stage | undefined;
+let onRollCallback: RollCallback = () => {};
+
+function buildExpressionNotation(expr: ParsedDice): string {
+    let notation = "";
+    if (expr.label !== undefined) {
+        notation += `${expr.label}:`;
+    }
+    notation += `${expr.count}d${expr.sides}`;
+    for (const mod of expr.modifiers) {
+        notation += `${mod.type}${mod.value}`;
+    }
+    if (expr.bonus > 0) {
+        notation += `+${expr.bonus}`;
+    } else if (expr.bonus < 0) {
+        notation += `${expr.bonus}`;
+    }
+    return notation;
+}
 
 function buildResult(
     notation: string,
-    expressions: (ParsedDice | null)[],
+    parsedExpressions: (ParsedDice | null)[],
     facesByIndex: Map<number, number[]>,
 ): RollResult {
     let total = 0;
-    const steps: Step[] = [];
-    const labels: Record<string, number> = {};
+    const label_totals: Record<string, number> = {};
+    const expressions: Expression[] = [];
 
-    for (let i = 0; i < expressions.length; i++) {
-        const expr = expressions[i];
+    for (let i = 0; i < parsedExpressions.length; i++) {
+        const expr = parsedExpressions[i];
         if (expr === null) {
             continue;
         }
@@ -42,9 +69,8 @@ function buildResult(
             continue;
         }
 
-        const diceNotation = expr.label
-            ? `${expr.label}:${expr.count}d${expr.sides}`
-            : `${expr.count}d${expr.sides}`;
+        const steps: Step[] = [];
+        const diceNotation = `${expr.count}d${expr.sides}`;
         steps.push({ [diceNotation]: [...faces] });
 
         const result = calculate(
@@ -53,84 +79,116 @@ function buildResult(
             expr.bonus,
             () => rollDice(1, expr.sides)[0],
         );
-        total += result.total;
         steps.push(...result.steps);
 
-        if (expr.label) {
-            labels[expr.label] = (labels[expr.label] ?? 0) + result.total;
+        if (expr.bonus !== 0) {
+            steps.push({ bonus: expr.bonus });
         }
+
+        const exprTotal = result.total;
+        total += exprTotal;
+
+        const labelKey = expr.label ?? "";
+        label_totals[labelKey] = (label_totals[labelKey] ?? 0) + exprTotal;
+
+        const expression: Expression = {
+            notation: buildExpressionNotation(expr),
+            steps,
+            total: exprTotal,
+        };
+        if (expr.label !== undefined) {
+            expression.label = expr.label;
+        }
+        expressions.push(expression);
     }
 
-    return { notation, steps, labels, total };
+    return { notation, total, label_totals, expressions };
 }
 
-export function roll(input: string): RollResult {
-    const expressions = parse(input);
-    const facesByIndex = new Map<number, number[]>();
-
-    for (let i = 0; i < expressions.length; i++) {
-        const expr = expressions[i];
-        if (expr !== null) {
-            facesByIndex.set(i, rollDice(expr.count, expr.sides));
-        }
+export function roll(input: string): RollResult;
+export function roll(input: string, options: { sync: true }): Promise<RollResult>;
+export function roll(
+    input: string,
+    options?: { sync?: boolean },
+): RollResult | Promise<RollResult> {
+    if (!currentTray) {
+        throw new Error("No tray: call tray() before rolling");
     }
 
-    return buildResult(input, expressions, facesByIndex);
-}
-
-const animatedDice = new Set([4, 6, 8, 10, 12, 20, 100]);
-
-function rollWithPhysics(input: string): void {
     const expressions = parse(input);
 
-    if (!activeTray) {
-        onRollCallback(roll(input));
-        return;
-    }
-
-    // roll mathematical dice first to enable quick exit if no physical rolls
     type IndexedExpr = { index: number; expr: NonNullable<(typeof expressions)[0]> };
     const animated: IndexedExpr[] = [];
-    const facesByIndex = new Map<number, number[]>();
 
     for (let i = 0; i < expressions.length; i++) {
         const expr = expressions[i];
         if (expr === null) {
             continue;
         }
-        if (animatedDice.has(expr.sides)) {
-            animated.push({ index: i, expr });
-        } else {
-            facesByIndex.set(i, rollDice(expr.count, expr.sides));
-        }
+        animated.push({ index: i, expr });
     }
 
-    if (animated.length === 0) {
-        onRollCallback(buildResult(input, expressions, facesByIndex));
-        return;
-    }
-
-    // physical rolls
-    const groups = animated.map(({ expr }) => ({
+    const groups: DiceGroup[] = animated.map(({ expr }) => ({
         count: expr.count,
         sides: expr.sides,
         label: expr.label,
     }));
-    rollInTray(activeTray, groups).then((groupedFaces) => {
-        for (let i = 0; i < animated.length; i++) {
-            facesByIndex.set(animated[i].index, groupedFaces[i]);
+
+    const trayForSimulation = currentTray;
+    const stageForSimulation = currentStage;
+
+    const runSimulation = async (): Promise<RollResult> => {
+        const facesByIndex = new Map<number, number[]>();
+        const result = await throwDice(trayForSimulation, groups, {
+            stage: stageForSimulation,
+        });
+
+        if ("cancelled" in result) {
+            return buildResult(input, expressions, facesByIndex);
         }
-        onRollCallback(buildResult(input, expressions, facesByIndex));
-    });
+
+        for (let i = 0; i < animated.length; i++) {
+            facesByIndex.set(animated[i].index, result.faces[i]);
+        }
+
+        const rollResult = buildResult(input, expressions, facesByIndex);
+        onRollCallback(rollResult);
+        return rollResult;
+    };
+
+    if (options?.sync) {
+        return runSimulation();
+    }
+
+    runSimulation();
+    return buildResult(input, expressions, new Map());
 }
 
-export function tray(selector: string): TrayState {
-    const container = document.querySelector(selector);
-    if (!(container instanceof HTMLElement)) {
-        throw new Error(`Element not found: ${selector}`);
+export function tray(options: string): Stage;
+export function tray(options?: { halfWidth: number; halfDepth: number }): Tray;
+export function tray(
+    options?: string | { halfWidth: number; halfDepth: number },
+): Tray | Stage {
+    currentTray?.simulation?.cancel();
+    if (typeof options === "string") {
+        const container = document.querySelector(options);
+        if (!(container instanceof HTMLElement)) {
+            throw new Error(`Element not found: ${options}`);
+        }
+        const aspect = container.clientWidth / container.clientHeight;
+        const { halfWidth, halfDepth } = getTrayDimensions(aspect, 10);
+        currentTray = createTray(halfWidth, halfDepth);
+        currentStage = createStage(container, currentTray);
+        return currentStage;
     }
-    activeTray = createTray(container);
-    return activeTray;
+    if (options) {
+        currentTray = createTray(options.halfWidth, options.halfDepth);
+    } else {
+        const { halfWidth, halfDepth } = getTrayDimensions(1, 10);
+        currentTray = createTray(halfWidth, halfDepth);
+    }
+
+    return currentTray;
 }
 
 export function onRoll(callback: RollCallback): void {
@@ -145,29 +203,18 @@ export function bind(selector: string): void {
             element.addEventListener("submit", (e) => {
                 e.preventDefault();
                 const expression = input?.value || "";
-                rollWithPhysics(expression);
+                roll(expression);
             });
         } else {
             element.addEventListener("click", () => {
                 const expression =
                     element.getAttribute("data-roll") || element.textContent || "";
-                rollWithPhysics(expression);
+                roll(expression);
             });
         }
     }
 }
 
-export function setDebugDie(sides: DebugDieType): void {
-    if (activeTray) {
-        setDebugDieInTray(activeTray, sides);
-    }
-}
-
-export function resize(): void {
-    if (activeTray) {
-        resizeTray(activeTray);
-    }
-}
-
-export type { DebugDieType } from "./debug";
-export type { TrayState } from "./renderer";
+export { DebugDieController, type DebugDieType } from "./debug";
+export type { Stage } from "./renderer";
+export { removeDice, setCameraSize };

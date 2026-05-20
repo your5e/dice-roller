@@ -1,23 +1,16 @@
 import {
-    Astroid,
     AudioLines,
-    AudioWaveform,
-    Bone,
     Brain,
     Droplet,
     Flame,
     FlaskRound,
     Hammer,
-    Locate,
     NavigationOff,
     Skull,
     Snowflake,
     Sparkle,
-    Sparkles,
-    Sun,
     Sword,
     Target,
-    Volume2,
     Zap,
 } from "lucide";
 
@@ -25,25 +18,18 @@ type IconElement = [string, Record<string, string>];
 type IconData = IconElement[];
 
 const ICONS: Record<string, IconData> = {
-    astroid: Astroid as IconData,
     "audio-lines": AudioLines as IconData,
-    "audio-waveform": AudioWaveform as IconData,
-    bone: Bone as IconData,
     brain: Brain as IconData,
     droplet: Droplet as IconData,
     flame: Flame as IconData,
     "flask-round": FlaskRound as IconData,
     hammer: Hammer as IconData,
-    locate: Locate as IconData,
     "navigation-off": NavigationOff as IconData,
     skull: Skull as IconData,
     snowflake: Snowflake as IconData,
     sparkle: Sparkle as IconData,
-    sparkles: Sparkles as IconData,
-    sun: Sun as IconData,
     sword: Sword as IconData,
     target: Target as IconData,
-    "volume-2": Volume2 as IconData,
     zap: Zap as IconData,
 };
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createD100 } from "../src/geometries/d10";
-import { getTrayDimensions } from "../src/renderer";
+import { createTray } from "../src/physics/tray";
+import { getTrayDimensions, throwDice } from "../src/renderer";
 
 const originalCreateElement = document.createElement.bind(document);
 
@@ -105,16 +106,40 @@ describe("getTrayDimensions", () => {
         const { halfWidth, halfDepth } = getTrayDimensions(1, 10);
         expect(halfWidth).toBe(halfDepth);
     });
+});
 
-    it("preserves area for landscape", () => {
-        const { halfWidth, halfDepth } = getTrayDimensions(2, 10);
-        const area = halfWidth * halfDepth;
-        expect(area).toBeCloseTo(10 * 10);
+describe("concurrent throwDice calls", () => {
+    it("only the latest caller proceeds", async () => {
+        const tray = createTray(5, 5);
+
+        // create first roll and let it progress to simulation
+        const rollA = throwDice(tray, [{ count: 1, sides: 6 }]);
+        while (!tray.simulation) {
+            await new Promise((r) => setTimeout(r, 0));
+        }
+
+        // create second and third rolls, both will try to cancel first
+        const rollB = throwDice(tray, [{ count: 1, sides: 6 }]);
+        const rollC = throwDice(tray, [{ count: 1, sides: 6 }]);
+        const [resultA, resultB, resultC] = await Promise.all([rollA, rollB, rollC]);
+
+        // check the chain of cancellations
+        expect(resultA).toEqual({ cancelled: true });
+        expect(resultB).toEqual({ cancelled: true });
+        expect(resultC).toHaveProperty("faces");
+        expect(tray.dice).toHaveLength(1);
     });
 
-    it("preserves area for portrait", () => {
-        const { halfWidth, halfDepth } = getTrayDimensions(0.5, 10);
-        const area = halfWidth * halfDepth;
-        expect(area).toBeCloseTo(10 * 10);
+    it("only the latest caller proceeds during dice creation", async () => {
+        const tray = createTray(5, 5);
+
+        // create two rolls immediately, a potential race condition
+        const rollA = throwDice(tray, [{ count: 1, sides: 6 }]);
+        const rollB = throwDice(tray, [{ count: 1, sides: 6 }]);
+        const [resultA, resultB] = await Promise.all([rollA, rollB]);
+
+        expect(resultA).toEqual({ cancelled: true });
+        expect(resultB).toHaveProperty("faces");
+        expect(tray.dice).toHaveLength(1);
     });
 });

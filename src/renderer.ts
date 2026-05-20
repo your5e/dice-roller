@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { DebugDieController, type DebugDieType } from "./debug";
 import { loadVarelaRound } from "./fonts/varela-round";
 import { createD4 } from "./geometries/d4";
 import { createD6 } from "./geometries/d6";
@@ -9,14 +8,15 @@ import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
 import { getLabelStyle } from "./labels";
+import type { PhysicsDie } from "./physics/dice";
 import {
     applyThrowVelocity,
-    createTray as createPhysicsTray,
-    isSettled,
+    createTray,
     offsetToEdge,
-    type Tray as PhysicsTray,
     packDice,
-    TIME_STEP,
+    resizeToFitDice,
+    simulateThrow,
+    type Tray,
 } from "./physics/tray";
 import { D4Texture } from "./textures/d4";
 import { D6Texture } from "./textures/d6";
@@ -26,21 +26,14 @@ import { D12Texture } from "./textures/d12";
 import { D20Texture } from "./textures/d20";
 import type { TextureOptions } from "./textures/dice";
 
-type RollState = {
-    onSettle: () => void;
-    steps: number;
-};
-
-export type TrayState = {
+export type Stage = {
     container: HTMLElement;
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.OrthographicCamera;
-    physicsTray: PhysicsTray;
-    dice: Die[];
-    roll: RollState | null;
+    physicsTray: Tray;
+    rolling: boolean;
     animationId: number | null;
-    debugDie: DebugDieController;
 };
 
 export function getTrayDimensions(
@@ -52,7 +45,7 @@ export function getTrayDimensions(
     return { halfWidth, halfDepth };
 }
 
-function resizeCamera(tray: TrayState, halfWidth: number, halfDepth: number): void {
+function resizeCamera(tray: Stage, halfWidth: number, halfDepth: number): void {
     tray.camera.left = -halfWidth;
     tray.camera.right = halfWidth;
     tray.camera.top = halfDepth;
@@ -60,8 +53,8 @@ function resizeCamera(tray: TrayState, halfWidth: number, halfDepth: number): vo
     tray.camera.updateProjectionMatrix();
 }
 
-function setCameraSize(
-    tray: TrayState,
+export function setCameraSize(
+    tray: Stage,
     size: number,
 ): { halfWidth: number; halfDepth: number } {
     const aspect = tray.container.clientWidth / tray.container.clientHeight;
@@ -70,14 +63,14 @@ function setCameraSize(
     return dims;
 }
 
-export function resize(tray: TrayState): void {
+export function windowResize(tray: Stage): void {
     const width = tray.container.clientWidth;
     const height = tray.container.clientHeight;
     tray.renderer.setSize(width, height);
     resizeCamera(tray, tray.physicsTray.halfWidth, tray.physicsTray.halfDepth);
 }
 
-export function createTray(container: HTMLElement): TrayState {
+export function createStage(container: HTMLElement, existingTray?: Tray): Stage {
     const width = container.clientWidth;
     const height = container.clientHeight;
 
@@ -112,59 +105,60 @@ export function createTray(container: HTMLElement): TrayState {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    const { halfWidth, halfDepth } = getTrayDimensions(aspect, 10);
-    const physicsTray = createPhysicsTray(halfWidth, halfDepth);
-    const debugDie = new DebugDieController();
+    const physicsTray =
+        existingTray ??
+        (() => {
+            const { halfWidth, halfDepth } = getTrayDimensions(aspect, 10);
+            return createTray(halfWidth, halfDepth);
+        })();
 
-    const state: TrayState = {
+    const state: Stage = {
         container,
         renderer,
         scene,
         camera,
         physicsTray,
-        dice: [],
-        roll: null,
+        rolling: false,
         animationId: null,
-        debugDie,
     };
 
-    loadVarelaRound().then(async () => {
-        setCameraSize(state, 3);
-        const mesh = await debugDie.create();
-        scene.add(mesh);
-        debugDie.setupInteraction(container);
-    });
+    loadVarelaRound();
+
+    window.addEventListener("resize", () => windowResize(state));
 
     startAnimationLoop(state);
 
     return state;
 }
 
-interface Roll {
-    dice: Die[];
-    readResult(): number;
-}
-
-async function createRoll(sides: number, options?: TextureOptions): Promise<Roll> {
+async function createDice(sides: number, options?: TextureOptions): Promise<Die[]> {
     switch (sides) {
         case 4:
-            return await createD4(1, options ? new D4Texture(options) : undefined);
+            return (await createD4(1, options ? new D4Texture(options) : undefined))
+                .dice;
         case 6:
-            return await createD6(1, options ? new D6Texture(options) : undefined);
+            return (await createD6(1, options ? new D6Texture(options) : undefined))
+                .dice;
         case 8:
-            return await createD8(1, options ? new D8Texture(options) : undefined);
+            return (await createD8(1, options ? new D8Texture(options) : undefined))
+                .dice;
         case 10:
-            return await createD10(1, options ? new D10Texture(options) : undefined);
+            return (await createD10(1, options ? new D10Texture(options) : undefined))
+                .dice;
         case 12:
-            return await createD12(1, options ? new D12Texture(options) : undefined);
+            return (await createD12(1, options ? new D12Texture(options) : undefined))
+                .dice;
         case 20:
-            return await createD20(1, options ? new D20Texture(options) : undefined);
+            return (await createD20(1, options ? new D20Texture(options) : undefined))
+                .dice;
         case 100:
-            return await createD100(
-                1,
-                options ? new D10Texture(options) : undefined,
-                options ? new DPercentileTexture(options) : undefined,
-            );
+            return (
+                await createD100(
+                    1,
+                    options ? new D10Texture(options) : undefined,
+                    options ? new DPercentileTexture(options) : undefined,
+                )
+            ).dice;
         default:
             throw new Error(`No geometry for d${sides}`);
     }
@@ -172,25 +166,37 @@ async function createRoll(sides: number, options?: TextureOptions): Promise<Roll
 
 export type DiceGroup = { count: number; sides: number; label?: string };
 
-function clearTray(tray: TrayState): void {
-    if (tray.debugDie.mesh) {
-        tray.debugDie.remove(tray.scene);
+export function removeDice(physicsTray: Tray, stage?: Stage): void {
+    for (const die of physicsTray.dice) {
+        physicsTray.world.removeBody(die.physics.body);
+        if (stage) {
+            stage.scene.remove(die.mesh);
+        }
     }
-    for (const die of tray.dice) {
-        tray.scene.remove(die.mesh);
-    }
-    tray.dice = [];
+    physicsTray.dice = [];
 }
 
-export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number[][]> {
-    clearTray(tray);
+export type ThrowOptions = {
+    stage?: Stage;
+    whichSide?: boolean;
+};
 
-    const whichSide = Math.random() < 0.5;
+export async function throwDice(
+    physicsTray: Tray,
+    groups: DiceGroup[],
+    options?: ThrowOptions,
+): Promise<{ dice: Die[]; faces: number[][] } | { cancelled: true }> {
+    const stage = options?.stage;
+    const whichSide = options?.whichSide ?? Math.random() < 0.5;
+    const myGeneration = ++physicsTray.generation;
+
+    // a new roll interrupts and replaces the previous roll if it is still in progress
+    if (physicsTray.simulation) await physicsTray.simulation.cancel();
+    if (physicsTray.generation !== myGeneration) return { cancelled: true };
+    removeDice(physicsTray, stage);
+
     const dice: Die[] = [];
-    const rolls: Roll[][] = [];
-
     for (const { count, sides, label } of groups) {
-        const groupRolls: Roll[] = [];
         let options: TextureOptions | undefined;
         if (label) {
             const style = getLabelStyle(label);
@@ -203,83 +209,102 @@ export async function roll(tray: TrayState, groups: DiceGroup[]): Promise<number
             };
         }
         for (let i = 0; i < count; i++) {
-            const roll = await createRoll(sides, options);
-            dice.push(...roll.dice);
-            groupRolls.push(roll);
+            const created = await createDice(sides, options);
+            dice.push(...created);
         }
-        rolls.push(groupRolls);
     }
 
-    let size = 10;
-    let { halfWidth, halfDepth } = setCameraSize(tray, size);
-    tray.physicsTray = createPhysicsTray(halfWidth, halfDepth);
-    packDice(
-        dice.map((d) => d.physics),
-        tray.physicsTray.world,
-    );
+    if (physicsTray.generation !== myGeneration) return { cancelled: true };
 
-    // if the dice don't fit in the tray, make the tray bigger until they do
-    while (true) {
-        const allFit = dice.every((die) => {
-            const pos = die.physics.body.position;
-            return (
-                Math.abs(pos.x) + 1 <= halfWidth / 2 && Math.abs(pos.z) + 1 <= halfDepth
-            );
-        });
-        if (allFit) break;
-        size += 1;
-        ({ halfWidth, halfDepth } = setCameraSize(tray, size));
-        tray.physicsTray = createPhysicsTray(halfWidth, halfDepth);
+    // populate the world ... with dice!
+    const physicsDice = dice.map((d) => d.physics);
+    for (const die of physicsDice) {
+        physicsTray.world.addBody(die.body);
     }
-
-    offsetToEdge(
-        dice.map((d) => d.physics),
-        tray.physicsTray,
-        whichSide,
-    );
-
-    for (const die of dice) {
-        tray.scene.add(die.mesh);
-        tray.physicsTray.world.addBody(die.physics.body);
-        syncDie(die);
+    physicsTray.dice = dice;
+    if (stage) {
+        for (const die of dice) {
+            stage.scene.add(die.mesh);
+            syncDie(die);
+        }
+        stage.rolling = true;
     }
+    packDice(physicsDice);
+    resizeToFitDice(physicsTray, physicsDice);
+    offsetToEdge(physicsDice, physicsTray, whichSide);
 
-    tray.dice = dice;
-
-    for (const die of dice) {
-        applyThrowVelocity(die.physics, tray.physicsTray, whichSide);
-    }
-
-    return new Promise((resolve) => {
-        tray.roll = {
-            steps: 0,
-            onSettle: () => {
-                resolve(rolls.map((group) => group.map((roll) => roll.readResult())));
-            },
-        };
+    // find the position along the throwing axis so frontmost dice
+    // move faster -- fewer collisions, better spread in the tray
+    const isPortrait = physicsTray.halfDepth > physicsTray.halfWidth;
+    const sortedByPosition = [...physicsDice].sort((a, b) => {
+        const posA = isPortrait ? a.body.position.z : a.body.position.x;
+        const posB = isPortrait ? b.body.position.z : b.body.position.x;
+        return isPortrait
+            ? whichSide
+                ? posB - posA
+                : posA - posB
+            : whichSide
+              ? posA - posB
+              : posB - posA;
     });
+    const positionRanks = new Map<PhysicsDie, number>();
+    for (let i = 0; i < sortedByPosition.length; i++) {
+        positionRanks.set(
+            sortedByPosition[i],
+            i / Math.max(1, sortedByPosition.length - 1),
+        );
+    }
+    for (const die of physicsDice) {
+        applyThrowVelocity(
+            die,
+            physicsTray,
+            whichSide,
+            positionRanks.get(die) ?? 0,
+            physicsDice.length,
+        );
+    }
+
+    // chuck 'em!
+    const simulation = simulateThrow(physicsTray, physicsDice, {
+        onStep: stage
+            ? async () => {
+                  resizeCamera(stage, physicsTray.halfWidth, physicsTray.halfDepth);
+                  for (const die of dice) {
+                      syncDie(die);
+                  }
+                  await new Promise((resolve) => requestAnimationFrame(resolve));
+              }
+            : undefined,
+    });
+    physicsTray.simulation = simulation;
+    const result = await simulation.result;
+    physicsTray.simulation = undefined;
+
+    if (stage) stage.rolling = false;
+    if ("cancelled" in result) return { cancelled: true };
+
+    const faces = result.faces;
+    let faceIndex = 0;
+    const faceResults = groups.map(({ count, sides }) => {
+        const groupResults: number[] = [];
+        for (let i = 0; i < count; i++) {
+            if (sides === 100) {
+                const t = faces[faceIndex++] % 100;
+                const o = faces[faceIndex++] % 10;
+                groupResults.push(t === 0 && o === 0 ? 100 : t + o);
+            } else {
+                groupResults.push(faces[faceIndex++]);
+            }
+        }
+        return groupResults;
+    });
+
+    return { dice, faces: faceResults };
 }
 
-function startAnimationLoop(state: TrayState): void {
+function startAnimationLoop(state: Stage): void {
     function animate(): void {
         state.animationId = requestAnimationFrame(animate);
-
-        if (state.roll) {
-            state.physicsTray.world.step(TIME_STEP);
-            state.roll.steps++;
-
-            for (const die of state.dice) {
-                syncDie(die);
-            }
-
-            if (state.dice.every((die) => isSettled(die.physics))) {
-                state.roll.onSettle();
-                state.roll = null;
-            }
-        } else if (state.debugDie.mesh) {
-            state.debugDie.update();
-        }
-
         state.renderer.render(state.scene, state.camera);
     }
     animate();
@@ -294,14 +319,4 @@ export function syncDie(die: Die): void {
         body.quaternion.z,
         body.quaternion.w,
     );
-}
-
-export async function setDebugDie(tray: TrayState, sides: DebugDieType): Promise<void> {
-    clearTray(tray);
-    tray.roll = null;
-    setCameraSize(tray, 3);
-
-    const mesh = await tray.debugDie.create(sides);
-    tray.scene.add(mesh);
-    tray.debugDie.setupInteraction(tray.container);
 }
