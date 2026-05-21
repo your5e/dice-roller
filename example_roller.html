@@ -19,6 +19,20 @@
             height: 50vh;
             background: #000;
         }
+        #slow-indicator {
+            position: fixed;
+            bottom: calc(50vh + 8px);
+            right: 8px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 28px;
+            text-shadow: 1px 1px 2px #666, -1px -1px 2px #666;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        #slow-indicator.visible {
+            opacity: 1;
+        }
         h2 {
             margin-top: 2rem;
         }
@@ -85,6 +99,7 @@
 <body>
     <h1>Dice Roller Test</h1>
     <div id="dice-tray"></div>
+    <div id="slow-indicator">too many dice</div>
     <p>Click any roll to see the result.</p>
 
     <h2>Debug Die</h2>
@@ -156,6 +171,7 @@
         var modal = document.getElementById('result-modal');
         var diceTrayEl = document.getElementById('dice-tray');
         var debugControlsEl = document.getElementById('debug-controls');
+        var slowIndicator = document.getElementById('slow-indicator');
 
         // Debug die state
         var debugDie = null;
@@ -184,6 +200,13 @@
         };
 
         function createDebugDie(sides) {
+            if (tray.physicsTray.simulation) {
+                tray.physicsTray.simulation.cancel();
+            }
+            DiceRoller.removeDice(tray.physicsTray, tray);
+            debugDie = null;
+            DiceRoller.setCameraSize(tray, 3);
+
             return dieCreators[sides]().then(function(die) {
                 debugDie = die;
                 die.mesh.position.y = 1;
@@ -197,7 +220,6 @@
 
                 tray.scene.add(die.mesh);
                 tray.physicsTray.dice.push(die);
-                DiceRoller.setCameraSize(tray, 3);
 
                 if (!splash) {
                     splash = document.createElement('div');
@@ -286,8 +308,8 @@
             if (!dragging || !debugDie) return;
             var deltaX = e.clientX - lastX;
             var deltaY = e.clientY - lastY;
-            var rotZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -deltaX * 0.01);
-            var rotX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deltaY * 0.01);
+            var rotZ = new DiceRoller.THREE.Quaternion().setFromAxisAngle(new DiceRoller.THREE.Vector3(0, 0, 1), -deltaX * 0.01);
+            var rotX = new DiceRoller.THREE.Quaternion().setFromAxisAngle(new DiceRoller.THREE.Vector3(1, 0, 0), deltaY * 0.01);
             debugDie.mesh.quaternion.premultiply(rotZ).premultiply(rotX);
             lastX = e.clientX;
             lastY = e.clientY;
@@ -396,7 +418,15 @@
         DiceRoller.onRoll(showResult);
         DiceRoller.bind('.roll');
 
-        tray.onUpdate = updateDebugDie;
+        var lastSlow = false;
+        tray.onUpdate = function() {
+            updateDebugDie();
+            var slow = tray.physicsTray.isDropping;
+            if (slow !== lastSlow) {
+                slowIndicator.classList.toggle('visible', slow);
+                lastSlow = slow;
+            }
+        };
 
         createDebugDie(12);
     </script>

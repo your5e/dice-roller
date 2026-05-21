@@ -34,4 +34,4 @@ small dice box image.
 
 # Monitoring
 
-- [ ] monitor frame drops
+- [X] monitor frame drops

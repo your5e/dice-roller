@@ -15,6 +15,7 @@ import {
     offsetToEdge,
     packDice,
     resizeToFitDice,
+    type SimulateStats,
     simulateThrow,
     type Tray,
 } from "./physics/tray";
@@ -188,7 +189,9 @@ export async function throwDice(
     physicsTray: Tray,
     groups: DiceGroup[],
     options?: ThrowOptions,
-): Promise<{ dice: Die[]; faces: number[][] } | { cancelled: true }> {
+): Promise<
+    { dice: Die[]; faces: number[][]; stats: SimulateStats } | { cancelled: true }
+> {
     const stage = options?.stage;
     const whichSide = options?.whichSide ?? Math.random() < 0.5;
     const myGeneration = ++physicsTray.generation;
@@ -289,7 +292,9 @@ export async function throwDice(
     const result = await simulation.result;
     physicsTray.simulation = undefined;
 
-    if (stage) stage.rolling = false;
+    if (stage) {
+        stage.rolling = false;
+    }
     if ("cancelled" in result) return { cancelled: true };
 
     const faces = result.faces;
@@ -308,7 +313,7 @@ export async function throwDice(
         return groupResults;
     });
 
-    return { dice, faces: faceResults };
+    return { dice, faces: faceResults, stats: result.stats };
 }
 
 function startAnimationLoop(state: Stage): void {

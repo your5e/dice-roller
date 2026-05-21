@@ -90,7 +90,11 @@ describe("Tray", () => {
         packDice([die.physics]);
         const result = await simulateThrow(tray, [die.physics]).result;
 
-        expect(result).toEqual({ faces: [expect.any(Number)], rerollCount: expect.any(Number) });
+        expect(result).toEqual({
+            faces: [expect.any(Number)],
+            rerollCount: expect.any(Number),
+            stats: expect.any(Object),
+        });
         if ("faces" in result) {
             expect(result.faces[0]).toBeGreaterThanOrEqual(1);
             expect(result.faces[0]).toBeLessThanOrEqual(6);
@@ -109,6 +113,7 @@ describe("Tray", () => {
         expect(result).toEqual({
             faces: [expect.any(Number), expect.any(Number), expect.any(Number)],
             rerollCount: expect.any(Number),
+            stats: expect.any(Object),
         });
         if ("faces" in result) {
             for (const face of result.faces) {
@@ -280,7 +285,11 @@ describe("syncDie", () => {
         }).result;
 
         expect(syncCount).toBeGreaterThan(0);
-        expect(result).toEqual({ faces: [expect.any(Number)], rerollCount: expect.any(Number) });
+        expect(result).toEqual({
+            faces: [expect.any(Number)],
+            rerollCount: expect.any(Number),
+            stats: expect.any(Object),
+        });
         expect(die.mesh.position.y).toBeGreaterThan(0);
     });
 });
@@ -470,6 +479,59 @@ describe("Dice positioning", () => {
     });
 });
 
+describe("dropped frames", () => {
+    it("reports when a significant portion of frames took longer than TIME_STEP", async () => {
+        const tray = createTray(5, 5);
+        const die = (await createD6(1)).physics;
+
+        tray.world.addBody(die.body);
+        packDice([die]);
+
+        const result = await simulateThrow(tray, [die], {
+            onStep: () => new Promise((resolve) => setTimeout(resolve, 50)),
+        }).result;
+
+        expect("stats" in result).toBe(true);
+        if ("stats" in result) {
+            expect(result.stats).toMatchObject({
+                frames: expect.any(Number),
+                physicsDrops: expect.any(Number),
+                renderDrops: expect.any(Number),
+                elapsed: expect.any(Number),
+            });
+            expect(result.stats.renderDrops).toBeGreaterThan(0);
+        }
+    });
+
+    it("does not report when <5% of frames are dropped", async () => {
+        const tray = createTray(5, 5);
+        const die = (await createD6(1)).physics;
+
+        tray.world.addBody(die.body);
+        packDice([die]);
+
+        let frame = 0;
+        const result = await simulateThrow(tray, [die], {
+            onStep: () => {
+                frame++;
+                if (frame % 50 === 0) {
+                    return new Promise((resolve) => setTimeout(resolve, 50));
+                }
+            },
+        }).result;
+
+        expect("stats" in result).toBe(true);
+        if ("stats" in result) {
+            expect(result.stats).toMatchObject({
+                frames: expect.any(Number),
+                physicsDrops: 0,
+                renderDrops: 0,
+                elapsed: expect.any(Number),
+            });
+        }
+    });
+});
+
 describe("simulateThrow() cancel", () => {
     it("returns cancelled result when cancel is called mid-simulation", async () => {
         const tray = createTray(10, 10);
@@ -503,7 +565,11 @@ describe("simulateThrow() cancel", () => {
         const result = await simulation.result;
 
         expect(steps).toBeGreaterThan(5);
-        expect(result).toEqual({ faces: [expect.any(Number)], rerollCount: expect.any(Number) });
+        expect(result).toEqual({
+            faces: [expect.any(Number)],
+            rerollCount: expect.any(Number),
+            stats: expect.any(Object),
+        });
         if ("faces" in result) {
             expect(result.faces[0]).toBeGreaterThanOrEqual(1);
             expect(result.faces[0]).toBeLessThanOrEqual(6);

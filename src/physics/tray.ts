@@ -296,6 +296,7 @@ export type Tray = {
     dice: Die[];
     simulation: Simulation | undefined;
     generation: number;
+    isDropping: boolean;
 };
 
 function createWalls(halfWidth: number, halfDepth: number): CANNON.Body[] {
@@ -342,8 +343,11 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
         gravity: new CANNON.Vec3(0, -20, 0),
         allowSleep: true,
     });
+
+    // fewer iterations, faster steps, overlapping dice have a tendency to jitter
+    // more iterations, slower steps, cleaner collisions, faster settling
     const solver = new CANNON.SplitSolver(new CANNON.GSSolver());
-    solver.iterations = 16;
+    solver.iterations = 10;
     world.solver = solver;
 
     // friction: 0 = ice, 0.5 = wood, 1.0 = rubber
@@ -390,6 +394,7 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
         dice: [],
         simulation: undefined,
         generation: 0,
+        isDropping: false,
     };
 }
 
@@ -431,8 +436,15 @@ export type SimulateOptions = {
     rerollCocked?: boolean;
 };
 
+export type SimulateStats = {
+    elapsed: number;
+    frames: number;
+    physicsDrops: number;
+    renderDrops: number;
+};
+
 export type SimulateResult =
-    | { faces: number[]; rerollCount: number }
+    | { faces: number[]; rerollCount: number; stats: SimulateStats }
     | { cancelled: true };
 
 export function simulateThrow(
@@ -448,16 +460,21 @@ export function simulateThrow(
         // yield -- allow cancel to be called before simulation starts
         await Promise.resolve();
 
+        const simulationStart = performance.now();
+
         let rerollCount = 0;
+        let physicsSteps = 0;
         const side = options?.whichSide ?? Math.random() < 0.5;
-        const maxSteps = MAX_SIMULATION_TIME / TIME_STEP;
         const returning: ReturningDie[] = [];
+        const maxSteps = Math.round(MAX_SIMULATION_TIME / TIME_STEP);
+        const timeStepMs = TIME_STEP * 1000;
+        const minRenderInterval = 6;
+        let lastRenderStep = 0;
+        let shouldRender = true;
+        let physicsDrops = 0;
+        let renderDrops = 0;
 
-        for (let step = 0; step < maxSteps; step++) {
-            if (cancelled) {
-                return { cancelled: true };
-            }
-
+        function stepPhysics(): void {
             world.step(TIME_STEP);
 
             // animate returning dice
@@ -467,16 +484,62 @@ export function simulateThrow(
                     returning.splice(i, 1);
                 }
             }
+        }
 
-            if (options?.onStep) {
-                await options.onStep();
-            } else if (Date.now() - lastYield >= 100) {
-                // yield every 100ms -- allows timeouts in tests to actually stop tests
-                lastYield = Date.now();
-                await new Promise((resolve) => setTimeout(resolve, 0));
+        let allSettled = false;
+        while (true) {
+            if (cancelled) {
+                return { cancelled: true };
             }
 
-            let allSettled = true;
+            stepPhysics();
+            physicsSteps++;
+            const simulatedTime = physicsSteps * timeStepMs;
+            const wallClockElapsed = performance.now() - simulationStart;
+
+            if (options?.onStep) {
+                const stepsSinceRender = physicsSteps - lastRenderStep;
+                const mustRender = stepsSinceRender >= minRenderInterval;
+                tray.isDropping = stepsSinceRender >= 6;
+
+                // check after physics: are we over time?
+                const overTimeAfterPhysics = wallClockElapsed > simulatedTime;
+                if (overTimeAfterPhysics) {
+                    shouldRender = false;
+                    physicsDrops++;
+                }
+
+                // skip when the render or physics sim is over budget for 60fps
+                // animation, but always render every sixth frame for an approximation
+                // of 10fps, as something visibly happening is better than nothing
+                // even if it slows further
+                if (shouldRender || mustRender) {
+                    lastRenderStep = physicsSteps;
+                    await options.onStep();
+
+                    // check after render: are we now over time?
+                    const overTimeAfterRender =
+                        performance.now() - simulationStart > simulatedTime;
+                    if (overTimeAfterRender) {
+                        shouldRender = false;
+                        renderDrops++;
+                    } else {
+                        shouldRender = true;
+                    }
+                } else if (!overTimeAfterPhysics) {
+                    // didn't render, but physics is on time - render next frame
+                    shouldRender = true;
+                }
+            } else {
+                // headless mode - run as fast as possible
+                if (Date.now() - lastYield >= 100) {
+                    // yield every 100ms -- allows timeouts in tests to actually stop tests
+                    lastYield = Date.now();
+                    await new Promise((resolve) => setTimeout(resolve, 0));
+                }
+            }
+
+            allSettled = true;
             for (const die of dice) {
                 // skip dice that are returning to throw position
                 if (returning.some((r) => r.die === die)) {
@@ -498,12 +561,20 @@ export function simulateThrow(
                 }
             }
 
-            if (allSettled) {
+            if (allSettled || physicsSteps >= maxSteps) {
                 break;
             }
         }
 
-        return { faces: dice.map((die) => die.readFace()), rerollCount };
+        const elapsed = performance.now() - simulationStart;
+        const stats: SimulateStats = {
+            elapsed,
+            frames: physicsSteps,
+            physicsDrops,
+            renderDrops,
+        };
+
+        return { faces: dice.map((die) => die.readFace()), rerollCount, stats };
     })();
 
     return {

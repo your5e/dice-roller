@@ -186,6 +186,18 @@ export function roll(
             return buildResult(input, expressions, facesByIndex);
         }
 
+        const { stats } = result;
+        const threshold = stats.frames * 0.05;
+        if (stats.physicsDrops > threshold || stats.renderDrops > threshold) {
+            console.log({
+                notation: input,
+                wallclock: `${stats.elapsed.toFixed(0)}ms`,
+                frames: stats.frames,
+                physicsDrops: stats.physicsDrops,
+                renderDrops: stats.renderDrops,
+            });
+        }
+
         for (let i = 0; i < animated.length; i++) {
             facesByIndex.set(animated[i].index, result.faces[i]);
         }
@@ -267,6 +279,7 @@ export function bind(selector: string): void {
     }
 }
 
+export * as THREE from "three";
 export { createD4 } from "./geometries/d4";
 export { createD6 } from "./geometries/d6";
 export { createD8 } from "./geometries/d8";
