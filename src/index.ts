@@ -1,6 +1,12 @@
 import { calculate, type Step } from "./calculate";
 import { getLabelStyles } from "./labels";
-import { type Modifier, parse } from "./notation";
+import {
+    type ConstraintExpression,
+    type DiceExpression,
+    type Expression,
+    type Modifier,
+    parse,
+} from "./notation";
 import { createTray, packDice, resizeToFitDice, type Tray } from "./physics/tray";
 import {
     applyGhostTexture,
@@ -21,6 +27,10 @@ import {
     syncDie,
     throwDice,
 } from "./renderer";
+
+function isDiceExpression(expr: Expression): expr is DiceExpression {
+    return "count" in expr;
+}
 
 function getDroppedIndices(values: number[], modifiers: Modifier[]): number[] {
     let currentIndices = values.map((_, i) => i);
@@ -60,7 +70,7 @@ function getDroppedIndices(values: number[], modifiers: Modifier[]): number[] {
     return values.map((_, i) => i).filter((i) => !keptSet.has(i));
 }
 
-type Expression = {
+type ResultExpression = {
     notation: string;
     label?: string;
     steps: Step[];
@@ -156,7 +166,7 @@ type RollResult = {
     notation: string;
     total: number;
     label_totals: Record<string, number>;
-    expressions: Expression[];
+    expressions: ResultExpression[];
 };
 
 type RollCallback = (result: RollResult) => void;
@@ -176,18 +186,24 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
 
     const expressions = parse(input);
 
-    type IndexedExpr = { index: number; expr: NonNullable<(typeof expressions)[0]> };
-    const animated: IndexedExpr[] = [];
+    type IndexedDice = { index: number; expr: DiceExpression };
+    type IndexedConstraint = { index: number; expr: ConstraintExpression };
+    const diceExprs: IndexedDice[] = [];
+    const constraints: IndexedConstraint[] = [];
 
     for (let i = 0; i < expressions.length; i++) {
         const expr = expressions[i];
         if (expr === null) {
             continue;
         }
-        animated.push({ index: i, expr });
+        if (isDiceExpression(expr)) {
+            diceExprs.push({ index: i, expr });
+        } else {
+            constraints.push({ index: i, expr });
+        }
     }
 
-    const groups: DiceGroup[] = animated.map(({ expr }) => ({
+    const groups: DiceGroup[] = diceExprs.map(({ expr }) => ({
         count: expr.count,
         sides: expr.sides,
         label: expr.label,
@@ -205,7 +221,8 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
             expressions: [],
         });
 
-        const calculators = animated.map(({ expr }) => calculate(expr));
+        const diceCalculators = diceExprs.map(({ expr }) => calculate(expr));
+        const constraintCalculators = constraints.map(({ expr }) => calculate(expr));
 
         // cancel any in-progress simulation and clear old dice
         if (trayForSimulation.simulation) {
@@ -220,13 +237,13 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
 
         // assign labels and textures to custom dice
         if (options?.dice) {
-            const labels = animated
+            const labels = diceExprs
                 .map((a) => a.expr.label)
                 .filter((l): l is string => !!l);
             const labelStyles = getLabelStyles(labels);
 
             for (let i = 0; i < wrappersPerExpr.length; i++) {
-                const label = animated[i].expr.label;
+                const label = diceExprs[i].expr.label;
                 const textureOptions = buildTextureOptions(label, labelStyles);
                 for (const wrapper of wrappersPerExpr[i]) {
                     for (const die of wrapper.dice) {
@@ -269,8 +286,8 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
         // helper to get indices that need rolling
         const getRollIndices = (): number[] => {
             const indices: number[] = [];
-            for (let i = 0; i < calculators.length; i++) {
-                const state = calculators[i].state();
+            for (let i = 0; i < diceCalculators.length; i++) {
+                const state = diceCalculators[i].state();
                 if (state.type === "roll") {
                     for (const localIdx of state.indices) {
                         const wrapper = wrappersPerExpr[i][localIdx];
@@ -284,60 +301,128 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
             return indices;
         };
 
-        // roll loop
-        let rollIndices = getRollIndices();
-        while (rollIndices.length > 0) {
-            const result = await throwDice(trayForSimulation, rollIndices, {
-                stage: stageForSimulation,
-            });
+        // roll loop with constraint checking
+        let constraintsSatisfied = false;
+        while (!constraintsSatisfied) {
+            // roll all dice that need rolling
+            let rollIndices = getRollIndices();
+            while (rollIndices.length > 0) {
+                const result = await throwDice(trayForSimulation, rollIndices, {
+                    stage: stageForSimulation,
+                });
 
-            if (result?.cancelled) {
-                const emptyResult: RollResult = {
-                    notation: input,
-                    total: 0,
-                    label_totals: {},
-                    expressions: [],
-                };
-                onRollCallback(emptyResult);
-                return emptyResult;
-            }
+                if (result?.cancelled) {
+                    const emptyResult: RollResult = {
+                        notation: input,
+                        total: 0,
+                        label_totals: {},
+                        expressions: [],
+                    };
+                    onRollCallback(emptyResult);
+                    return emptyResult;
+                }
 
-            for (let i = 0; i < calculators.length; i++) {
-                const state = calculators[i].state();
-                if (state.type === "roll") {
-                    const values = state.indices.map((localIdx) =>
-                        wrappersPerExpr[i][localIdx].readResult(),
+                for (let i = 0; i < diceCalculators.length; i++) {
+                    const state = diceCalculators[i].state();
+                    if (state.type === "roll") {
+                        const values = state.indices.map((localIdx) =>
+                            wrappersPerExpr[i][localIdx].readResult(),
+                        );
+                        diceCalculators[i].provide(values);
+                    }
+                }
+
+                rollIndices = getRollIndices();
+                if (rollIndices.length > 0) {
+                    const keepSet = new Set(rollIndices);
+                    await parkDice(
+                        trayForSimulation.dice,
+                        keepSet,
+                        trayForSimulation,
+                        parkingReservations,
+                        stageForSimulation,
                     );
-                    calculators[i].provide(values);
+                    const physicsDice = rollIndices.map(
+                        (i) => trayForSimulation.dice[i].physics,
+                    );
+                    packDice(physicsDice);
                 }
             }
 
-            rollIndices = getRollIndices();
-            if (rollIndices.length > 0) {
-                const keepSet = new Set(rollIndices);
-                await parkDice(
-                    trayForSimulation.dice,
-                    keepSet,
-                    trayForSimulation,
-                    parkingReservations,
-                    stageForSimulation,
-                );
-                const physicsDice = rollIndices.map(
-                    (i) => trayForSimulation.dice[i].physics,
-                );
-                packDice(physicsDice);
+            // calculate label totals from dice
+            const currentLabelTotals: Record<string, number> = {};
+            for (let i = 0; i < diceExprs.length; i++) {
+                const state = diceCalculators[i].state();
+                if (state.type !== "done") {
+                    throw new Error("Calculator not done after roll loop");
+                }
+                const labelKey = diceExprs[i].expr.label ?? "";
+                currentLabelTotals[labelKey] =
+                    (currentLabelTotals[labelKey] ?? 0) + state.total;
+            }
+
+            // check constraints
+            constraintsSatisfied = true;
+            for (let i = 0; i < constraints.length; i++) {
+                const constraint = constraints[i].expr;
+                const calc = constraintCalculators[i];
+
+                // calculate total for this constraint's label
+                let total: number;
+                if (constraint.label === "*") {
+                    total = Object.values(currentLabelTotals).reduce(
+                        (a, b) => a + b,
+                        0,
+                    );
+                } else {
+                    total = currentLabelTotals[constraint.label] ?? 0;
+                }
+
+                calc.provide([total]);
+                const state = calc.state();
+
+                if (state.type === "reset") {
+                    constraintsSatisfied = false;
+                    // reset dice calculators matching this label
+                    for (let j = 0; j < diceExprs.length; j++) {
+                        const diceLabel = diceExprs[j].expr.label ?? "";
+                        if (
+                            constraint.label === "*" ||
+                            diceLabel === constraint.label
+                        ) {
+                            diceCalculators[j] = calculate(diceExprs[j].expr);
+                        }
+                    }
+                    // park done dice, reroll reset ones
+                    const resetIndices = getRollIndices();
+                    if (resetIndices.length > 0) {
+                        const keepSet = new Set(resetIndices);
+                        await parkDice(
+                            trayForSimulation.dice,
+                            keepSet,
+                            trayForSimulation,
+                            parkingReservations,
+                            stageForSimulation,
+                        );
+                        const physicsDice = resetIndices.map(
+                            (i) => trayForSimulation.dice[i].physics,
+                        );
+                        packDice(physicsDice);
+                    }
+                    break;
+                }
             }
         }
 
         // Process results
         let total = 0;
         const label_totals: Record<string, number> = {};
-        const resultExpressions: Expression[] = [];
+        const resultExpressions: ResultExpression[] = [];
         const finalFaces: number[][] = [];
 
-        for (let i = 0; i < animated.length; i++) {
-            const { expr } = animated[i];
-            const state = calculators[i].state();
+        for (let i = 0; i < diceExprs.length; i++) {
+            const { expr } = diceExprs[i];
+            const state = diceCalculators[i].state();
             if (state.type !== "done") {
                 throw new Error("Calculator not done after roll loop");
             }
@@ -347,7 +432,7 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
             const labelKey = expr.label ?? "";
             label_totals[labelKey] = (label_totals[labelKey] ?? 0) + state.total;
 
-            const expression: Expression = {
+            const expression: ResultExpression = {
                 notation: expr.expression,
                 steps: state.steps,
                 total: state.total,
@@ -364,9 +449,12 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
 
         // Ghost dropped dice
         const ghosting: Promise<void>[] = [];
-        for (let i = 0; i < animated.length; i++) {
+        for (let i = 0; i < diceExprs.length; i++) {
             const faces = finalFaces[i];
-            const droppedIndices = getDroppedIndices(faces, animated[i].expr.modifiers);
+            const droppedIndices = getDroppedIndices(
+                faces,
+                diceExprs[i].expr.modifiers,
+            );
             for (const idx of droppedIndices) {
                 for (const die of wrappersPerExpr[i][idx].dice) {
                     die.dropped = true;

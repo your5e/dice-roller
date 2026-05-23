@@ -5,7 +5,7 @@ export type Modifier = {
     value: number;
 };
 
-export type ParsedDice = {
+export type DiceExpression = {
     expression: string;
     label?: string;
     count: number;
@@ -14,7 +14,16 @@ export type ParsedDice = {
     bonus: number;
 };
 
-export function parse(input: string): (ParsedDice | null)[] {
+export type ConstraintExpression = {
+    expression: string;
+    label: string;
+    type: "rmt";
+    value: number;
+};
+
+export type Expression = DiceExpression | ConstraintExpression;
+
+export function parse(input: string): (Expression | null)[] {
     const expressions = input.trim().split(/\s+/);
     if (expressions.length === 1 && expressions[0] === "") {
         return [];
@@ -22,7 +31,37 @@ export function parse(input: string): (ParsedDice | null)[] {
     return expressions.map(parseExpression);
 }
 
-function parseExpression(exp: string): ParsedDice | null {
+function parseExpression(exp: string): Expression | null {
+    const parsers = [parseConstraintExpression, parseDiceExpression];
+
+    for (const parse of parsers) {
+        const result = parse(exp);
+        if (result !== null) return result;
+    }
+    return null;
+}
+
+function parseConstraintExpression(exp: string): ConstraintExpression | null {
+    const match = exp.match(/^(\*|[a-z]+):rmt(\d+)$/i);
+    if (!match) {
+        return null;
+    }
+
+    const label = match[1].toLowerCase();
+    const value = Number.parseInt(match[2], 10);
+    if (value < 1) {
+        return null;
+    }
+
+    return {
+        expression: `${label}:rmt${value}`,
+        label,
+        type: "rmt",
+        value,
+    };
+}
+
+function parseDiceExpression(exp: string): DiceExpression | null {
     let label: string | undefined;
     let expression = exp;
 
@@ -39,7 +78,6 @@ function parseExpression(exp: string): ParsedDice | null {
 
     const count = Number.parseInt(diceMatch[1], 10);
     const sides = Number.parseInt(diceMatch[2], 10);
-
     if (count < 1 || !VALID_DICE.has(sides)) {
         return null;
     }
@@ -101,7 +139,7 @@ function parseExpression(exp: string): ParsedDice | null {
         normalised = `${label}:${normalised}`;
     }
 
-    const result: ParsedDice = {
+    const result: DiceExpression = {
         expression: normalised,
         count,
         sides,

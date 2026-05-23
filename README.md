@@ -88,6 +88,10 @@ _**Reroll expression total.**_ All dice in an expression can be rerolled if
 the total is too low, such as for ability score generation using roll-4-drop-1
 to enforce a minimum result of 6, use `4d6dl1rmt6`.
 
+_**Reroll group total.**_ All dice across multiple expressions can be rerolled
+if the total is too low, such as Matt Mercer's [minimum of 70][mm] rule
+which is `str:4d6dl1 dex:... *:rmt70`.
+
 _**Modifier.**_ Some rolls have a static value added or subtracted, such as
 attack rolls adding your ability and proficiency bonus, `1d20+7`.
 

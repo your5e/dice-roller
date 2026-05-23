@@ -1,4 +1,9 @@
-import type { Modifier, ParsedDice } from "./notation";
+import type {
+    ConstraintExpression,
+    DiceExpression,
+    Expression,
+    Modifier,
+} from "./notation";
 
 export type Step = Record<string, number | number[]>;
 
@@ -8,20 +13,67 @@ type NeedsRoll = {
     indices: number[];
     sides: number;
 };
+type NeedsResult = {
+    type: "result";
+    label: string;
+};
 type Done = {
     type: "done";
     label?: string;
     steps: Step[];
     total: number;
 };
-export type CalculatorState = NeedsRoll | Done;
+type NeedsReset = {
+    type: "reset";
+    label: string;
+};
+export type CalculatorState = NeedsRoll | NeedsResult | Done | NeedsReset;
 
 export type Calculator = {
     state(): CalculatorState;
     provide(values: number[]): void;
 };
 
-export function calculate(parsed: ParsedDice): Calculator {
+function isConstraint(parsed: Expression): parsed is ConstraintExpression {
+    return "type" in parsed && parsed.type === "rmt";
+}
+
+export function calculate(parsed: Expression): Calculator {
+    if (isConstraint(parsed)) {
+        return calculateConstraint(parsed);
+    }
+    return calculateDice(parsed);
+}
+
+function calculateConstraint(parsed: ConstraintExpression): Calculator {
+    const { label, value } = parsed;
+    let satisfied = false;
+    let needsReset = false;
+
+    return {
+        state(): CalculatorState {
+            if (needsReset) {
+                return { type: "reset", label };
+            }
+            if (satisfied) {
+                return { type: "done", label, steps: [], total: 0 };
+            }
+            return { type: "result", label };
+        },
+
+        provide(values: number[]): void {
+            const total = values[0];
+            if (total >= value) {
+                satisfied = true;
+                needsReset = false;
+            } else {
+                needsReset = true;
+            }
+        },
+    };
+}
+
+function calculateDice(parsed: DiceExpression): Calculator {
     const { count, sides, modifiers, bonus, label } = parsed;
 
     let dice: number[] | null = null;

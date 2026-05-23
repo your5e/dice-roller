@@ -203,6 +203,14 @@
     <span class="roll" data-roll="str:4d6dl1rmt10 dex:4d6dl1rmt10 con:4d6dl1rmt10 int:4d6dl1rmt10 wis:4d6dl1rmt10 cha:4d6dl1rmt10">above average character</span>
     <span class="roll">3d6rmt10</span>
 
+    <h2>Constraints</h2>
+    <p>Use <code>label:rmtN</code> to reroll all dice with that label if their
+    combined total is below N. Use <code>*:rmtN</code> to constrain the total
+    of all dice.</p>
+    <span class="roll" data-roll="str:4d6dl1 dex:4d6dl1 con:4d6dl1 int:4d6dl1 wis:4d6dl1 cha:4d6dl1 *:rmt70">Matt Mercer ability scores</span>
+    <span class="roll" data-roll="fire:20d6 bludgeoning:20d6 *:rmt140">above average meteor swarm</span>
+    <span class="roll">3d6 3d8 *:rmt24</span>
+
     <h2>Labels</h2>
     <p>Prefix an expression with <code>label:</code> to group dice by damage
     type or other category. Separate multiple expressions with spaces.</p>

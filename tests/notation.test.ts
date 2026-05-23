@@ -920,4 +920,75 @@ describe("parse", () => {
             expect(parse("fire-damage:2d6")).toEqual([null]);
         });
     });
+
+    describe("label reroll minimum total", () => {
+        it("parses wildcard rmt", () => {
+            expect(parse("*:rmt70")).toEqual([
+                {
+                    expression: "*:rmt70",
+                    label: "*",
+                    type: "rmt",
+                    value: 70,
+                },
+            ]);
+        });
+
+        it("parses labelled label rmt", () => {
+            expect(parse("fire:rmt10")).toEqual([
+                {
+                    expression: "fire:rmt10",
+                    label: "fire",
+                    type: "rmt",
+                    value: 10,
+                },
+            ]);
+        });
+
+        it("parses label rmt alongside dice expressions", () => {
+            expect(parse("str:4d6dl1 dex:4d6dl1 *:rmt70")).toEqual([
+                {
+                    expression: "str:4d6dl1",
+                    label: "str",
+                    count: 4,
+                    sides: 6,
+                    modifiers: [{ type: "dl", value: 1 }],
+                    bonus: 0,
+                },
+                {
+                    expression: "dex:4d6dl1",
+                    label: "dex",
+                    count: 4,
+                    sides: 6,
+                    modifiers: [{ type: "dl", value: 1 }],
+                    bonus: 0,
+                },
+                {
+                    expression: "*:rmt70",
+                    label: "*",
+                    type: "rmt",
+                    value: 70,
+                },
+            ]);
+        });
+
+        it("normalises label rmt label to lowercase", () => {
+            expect(parse("FIRE:rmt10")).toEqual([
+                {
+                    expression: "fire:rmt10",
+                    label: "fire",
+                    type: "rmt",
+                    value: 10,
+                },
+            ]);
+        });
+
+        it("rejects label rmt without value", () => {
+            expect(parse("*:rmt")).toEqual([null]);
+            expect(parse("fire:rmt")).toEqual([null]);
+        });
+
+        it("rejects label rmt with zero threshold", () => {
+            expect(parse("*:rmt0")).toEqual([null]);
+        });
+    });
 });

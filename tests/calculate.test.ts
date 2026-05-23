@@ -978,4 +978,68 @@ describe("calculate", () => {
             });
         });
     });
+
+    describe("label reroll minimum total", () => {
+        it("initial state does not require rolls", () => {
+            const calc = calculate({
+                expression: "*:rmt20",
+                label: "*",
+                type: "rmt",
+                value: 20,
+            });
+
+            const state = calc.state();
+            expect(state.type).not.toBe("roll");
+        });
+
+        it("completes when provided total meets threshold", () => {
+            const calc = calculate({
+                expression: "*:rmt20",
+                label: "*",
+                type: "rmt",
+                value: 20,
+            });
+
+            calc.provide([25]);
+
+            expect(calc.state()).toEqual({
+                type: "done",
+                label: "*",
+                steps: [],
+                total: 0,
+            });
+        });
+
+        it("requests reroll when provided total is below threshold", () => {
+            const calc = calculate({
+                expression: "*:rmt20",
+                label: "*",
+                type: "rmt",
+                value: 20,
+            });
+
+            calc.provide([15]);
+
+            expect(calc.state()).toEqual({
+                type: "reset",
+                label: "*",
+            });
+        });
+
+        it("requests reroll for specific label when threshold not met", () => {
+            const calc = calculate({
+                expression: "fire:rmt10",
+                label: "fire",
+                type: "rmt",
+                value: 10,
+            });
+
+            calc.provide([5]);
+
+            expect(calc.state()).toEqual({
+                type: "reset",
+                label: "fire",
+            });
+        });
+    });
 });

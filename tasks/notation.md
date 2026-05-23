@@ -44,7 +44,7 @@ result is needed to apply resistances/vulnerabilities correctly. Add
 
 Rerolling not just individual dice but groups is supported.
 
-- [ ] create new character (4d6dl1 for six stats) should reroll all 24 dice if
+- [X] create new character (4d6dl1 for six stats) should reroll all 24 dice if
       the total of kept dice is below a threshold
 - [X] create new character stat (4d6dl1) and reroll all 4 dice if the total
       after dropping is below 6

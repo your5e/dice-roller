@@ -1,7 +1,9 @@
 import type * as THREE from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { DiceCreationResult } from "../src/index";
 import { onRoll, roll, tray } from "../src/index";
 import type { Tray } from "../src/physics/tray";
+import { preprogrammed } from "./setup";
 
 describe("roll", () => {
     beforeEach(() => {
@@ -742,6 +744,114 @@ describe("roll", () => {
 
             expect(geometryDispose).toHaveBeenCalled();
             expect(materialDispose).toHaveBeenCalled();
+        });
+    });
+
+    describe("label reroll minimum total", () => {
+        it("rerolls all dice when wildcard rmt threshold not met", async () => {
+            tray();
+
+            // first: str=1,1,1,1 (total 3), dex=1,1,1,1 (total 3) = 6 total
+            // second: str=6,6,6,6 (total 18), dex=6,6,6,6 (total 18) = 36 total
+            const dice: DiceCreationResult = {
+                wrappersPerExpr: [
+                    [
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                    ],
+                    [
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                    ],
+                ],
+                wrapperPhysicalStarts: [
+                    [0, 1, 2, 3],
+                    [4, 5, 6, 7],
+                ],
+            };
+
+            const result = await roll("str:4d6dl1 dex:4d6dl1 *:rmt20", { dice });
+            expect(result.total).toBe(36);
+            expect(result.label_totals.str).toBe(18);
+            expect(result.label_totals.dex).toBe(18);
+        });
+
+        it("does not reroll when wildcard rmt threshold is met", async () => {
+            tray();
+
+            const dice: DiceCreationResult = {
+                wrappersPerExpr: [
+                    [
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                    ],
+                    [
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                    ],
+                ],
+                wrapperPhysicalStarts: [
+                    [0, 1, 2, 3],
+                    [4, 5, 6, 7],
+                ],
+            };
+
+            const result = await roll("str:4d6dl1 dex:4d6dl1 *:rmt20", { dice });
+            expect(result.total).toBe(36);
+        });
+
+        it("rerolls only labelled dice when label rmt threshold not met", async () => {
+            tray();
+
+            // fire rolls low (1,1 = 2), ice rolls high (6,6 = 12)
+            // fire:rmt10 should reroll only fire dice
+            const dice: DiceCreationResult = {
+                wrappersPerExpr: [
+                    [
+                        await preprogrammed(6, [1, 6]),
+                        await preprogrammed(6, [1, 6]),
+                    ],
+                    [
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                    ],
+                ],
+                wrapperPhysicalStarts: [
+                    [0, 1],
+                    [2, 3],
+                ],
+            };
+
+            const result = await roll("fire:2d6 ice:2d6 fire:rmt10", { dice });
+            expect(result.label_totals.fire).toBe(12);
+            expect(result.label_totals.ice).toBe(12);
+            expect(result.total).toBe(24);
+        });
+
+        it("label rmt expression does not appear in result expressions", async () => {
+            tray();
+
+            const dice: DiceCreationResult = {
+                wrappersPerExpr: [
+                    [
+                        await preprogrammed(6, [6]),
+                        await preprogrammed(6, [6]),
+                    ],
+                ],
+                wrapperPhysicalStarts: [[0, 1]],
+            };
+
+            const result = await roll("fire:2d6 *:rmt5", { dice });
+            expect(result.expressions).toHaveLength(1);
+            expect(result.expressions[0].notation).toBe("fire:2d6");
         });
     });
 });
