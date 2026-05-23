@@ -14,6 +14,14 @@ export function normalFromVertices(
     return new THREE.Vector3().crossVectors(ab, ac).normalize();
 }
 
+export function centroid(vertices: THREE.Vector3[]): THREE.Vector3 {
+    const centre = new THREE.Vector3();
+    for (const vertex of vertices) {
+        centre.add(vertex);
+    }
+    return centre.divideScalar(vertices.length);
+}
+
 export function perpendicular(dx: number, dy: number): { x: number; y: number } {
     const len = Math.hypot(dx, dy);
     return { x: -dy / len, y: dx / len };

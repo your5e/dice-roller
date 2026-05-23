@@ -54,11 +54,12 @@ export const DEBUG_COLOURS: { hex: string; name: string }[] = [
     { hex: "#808080", name: "grey" },
 ];
 
-export const DROPPED_COLOURS: TextureOptions = {
+export const GHOST_COLOURS: TextureOptions = {
     faceColour: "transparent",
     stripColour: "rgba(255, 255, 255, 0.66)",
     crownColour: "rgba(255, 255, 255, 0.66)",
     numberColour: "rgba(255, 255, 255, 0.66)",
+    iconColour: "rgba(255, 255, 255, 0.33)",
 };
 
 const textureCache = new Map<string, THREE.CanvasTexture>();

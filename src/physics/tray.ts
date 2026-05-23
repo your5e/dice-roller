@@ -183,6 +183,7 @@ export function applyFullThrow(
     const perturbation = 0.8 + Math.random() * 0.4;
     const throwSpeed = k * distance * perturbation;
 
+    die.body.wakeUp();
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,
         -2 - Math.random() * 4,
@@ -207,6 +208,7 @@ function applyGentleThrow(die: PhysicsDie, tray: Tray, whichSide: boolean): void
     const perturbation = 0.8 + Math.random() * 0.4;
     const throwSpeed = k * distance * perturbation;
 
+    die.body.wakeUp();
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,
         -2 - Math.random() * 4,
@@ -220,7 +222,7 @@ function applyGentleThrow(die: PhysicsDie, tray: Tray, whichSide: boolean): void
     );
 }
 
-type ReturningDie = {
+export type ReturningDie = {
     die: PhysicsDie;
     targetPos: CANNON.Vec3;
     progress: number;
@@ -276,7 +278,6 @@ function launchReroll(returning: ReturningDie, tray: Tray): void {
     die.body.type = CANNON.Body.DYNAMIC;
     die.body.position.copy(returning.targetPos);
     die.body.quaternion.copy(randomQuaternion());
-    die.body.wakeUp();
 
     applyGentleThrow(die, tray, whichSide);
 }
@@ -434,6 +435,7 @@ export type SimulateOptions = {
     onStep?: () => void | Promise<void>;
     whichSide?: boolean;
     rerollCocked?: boolean;
+    initialReturning?: ReturningDie[];
 };
 
 export type SimulateStats = {
@@ -462,10 +464,11 @@ export function simulateThrow(
 
         const simulationStart = performance.now();
 
-        let rerollCount = 0;
+        const initialReturning = options?.initialReturning ?? [];
+        let rerollCount = initialReturning.length;
         let physicsSteps = 0;
         const side = options?.whichSide ?? Math.random() < 0.5;
-        const returning: ReturningDie[] = [];
+        const returning: ReturningDie[] = [...initialReturning];
         const maxSteps = Math.round(MAX_SIMULATION_TIME / TIME_STEP);
         const timeStepMs = TIME_STEP * 1000;
         const minRenderInterval = 6;

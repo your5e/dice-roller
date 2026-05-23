@@ -650,3 +650,39 @@ describe("tray resize", () => {
         expect(tray.halfDepth).toBe(10);
     });
 });
+
+describe("reroll physics", () => {
+    it("dice actually move when rerolled after sleeping", async () => {
+        const tray = createTray(5, 5);
+        const dice = await Promise.all([createD6(0.5), createD6(0.5)]);
+        for (const die of dice) {
+            tray.world.addBody(die.physics.body);
+        }
+        const physicsDice = dice.map((d) => d.physics);
+
+        // first throw
+        packDice(physicsDice);
+        offsetToEdge(physicsDice, tray, true);
+        for (const die of physicsDice) {
+            applyFullThrow(die, tray, true, 0.5, physicsDice.length);
+        }
+        await simulateThrow(tray, physicsDice).result;
+
+        // reposition and re-throw (like rm modifier reroll)
+        packDice(physicsDice);
+        offsetToEdge(physicsDice, tray, false);
+        const positionsBeforeSecond = physicsDice.map((d) => d.body.position.clone());
+        for (const die of physicsDice) {
+            applyFullThrow(die, tray, false, 0.5, physicsDice.length);
+        }
+        await simulateThrow(tray, physicsDice).result;
+
+        // dice should have moved from their pre-throw positions
+        for (let i = 0; i < physicsDice.length; i++) {
+            const before = positionsBeforeSecond[i];
+            const after = physicsDice[i].body.position;
+            const moved = before.x !== after.x || before.y !== after.y || before.z !== after.z;
+            expect(moved, `die ${i} should have moved`).toBe(true);
+        }
+    });
+});

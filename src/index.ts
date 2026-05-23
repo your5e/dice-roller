@@ -1,15 +1,20 @@
 import { calculate, type Step } from "./calculate";
-import { rollDice } from "./dice";
-import { type Modifier, type ParsedDice, parse } from "./notation";
-import { createTray, type Tray } from "./physics/tray";
+import { getLabelStyles } from "./labels";
+import { type Modifier, parse } from "./notation";
+import { createTray, packDice, resizeToFitDice, type Tray } from "./physics/tray";
 import {
+    applyGhostTexture,
+    createDie,
     createStage,
     type DiceGroup,
+    type DiceWrapper,
     getTrayDimensions,
-    markDieDropped,
+    parkDice,
     removeDice,
+    resizeCamera,
     type Stage,
     setCameraSize,
+    syncDie,
     throwDice,
 } from "./renderer";
 
@@ -58,6 +63,69 @@ type Expression = {
     total: number;
 };
 
+type DiceCreationResult = {
+    wrappersPerExpr: DiceWrapper[][];
+    wrapperPhysicalStarts: number[][];
+};
+
+async function createRollDice(groups: DiceGroup[]): Promise<DiceCreationResult> {
+    const labels = groups.map((g) => g.label).filter((l): l is string => !!l);
+    const labelStyles = getLabelStyles(labels);
+    const wrappersPerExpr: DiceWrapper[][] = [];
+    const wrapperPhysicalStarts: number[][] = [];
+    let physicalIndex = 0;
+
+    for (const { count, sides, label } of groups) {
+        let textureOptions: Parameters<typeof createDie>[1];
+        if (label) {
+            const style = labelStyles.get(label);
+            if (!style) throw new Error(`No style for label "${label}"`);
+            textureOptions = {
+                bgColour: style.colour,
+                fgColour: style.fgColour,
+                iconColour: style.iconColour,
+                iconScale: style.iconScale,
+                icon: style.icon,
+            };
+        }
+        const exprWrappers: DiceWrapper[] = [];
+        const exprStarts: number[] = [];
+        for (let i = 0; i < count; i++) {
+            const wrapper = await createDie(sides, textureOptions);
+            exprWrappers.push(wrapper);
+            exprStarts.push(physicalIndex);
+            for (const die of wrapper.dice) {
+                die.label = label;
+                die.icon = textureOptions?.icon;
+                physicalIndex++;
+            }
+        }
+        wrappersPerExpr.push(exprWrappers);
+        wrapperPhysicalStarts.push(exprStarts);
+    }
+
+    return { wrappersPerExpr, wrapperPhysicalStarts };
+}
+
+function addDiceToTray(
+    wrappersPerExpr: DiceWrapper[][],
+    tray: Tray,
+    stage: Stage | undefined,
+): void {
+    for (const wrappers of wrappersPerExpr) {
+        for (const wrapper of wrappers) {
+            for (const die of wrapper.dice) {
+                tray.world.addBody(die.physics.body);
+                tray.dice.push(die);
+                if (stage) {
+                    stage.scene.add(die.mesh);
+                    syncDie(die);
+                }
+            }
+        }
+    }
+}
+
 type RollResult = {
     notation: string;
     total: number;
@@ -71,85 +139,7 @@ let currentTray: Tray | undefined;
 let currentStage: Stage | undefined;
 let onRollCallback: RollCallback = () => {};
 
-function buildExpressionNotation(expr: ParsedDice): string {
-    let notation = "";
-    if (expr.label !== undefined) {
-        notation += `${expr.label}:`;
-    }
-    notation += `${expr.count}d${expr.sides}`;
-    for (const mod of expr.modifiers) {
-        notation += `${mod.type}${mod.value}`;
-    }
-    if (expr.bonus > 0) {
-        notation += `+${expr.bonus}`;
-    } else if (expr.bonus < 0) {
-        notation += `${expr.bonus}`;
-    }
-    return notation;
-}
-
-function buildResult(
-    notation: string,
-    parsedExpressions: (ParsedDice | null)[],
-    facesByIndex: Map<number, number[]>,
-): RollResult {
-    let total = 0;
-    const label_totals: Record<string, number> = {};
-    const expressions: Expression[] = [];
-
-    for (let i = 0; i < parsedExpressions.length; i++) {
-        const expr = parsedExpressions[i];
-        if (expr === null) {
-            continue;
-        }
-
-        const faces = facesByIndex.get(i);
-        if (!faces) {
-            continue;
-        }
-
-        const steps: Step[] = [];
-        const diceNotation = `${expr.count}d${expr.sides}`;
-        steps.push({ [diceNotation]: [...faces] });
-
-        const result = calculate(
-            faces,
-            expr.modifiers,
-            expr.bonus,
-            () => rollDice(1, expr.sides)[0],
-        );
-        steps.push(...result.steps);
-
-        if (expr.bonus !== 0) {
-            steps.push({ bonus: expr.bonus });
-        }
-
-        const exprTotal = result.total;
-        total += exprTotal;
-
-        const labelKey = expr.label ?? "";
-        label_totals[labelKey] = (label_totals[labelKey] ?? 0) + exprTotal;
-
-        const expression: Expression = {
-            notation: buildExpressionNotation(expr),
-            steps,
-            total: exprTotal,
-        };
-        if (expr.label !== undefined) {
-            expression.label = expr.label;
-        }
-        expressions.push(expression);
-    }
-
-    return { notation, total, label_totals, expressions };
-}
-
-export function roll(input: string): RollResult;
-export function roll(input: string, options: { sync: true }): Promise<RollResult>;
-export function roll(
-    input: string,
-    options?: { sync?: boolean },
-): RollResult | Promise<RollResult> {
+export function roll(input: string): Promise<RollResult> {
     if (!currentTray) {
         throw new Error("No tray: call tray() before rolling");
     }
@@ -177,55 +167,169 @@ export function roll(
     const stageForSimulation = currentStage;
 
     const runSimulation = async (): Promise<RollResult> => {
-        const facesByIndex = new Map<number, number[]>();
-        const result = await throwDice(trayForSimulation, groups, {
-            stage: stageForSimulation,
+        const myGeneration = ++trayForSimulation.generation;
+        const cancelled = (): RollResult => ({
+            notation: input,
+            total: 0,
+            label_totals: {},
+            expressions: [],
         });
 
-        if ("cancelled" in result) {
-            return buildResult(input, expressions, facesByIndex);
-        }
+        const calculators = animated.map(({ expr }) => calculate(expr));
 
-        const { stats } = result;
-        const threshold = stats.frames * 0.05;
-        if (stats.physicsDrops > threshold || stats.renderDrops > threshold) {
-            console.log({
+        // cancel any in-progress simulation and clear old dice
+        if (trayForSimulation.simulation) {
+            await trayForSimulation.simulation.cancel();
+        }
+        if (trayForSimulation.generation !== myGeneration) return cancelled();
+        removeDice(trayForSimulation, stageForSimulation);
+
+        const { wrappersPerExpr, wrapperPhysicalStarts } = await createRollDice(groups);
+        if (trayForSimulation.generation !== myGeneration) return cancelled();
+        addDiceToTray(wrappersPerExpr, trayForSimulation, stageForSimulation);
+
+        if (trayForSimulation.dice.length === 0) {
+            const emptyResult: RollResult = {
                 notation: input,
-                wallclock: `${stats.elapsed.toFixed(0)}ms`,
-                frames: stats.frames,
-                physicsDrops: stats.physicsDrops,
-                renderDrops: stats.renderDrops,
+                total: 0,
+                label_totals: {},
+                expressions: [],
+            };
+            onRollCallback(emptyResult);
+            return emptyResult;
+        }
+
+        // pack dice and resize tray
+        const allPhysicsDice = trayForSimulation.dice.map((d) => d.physics);
+        packDice(allPhysicsDice);
+        resizeToFitDice(trayForSimulation, allPhysicsDice);
+        if (stageForSimulation) {
+            resizeCamera(
+                stageForSimulation,
+                trayForSimulation.halfWidth,
+                trayForSimulation.halfDepth,
+            );
+        }
+
+        // helper to get indices that need rolling
+        const getRollIndices = (): number[] => {
+            const indices: number[] = [];
+            for (let i = 0; i < calculators.length; i++) {
+                const state = calculators[i].state();
+                if (state.type === "roll") {
+                    for (const localIdx of state.indices) {
+                        const wrapper = wrappersPerExpr[i][localIdx];
+                        const startIdx = wrapperPhysicalStarts[i][localIdx];
+                        for (let j = 0; j < wrapper.dice.length; j++) {
+                            indices.push(startIdx + j);
+                        }
+                    }
+                }
+            }
+            return indices;
+        };
+
+        // roll loop
+        let rollIndices = getRollIndices();
+        while (rollIndices.length > 0) {
+            const result = await throwDice(trayForSimulation, rollIndices, {
+                stage: stageForSimulation,
             });
+
+            if ("cancelled" in result) {
+                const emptyResult: RollResult = {
+                    notation: input,
+                    total: 0,
+                    label_totals: {},
+                    expressions: [],
+                };
+                onRollCallback(emptyResult);
+                return emptyResult;
+            }
+
+            for (let i = 0; i < calculators.length; i++) {
+                const state = calculators[i].state();
+                if (state.type === "roll") {
+                    const values = state.indices.map((localIdx) =>
+                        wrappersPerExpr[i][localIdx].readResult(),
+                    );
+                    calculators[i].provide(values);
+                }
+            }
+
+            rollIndices = getRollIndices();
+            if (rollIndices.length > 0) {
+                const keepSet = new Set(rollIndices);
+                await parkDice(
+                    trayForSimulation.dice,
+                    keepSet,
+                    trayForSimulation,
+                    stageForSimulation,
+                );
+                const physicsDice = rollIndices.map(
+                    (i) => trayForSimulation.dice[i].physics,
+                );
+                packDice(physicsDice);
+            }
         }
 
-        for (let i = 0; i < animated.length; i++) {
-            facesByIndex.set(animated[i].index, result.faces[i]);
-        }
+        // Process results
+        let total = 0;
+        const label_totals: Record<string, number> = {};
+        const resultExpressions: Expression[] = [];
+        const finalFaces: number[][] = [];
 
-        const markDropped: Promise<void>[] = [];
-        let diceOffset = 0;
         for (let i = 0; i < animated.length; i++) {
             const { expr } = animated[i];
-            const faces = result.faces[i];
-            const droppedIndices = getDroppedIndices(faces, expr.modifiers);
-            for (const idx of droppedIndices) {
-                markDropped.push(markDieDropped(result.dice[diceOffset + idx]));
+            const state = calculators[i].state();
+            if (state.type !== "done") {
+                throw new Error("Calculator not done after roll loop");
             }
-            diceOffset += expr.count;
-        }
-        await Promise.all(markDropped);
 
-        const rollResult = buildResult(input, expressions, facesByIndex);
+            total += state.total;
+
+            const labelKey = expr.label ?? "";
+            label_totals[labelKey] = (label_totals[labelKey] ?? 0) + state.total;
+
+            const expression: Expression = {
+                notation: expr.expression,
+                steps: state.steps,
+                total: state.total,
+            };
+            if (state.label !== undefined) {
+                expression.label = state.label;
+            }
+            resultExpressions.push(expression);
+
+            // Track final faces for dropped dice marking
+            const currentFaces = wrappersPerExpr[i].map((w) => w.readResult());
+            finalFaces.push(currentFaces);
+        }
+
+        // Ghost dropped dice
+        const ghosting: Promise<void>[] = [];
+        for (let i = 0; i < animated.length; i++) {
+            const faces = finalFaces[i];
+            const droppedIndices = getDroppedIndices(faces, animated[i].expr.modifiers);
+            for (const idx of droppedIndices) {
+                for (const die of wrappersPerExpr[i][idx].dice) {
+                    ghosting.push(applyGhostTexture(die));
+                }
+            }
+        }
+        await Promise.all(ghosting);
+
+        const rollResult: RollResult = {
+            notation: input,
+            total,
+            label_totals,
+            expressions: resultExpressions,
+        };
         onRollCallback(rollResult);
         return rollResult;
     };
 
-    if (options?.sync) {
-        return runSimulation();
-    }
-
-    runSimulation();
-    return buildResult(input, expressions, new Map());
+    return runSimulation();
 }
 
 export function tray(options: string): Stage;

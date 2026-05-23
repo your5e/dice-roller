@@ -6,6 +6,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("1d4")).toEqual([
                 {
+                    expression: "1d4",
                     count: 1,
                     sides: 4,
                     modifiers: [],
@@ -15,6 +16,7 @@ describe("parse", () => {
 
             expect(parse("4d6")).toEqual([
                 {
+                    expression: "4d6",
                     count: 4,
                     sides: 6,
                     modifiers: [],
@@ -24,6 +26,7 @@ describe("parse", () => {
 
             expect(parse("2d8")).toEqual([
                 {
+                    expression: "2d8",
                     count: 2,
                     sides: 8,
                     modifiers: [],
@@ -33,6 +36,7 @@ describe("parse", () => {
 
             expect(parse("1d10")).toEqual([
                 {
+                    expression: "1d10",
                     count: 1,
                     sides: 10,
                     modifiers: [],
@@ -42,6 +46,7 @@ describe("parse", () => {
 
             expect(parse("1d12")).toEqual([
                 {
+                    expression: "1d12",
                     count: 1,
                     sides: 12,
                     modifiers: [],
@@ -51,6 +56,7 @@ describe("parse", () => {
 
             expect(parse("1D20")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -60,6 +66,7 @@ describe("parse", () => {
 
             expect(parse("1d100")).toEqual([
                 {
+                    expression: "1d100",
                     count: 1,
                     sides: 100,
                     modifiers: [],
@@ -69,6 +76,7 @@ describe("parse", () => {
 
             expect(parse("09d20")).toEqual([
                 {
+                    expression: "9d20",
                     count: 9,
                     sides: 20,
                     modifiers: [],
@@ -78,6 +86,7 @@ describe("parse", () => {
 
             expect(parse("1d020")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -112,6 +121,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("4d6kh3")).toEqual([
                 {
+                    expression: "4d6kh3",
                     count: 4,
                     sides: 6,
                     modifiers: [{ type: "kh", value: 3 }],
@@ -121,6 +131,7 @@ describe("parse", () => {
 
             expect(parse("4d6kh01")).toEqual([
                 {
+                    expression: "4d6kh1",
                     count: 4,
                     sides: 6,
                     modifiers: [{ type: "kh", value: 1 }],
@@ -130,6 +141,7 @@ describe("parse", () => {
 
             expect(parse("4D6KH3KH2")).toEqual([
                 {
+                    expression: "4d6kh3kh2",
                     count: 4,
                     sides: 6,
                     modifiers: [
@@ -142,6 +154,7 @@ describe("parse", () => {
 
             expect(parse("4d6kh4")).toEqual([
                 {
+                    expression: "4d6kh4",
                     count: 4,
                     sides: 6,
                     modifiers: [{ type: "kh", value: 4 }],
@@ -166,6 +179,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("8d4kl3")).toEqual([
                 {
+                    expression: "8d4kl3",
                     count: 8,
                     sides: 4,
                     modifiers: [{ type: "kl", value: 3 }],
@@ -175,6 +189,7 @@ describe("parse", () => {
 
             expect(parse("8d4kl01")).toEqual([
                 {
+                    expression: "8d4kl1",
                     count: 8,
                     sides: 4,
                     modifiers: [{ type: "kl", value: 1 }],
@@ -184,6 +199,7 @@ describe("parse", () => {
 
             expect(parse("8D4KL6KL3")).toEqual([
                 {
+                    expression: "8d4kl6kl3",
                     count: 8,
                     sides: 4,
                     modifiers: [
@@ -196,6 +212,7 @@ describe("parse", () => {
 
             expect(parse("8d4kl8")).toEqual([
                 {
+                    expression: "8d4kl8",
                     count: 8,
                     sides: 4,
                     modifiers: [{ type: "kl", value: 8 }],
@@ -220,6 +237,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("4d6dl1")).toEqual([
                 {
+                    expression: "4d6dl1",
                     count: 4,
                     sides: 6,
                     modifiers: [{ type: "dl", value: 1 }],
@@ -229,6 +247,7 @@ describe("parse", () => {
 
             expect(parse("4d6dl01")).toEqual([
                 {
+                    expression: "4d6dl1",
                     count: 4,
                     sides: 6,
                     modifiers: [{ type: "dl", value: 1 }],
@@ -238,6 +257,7 @@ describe("parse", () => {
 
             expect(parse("4D6DL2DL1")).toEqual([
                 {
+                    expression: "4d6dl2dl1",
                     count: 4,
                     sides: 6,
                     modifiers: [
@@ -266,6 +286,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("6d8dh1")).toEqual([
                 {
+                    expression: "6d8dh1",
                     count: 6,
                     sides: 8,
                     modifiers: [{ type: "dh", value: 1 }],
@@ -275,6 +296,7 @@ describe("parse", () => {
 
             expect(parse("6d8dh01")).toEqual([
                 {
+                    expression: "6d8dh1",
                     count: 6,
                     sides: 8,
                     modifiers: [{ type: "dh", value: 1 }],
@@ -284,6 +306,7 @@ describe("parse", () => {
 
             expect(parse("6D8DH3DH2")).toEqual([
                 {
+                    expression: "6d8dh3dh2",
                     count: 6,
                     sides: 8,
                     modifiers: [
@@ -312,6 +335,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("1d20rb2")).toEqual([
                 {
+                    expression: "1d20rb2",
                     count: 1,
                     sides: 20,
                     modifiers: [{ type: "rb", value: 2 }],
@@ -321,6 +345,7 @@ describe("parse", () => {
 
             expect(parse("1d20rb02")).toEqual([
                 {
+                    expression: "1d20rb2",
                     count: 1,
                     sides: 20,
                     modifiers: [{ type: "rb", value: 2 }],
@@ -330,6 +355,7 @@ describe("parse", () => {
 
             expect(parse("1D20RB2RB3")).toEqual([
                 {
+                    expression: "1d20rb2rb3",
                     count: 1,
                     sides: 20,
                     modifiers: [
@@ -342,6 +368,7 @@ describe("parse", () => {
 
             expect(parse("1d6rb6")).toEqual([
                 {
+                    expression: "1d6rb6",
                     count: 1,
                     sides: 6,
                     modifiers: [{ type: "rb", value: 6 }],
@@ -366,6 +393,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("1d20rm2")).toEqual([
                 {
+                    expression: "1d20rm2",
                     count: 1,
                     sides: 20,
                     modifiers: [{ type: "rm", value: 2 }],
@@ -375,6 +403,7 @@ describe("parse", () => {
 
             expect(parse("1d20rm02")).toEqual([
                 {
+                    expression: "1d20rm2",
                     count: 1,
                     sides: 20,
                     modifiers: [{ type: "rm", value: 2 }],
@@ -384,6 +413,7 @@ describe("parse", () => {
 
             expect(parse("1D20RM2RM3")).toEqual([
                 {
+                    expression: "1d20rm2rm3",
                     count: 1,
                     sides: 20,
                     modifiers: [
@@ -396,6 +426,7 @@ describe("parse", () => {
 
             expect(parse("1d6rm6")).toEqual([
                 {
+                    expression: "1d6rm6",
                     count: 1,
                     sides: 6,
                     modifiers: [{ type: "rm", value: 6 }],
@@ -420,6 +451,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("1d20m10")).toEqual([
                 {
+                    expression: "1d20m10",
                     count: 1,
                     sides: 20,
                     modifiers: [{ type: "m", value: 10 }],
@@ -429,6 +461,7 @@ describe("parse", () => {
 
             expect(parse("1d20m05")).toEqual([
                 {
+                    expression: "1d20m5",
                     count: 1,
                     sides: 20,
                     modifiers: [{ type: "m", value: 5 }],
@@ -438,6 +471,7 @@ describe("parse", () => {
 
             expect(parse("1D20M5M10")).toEqual([
                 {
+                    expression: "1d20m5m10",
                     count: 1,
                     sides: 20,
                     modifiers: [
@@ -450,6 +484,7 @@ describe("parse", () => {
 
             expect(parse("1d6m6")).toEqual([
                 {
+                    expression: "1d6m6",
                     count: 1,
                     sides: 6,
                     modifiers: [{ type: "m", value: 6 }],
@@ -474,6 +509,7 @@ describe("parse", () => {
         it("parses", () => {
             expect(parse("1d20+5")).toEqual([
                 {
+                    expression: "1d20+5",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -483,6 +519,7 @@ describe("parse", () => {
 
             expect(parse("2d8-2")).toEqual([
                 {
+                    expression: "2d8-2",
                     count: 2,
                     sides: 8,
                     modifiers: [],
@@ -492,6 +529,7 @@ describe("parse", () => {
 
             expect(parse("1d20+09")).toEqual([
                 {
+                    expression: "1d20+9",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -501,6 +539,7 @@ describe("parse", () => {
 
             expect(parse("1D20+5+3")).toEqual([
                 {
+                    expression: "1d20+8",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -510,6 +549,7 @@ describe("parse", () => {
 
             expect(parse("1d20+5-2")).toEqual([
                 {
+                    expression: "1d20+3",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -532,6 +572,7 @@ describe("parse", () => {
 
             expect(parse("4d6dl1kh3+2")).toEqual([
                 {
+                    expression: "4d6dl1kh3+2",
                     count: 4,
                     sides: 6,
                     modifiers: [
@@ -544,6 +585,7 @@ describe("parse", () => {
 
             expect(parse("4d6kh3dl1kh2")).toEqual([
                 {
+                    expression: "4d6kh3dl1kh2",
                     count: 4,
                     sides: 6,
                     modifiers: [
@@ -557,12 +599,14 @@ describe("parse", () => {
 
             expect(parse("1d20 2d6")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
                     bonus: 0,
                 },
                 {
+                    expression: "2d6",
                     count: 2,
                     sides: 6,
                     modifiers: [],
@@ -572,12 +616,14 @@ describe("parse", () => {
 
             expect(parse("2d20kh1 4d6dl1")).toEqual([
                 {
+                    expression: "2d20kh1",
                     count: 2,
                     sides: 20,
                     modifiers: [{ type: "kh", value: 1 }],
                     bonus: 0,
                 },
                 {
+                    expression: "4d6dl1",
                     count: 4,
                     sides: 6,
                     modifiers: [{ type: "dl", value: 1 }],
@@ -587,18 +633,21 @@ describe("parse", () => {
 
             expect(parse("1d20 2d6 1d8")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
                     bonus: 0,
                 },
                 {
+                    expression: "2d6",
                     count: 2,
                     sides: 6,
                     modifiers: [],
                     bonus: 0,
                 },
                 {
+                    expression: "1d8",
                     count: 1,
                     sides: 8,
                     modifiers: [],
@@ -608,12 +657,14 @@ describe("parse", () => {
 
             expect(parse(" 1d20\n2d6 ")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
                     bonus: 0,
                 },
                 {
+                    expression: "2d6",
                     count: 2,
                     sides: 6,
                     modifiers: [],
@@ -623,6 +674,7 @@ describe("parse", () => {
 
             expect(parse("1d20 + 5")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -634,6 +686,7 @@ describe("parse", () => {
 
             expect(parse("1d20 damage 2d6")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
@@ -641,6 +694,7 @@ describe("parse", () => {
                 },
                 null,
                 {
+                    expression: "2d6",
                     count: 2,
                     sides: 6,
                     modifiers: [],
@@ -689,6 +743,7 @@ describe("parse", () => {
         it("parses labelled expressions", () => {
             expect(parse("slashing:2d6")).toEqual([
                 {
+                    expression: "slashing:2d6",
                     label: "slashing",
                     count: 2,
                     sides: 6,
@@ -699,6 +754,7 @@ describe("parse", () => {
 
             expect(parse("fire:1d8+3")).toEqual([
                 {
+                    expression: "fire:1d8+3",
                     label: "fire",
                     count: 1,
                     sides: 8,
@@ -709,6 +765,7 @@ describe("parse", () => {
 
             expect(parse("cold:2d6kh1")).toEqual([
                 {
+                    expression: "cold:2d6kh1",
                     label: "cold",
                     count: 2,
                     sides: 6,
@@ -721,6 +778,7 @@ describe("parse", () => {
         it("parses multiple labelled expressions", () => {
             expect(parse("slashing:2d6+3 fire:2d6")).toEqual([
                 {
+                    expression: "slashing:2d6+3",
                     label: "slashing",
                     count: 2,
                     sides: 6,
@@ -728,6 +786,7 @@ describe("parse", () => {
                     bonus: 3,
                 },
                 {
+                    expression: "fire:2d6",
                     label: "fire",
                     count: 2,
                     sides: 6,
@@ -740,12 +799,14 @@ describe("parse", () => {
         it("parses mixed labelled and unlabelled expressions", () => {
             expect(parse("1d20 slashing:2d6+3")).toEqual([
                 {
+                    expression: "1d20",
                     count: 1,
                     sides: 20,
                     modifiers: [],
                     bonus: 0,
                 },
                 {
+                    expression: "slashing:2d6+3",
                     label: "slashing",
                     count: 2,
                     sides: 6,
@@ -758,6 +819,7 @@ describe("parse", () => {
         it("normalises labels to lowercase", () => {
             expect(parse("FIRE:2d6")).toEqual([
                 {
+                    expression: "fire:2d6",
                     label: "fire",
                     count: 2,
                     sides: 6,
@@ -768,6 +830,7 @@ describe("parse", () => {
 
             expect(parse("Slashing:1d8")).toEqual([
                 {
+                    expression: "slashing:1d8",
                     label: "slashing",
                     count: 1,
                     sides: 8,
@@ -780,6 +843,7 @@ describe("parse", () => {
         it("accepts empty label", () => {
             expect(parse(":2d6")).toEqual([
                 {
+                    expression: ":2d6",
                     label: "",
                     count: 2,
                     sides: 6,

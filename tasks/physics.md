@@ -13,7 +13,7 @@ simulation.
 - [ ] allow mouse/finger swipe to control throw direction and force
 - [X] detect cocked dice (no face sufficiently horizontal) and reroll them
 - [X] dropped dice go away (how?)
-- [ ] rerolled dice get actually rerolled
+- [X] rerolled dice get actually rerolled
 - [ ] dice that skip the walls are rerolled
 - [ ] dice that jiggle too much are rerolled?
 - [X] monte carlo fairness test

@@ -1,71 +1,181 @@
-import type { Modifier } from "./notation";
+import type { Modifier, ParsedDice } from "./notation";
 
 export type Step = Record<string, number | number[]>;
 
-type Result = {
+type NeedsRoll = {
+    type: "roll";
+    label?: string;
+    indices: number[];
+    sides: number;
+};
+type Done = {
+    type: "done";
+    label?: string;
     steps: Step[];
     total: number;
 };
+export type CalculatorState = NeedsRoll | Done;
 
-type ModifierResult = {
-    result: number[];
-    steps: Step[];
+export type Calculator = {
+    state(): CalculatorState;
+    provide(values: number[]): void;
 };
 
-export function calculate(
-    dice: number[],
-    modifiers: Modifier[],
-    bonus: number,
-    rerollFn: () => number,
-): Result {
-    let current = [...dice];
+export function calculate(parsed: ParsedDice): Calculator {
+    const { count, sides, modifiers, bonus, label } = parsed;
+
+    let dice: number[] | null = null;
+    let modifierIndex = 0;
+    let pendingReroll: { indices: number[]; modifier: Modifier } | null = null;
     const steps: Step[] = [];
 
-    for (const modifier of modifiers) {
-        const modResult = applyModifier(current, modifier, rerollFn);
-        current = modResult.result;
-        steps.push(...modResult.steps);
+    function advance(current: number[]): number[] {
+        while (modifierIndex < modifiers.length) {
+            const modifier = modifiers[modifierIndex];
+            const name = `${modifier.type}${modifier.value}`;
+
+            switch (modifier.type) {
+                case "kh":
+                    current = keepHighest(current, modifier.value);
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+
+                case "kl":
+                    current = keepLowest(current, modifier.value);
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+
+                case "dh":
+                    current = dropHighest(current, modifier.value);
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+
+                case "dl":
+                    current = dropLowest(current, modifier.value);
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+
+                case "m":
+                    current = applyMinimum(current, modifier.value);
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+
+                case "rb": {
+                    const indices = findBelowThreshold(current, modifier.value);
+                    if (indices.length > 0) {
+                        pendingReroll = { indices, modifier };
+                        return current;
+                    }
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+                }
+
+                case "rm": {
+                    const indices = findBelowThreshold(current, modifier.value);
+                    if (indices.length > 0) {
+                        pendingReroll = { indices, modifier };
+                        return current;
+                    }
+                    steps.push({ [name]: [...current] });
+                    modifierIndex++;
+                    break;
+                }
+            }
+        }
+        return current;
     }
 
-    const total = current.reduce((a, b) => a + b, 0) + bonus;
-    return { steps, total };
+    return {
+        state(): CalculatorState {
+            if (dice === null) {
+                const indices = Array.from({ length: count }, (_, i) => i);
+                const rollState: NeedsRoll = {
+                    type: "roll",
+                    sides,
+                    indices,
+                };
+                if (label !== undefined) {
+                    rollState.label = label;
+                }
+                return rollState;
+            }
+
+            if (pendingReroll !== null) {
+                const rollState: NeedsRoll = {
+                    type: "roll",
+                    sides,
+                    indices: pendingReroll.indices,
+                };
+                if (label !== undefined) {
+                    rollState.label = label;
+                }
+                return rollState;
+            }
+
+            const total = dice.reduce((a, b) => a + b, 0) + bonus;
+            const finalSteps = bonus !== 0 ? [...steps, { bonus }] : steps;
+            const doneState: Done = {
+                type: "done",
+                steps: finalSteps,
+                total,
+            };
+            if (label !== undefined) {
+                doneState.label = label;
+            }
+            return doneState;
+        },
+
+        provide(values: number[]): void {
+            if (dice === null) {
+                const diceKey = `${count}d${sides}`;
+                steps.push({ [diceKey]: [...values] });
+                dice = advance([...values]);
+                return;
+            }
+
+            if (pendingReroll !== null) {
+                const { indices, modifier } = pendingReroll;
+                const name = `${modifier.type}${modifier.value}`;
+
+                for (let i = 0; i < indices.length; i++) {
+                    dice[indices[i]] = values[i];
+                }
+
+                if (modifier.type === "rb") {
+                    steps.push({ [name]: [...dice] });
+                    modifierIndex++;
+                    pendingReroll = null;
+                    dice = advance(dice);
+                } else if (modifier.type === "rm") {
+                    steps.push({ [name]: [...dice] });
+                    const newIndices = findBelowThreshold(dice, modifier.value);
+                    if (newIndices.length > 0) {
+                        pendingReroll = { indices: newIndices, modifier };
+                    } else {
+                        pendingReroll = null;
+                        modifierIndex++;
+                        dice = advance(dice);
+                    }
+                }
+            }
+        },
+    };
 }
 
-function applyModifier(
-    dice: number[],
-    modifier: Modifier,
-    rerollFn: () => number,
-): ModifierResult {
-    const name = `${modifier.type}${modifier.value}`;
-
-    switch (modifier.type) {
-        case "kh": {
-            const result = keepHighest(dice, modifier.value);
-            return { result, steps: [{ [name]: result }] };
-        }
-        case "kl": {
-            const result = keepLowest(dice, modifier.value);
-            return { result, steps: [{ [name]: result }] };
-        }
-        case "dh": {
-            const result = dropHighest(dice, modifier.value);
-            return { result, steps: [{ [name]: result }] };
-        }
-        case "dl": {
-            const result = dropLowest(dice, modifier.value);
-            return { result, steps: [{ [name]: result }] };
-        }
-        case "rb": {
-            const result = rerollOnce(dice, modifier.value, rerollFn);
-            return { result, steps: [{ [name]: result }] };
-        }
-        case "rm":
-            return rerollUntil(dice, modifier.value, rerollFn, name);
-        case "m": {
-            const result = applyMinimum(dice, modifier.value);
-            return { result, steps: [{ [name]: result }] };
+function findBelowThreshold(dice: number[], threshold: number): number[] {
+    const indices: number[] = [];
+    for (let i = 0; i < dice.length; i++) {
+        if (dice[i] < threshold) {
+            indices.push(i);
         }
     }
+    return indices;
 }
 
 function keepHighest(dice: number[], count: number): number[] {
@@ -94,31 +204,6 @@ function dropLowest(dice: number[], count: number): number[] {
     indexed.sort((a, b) => a.value - b.value);
     const dropIndices = new Set(indexed.slice(0, count).map((item) => item.index));
     return dice.filter((_, index) => !dropIndices.has(index));
-}
-
-function rerollOnce(
-    dice: number[],
-    threshold: number,
-    rerollFn: () => number,
-): number[] {
-    return dice.map((value) => (value < threshold ? rerollFn() : value));
-}
-
-function rerollUntil(
-    dice: number[],
-    threshold: number,
-    rerollFn: () => number,
-    name: string,
-): ModifierResult {
-    const steps: Step[] = [];
-    let current = [...dice];
-
-    while (current.some((value) => value < threshold)) {
-        current = current.map((value) => (value < threshold ? rerollFn() : value));
-        steps.push({ [name]: [...current] });
-    }
-
-    return { result: current, steps };
 }
 
 function applyMinimum(dice: number[], threshold: number): number[] {

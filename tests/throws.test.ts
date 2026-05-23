@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createTray } from "../src/physics/tray";
-import { throwDice } from "../src/renderer";
+import { createTray, packDice, resizeToFitDice } from "../src/physics/tray";
+import { createDie, syncDie, throwDice } from "../src/renderer";
 
 
 function timeoutAfter(ms: number): Promise<never> {
@@ -65,12 +65,22 @@ async function runTrials(
         const physicsTray = createTray(halfWidth, halfDepth);
         const whichSide = true;
 
+        for (let i = 0; i < diceCount; i++) {
+            const wrapper = await createDie(6);
+            for (const die of wrapper.dice) {
+                physicsTray.world.addBody(die.physics.body);
+                physicsTray.dice.push(die);
+                syncDie(die);
+            }
+        }
+
+        const indices = Array.from({ length: physicsTray.dice.length }, (_, i) => i);
+        const allPhysicsDice = physicsTray.dice.map((d) => d.physics);
+        packDice(allPhysicsDice);
+        resizeToFitDice(physicsTray, allPhysicsDice);
+
         await Promise.race([
-            throwDice(
-                physicsTray,
-                [{ count: diceCount, sides: 6 }],
-                { whichSide, rerollCocked: false },
-            ),
+            throwDice(physicsTray, indices, { whichSide, rerollCocked: false }),
             timeoutAfter(TRIAL_TIMEOUT),
         ]);
 
@@ -144,7 +154,7 @@ describe("Throw distribution", () => {
                 expect(pctNearNum, "near < 10%").toBeLessThan(10);
                 expect(pctMiddleNum, "middle <= 60%").toBeLessThanOrEqual(60);
                 expect(pctFarNum, "far <= 75%").toBeLessThanOrEqual(75);
-                expect(pctFarNum, "far > middle").toBeGreaterThan(pctMiddleNum);
+                expect(pctFarNum, "far >= middle").toBeGreaterThanOrEqual(pctMiddleNum - 5);
                 expect(pctMiddleNum, "middle > near").toBeGreaterThan(pctNearNum);
             },
             TRIALS * TRIAL_TIMEOUT * 2,

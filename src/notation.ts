@@ -6,6 +6,7 @@ export type Modifier = {
 };
 
 export type ParsedDice = {
+    expression: string;
     label?: string;
     count: number;
     sides: number;
@@ -87,7 +88,26 @@ function parseExpression(exp: string): ParsedDice | null {
         return null;
     }
 
-    const result: ParsedDice = { count, sides, modifiers, bonus };
+    let normalised = `${count}d${sides}`;
+    for (const mod of modifiers) {
+        normalised += `${mod.type}${mod.value}`;
+    }
+    if (bonus > 0) {
+        normalised += `+${bonus}`;
+    } else if (bonus < 0) {
+        normalised += `${bonus}`;
+    }
+    if (label !== undefined) {
+        normalised = `${label}:${normalised}`;
+    }
+
+    const result: ParsedDice = {
+        expression: normalised,
+        count,
+        sides,
+        modifiers,
+        bonus,
+    };
     if (label !== undefined) {
         result.label = label;
     }

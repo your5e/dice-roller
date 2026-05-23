@@ -1,5 +1,5 @@
 import type * as THREE from "three";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onRoll, roll, tray } from "../src/index";
 import type { Tray } from "../src/physics/tray";
 
@@ -13,7 +13,8 @@ describe("roll", () => {
         onRoll(() => {});
     });
     it("rolls simple dice", async () => {
-        const result = await roll("2d6", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("2d6");
 
         expect(result).toEqual({
             notation: "2d6",
@@ -29,10 +30,15 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(2);
         expect(result.total).toBeLessThanOrEqual(12);
+
+        const diceValues = result.expressions[0].steps[0]["2d6"] as number[];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("rolls with advantage", async () => {
-        const result = await roll("2d20kh1", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("2d20kh1");
 
         expect(result).toEqual({
             notation: "2d20kh1",
@@ -51,10 +57,15 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(1);
         expect(result.total).toBeLessThanOrEqual(20);
+
+        const diceValues = result.expressions[0].steps[0]["2d20"] as number[];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("rolls with disadvantage", async () => {
-        const result = await roll("2d20kl1", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("2d20kl1");
 
         expect(result).toEqual({
             notation: "2d20kl1",
@@ -73,10 +84,15 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(1);
         expect(result.total).toBeLessThanOrEqual(20);
+
+        const diceValues = result.expressions[0].steps[0]["2d20"] as number[];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("rolls ability scores", async () => {
-        const result = await roll("4d6dl1", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("4d6dl1");
 
         expect(result).toEqual({
             notation: "4d6dl1",
@@ -95,11 +111,15 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(3);
         expect(result.total).toBeLessThanOrEqual(18);
+
+        const diceValues = result.expressions[0].steps[0]["4d6"] as number[];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("replaces texture on dropped dice (dl)", async () => {
         const physicsTray = tray() as Tray;
-        await roll("4d6dl1", { sync: true });
+        await roll("4d6dl1");
 
         const dice = physicsTray.dice;
         expect(dice).toHaveLength(4);
@@ -123,7 +143,7 @@ describe("roll", () => {
 
     it("replaces texture on dropped dice (kh)", async () => {
         const physicsTray = tray() as Tray;
-        await roll("4d6kh3", { sync: true });
+        await roll("4d6kh3");
 
         const dice = physicsTray.dice;
         expect(dice).toHaveLength(4);
@@ -146,7 +166,8 @@ describe("roll", () => {
     });
 
     it("applies positive modifiers", async () => {
-        const result = await roll("1d20+5", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("1d20+5");
 
         expect(result).toEqual({
             notation: "1d20+5",
@@ -165,10 +186,15 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(6);
         expect(result.total).toBeLessThanOrEqual(25);
+
+        const diceValues = result.expressions[0].steps[0]["1d20"] as number[];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("applies negative modifiers", async () => {
-        const result = await roll("1d20-3", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("1d20-3");
 
         expect(result).toEqual({
             notation: "1d20-3",
@@ -187,10 +213,15 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(-2);
         expect(result.total).toBeLessThanOrEqual(17);
+
+        const diceValues = result.expressions[0].steps[0]["1d20"] as number[];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("combines multiple expressions", async () => {
-        const result = await roll("2d6+7 1d8", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("2d6+7 1d8");
 
         expect(result).toEqual({
             notation: "2d6+7 1d8",
@@ -214,10 +245,18 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(10);
         expect(result.total).toBeLessThanOrEqual(27);
+
+        const diceValues = [
+            ...(result.expressions[0].steps[0]["2d6"] as number[]),
+            ...(result.expressions[1].steps[0]["1d8"] as number[]),
+        ];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("combines damage with multiple types", async () => {
-        const result = await roll("1d8+5 2d6", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("1d8+5 2d6");
 
         expect(result).toEqual({
             notation: "1d8+5 2d6",
@@ -241,10 +280,18 @@ describe("roll", () => {
         });
         expect(result.total).toBeGreaterThanOrEqual(8);
         expect(result.total).toBeLessThanOrEqual(25);
+
+        const diceValues = [
+            ...(result.expressions[0].steps[0]["1d8"] as number[]),
+            ...(result.expressions[1].steps[0]["2d6"] as number[]),
+        ];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     it("initial roll values sum to total when no modifiers", async () => {
-        const result = await roll("3d6", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("3d6");
 
         expect(result).toEqual({
             notation: "3d6",
@@ -261,10 +308,14 @@ describe("roll", () => {
         const values = result.expressions[0].steps[0]["3d6"] as number[];
         const sum = values.reduce((a, b) => a + b, 0);
         expect(result.total).toBe(sum);
+
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(values);
     });
 
     it("initial roll values plus bonus sum to total", async () => {
-        const result = await roll("3d6+5", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("3d6+5");
 
         expect(result).toEqual({
             notation: "3d6+5",
@@ -284,37 +335,79 @@ describe("roll", () => {
         const values = result.expressions[0].steps[0]["3d6"] as number[];
         const sum = values.reduce((a, b) => a + b, 0);
         expect(result.total).toBe(sum + 5);
+
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(values);
     });
 
-    it("rerolls use the same die size", async () => {
+    it("rb rerolls dice below threshold once", async () => {
+        const physicsTray = tray() as Tray;
         for (let i = 0; i < 100; i++) {
-            const result = await roll("1d4rb3", { sync: true });
+            const result = await roll("1d20rb20");
+            const initialValue = (result.expressions[0].steps[0]["1d20"] as number[])[0];
+            if (initialValue >= 20) continue;
 
             expect(result).toEqual({
-                notation: "1d4rb3",
+                notation: "1d20rb20",
                 total: expect.any(Number),
                 label_totals: { "": expect.any(Number) },
                 expressions: [
                     {
-                        notation: "1d4rb3",
+                        notation: "1d20rb20",
                         steps: [
-                            { "1d4": [expect.any(Number)] },
-                            { "rb3": [expect.any(Number)] },
+                            { "1d20": [initialValue] },
+                            { "rb20": [expect.any(Number)] },
                         ],
                         total: expect.any(Number),
                     },
                 ],
             });
-            const finalValues = result.expressions[0].steps[1].rb3 as number[];
-            for (const value of finalValues) {
-                expect(value).toBeGreaterThanOrEqual(1);
-                expect(value).toBeLessThanOrEqual(4);
-            }
+            const rerolledValue = (result.expressions[0].steps[1].rb20 as number[])[0];
+            expect(rerolledValue).toBeGreaterThanOrEqual(1);
+            expect(rerolledValue).toBeLessThanOrEqual(20);
+            expect(result.total).toBe(rerolledValue);
+
+            // die's physical face must match the rerolled value
+            const die = physicsTray.dice[0];
+            expect(die.readResult()).toBe(rerolledValue);
+            return;
         }
+        throw new Error("Failed to roll initial value below threshold in 100 attempts");
+    });
+
+    it("rm rerolls dice until at or above threshold", async () => {
+        const physicsTray = tray() as Tray;
+        for (let i = 0; i < 100; i++) {
+            const result = await roll("1d20rm20");
+            const initialValue = (result.expressions[0].steps[0]["1d20"] as number[])[0];
+            if (initialValue >= 20) continue;
+
+            const steps = result.expressions[0].steps;
+            expect(steps.length).toBeGreaterThanOrEqual(2);
+            expect(steps[0]).toEqual({ "1d20": [initialValue] });
+            for (let j = 1; j < steps.length; j++) {
+                expect(steps[j]).toHaveProperty("rm20");
+            }
+            const lastStep = steps[steps.length - 1];
+            const finalValue = (lastStep.rm20 as number[])[0];
+            expect(finalValue).toBeGreaterThanOrEqual(20);
+
+            expect(result.notation).toBe("1d20rm20");
+            expect(result.total).toBe(finalValue);
+            expect(result.label_totals).toEqual({ "": finalValue });
+            expect(result.expressions).toHaveLength(1);
+            expect(result.expressions[0].notation).toBe("1d20rm20");
+            expect(result.expressions[0].total).toBe(finalValue);
+
+            const die = physicsTray.dice[0];
+            expect(die.readResult()).toBe(finalValue);
+            return;
+        }
+        throw new Error("Failed to roll initial value below threshold in 100 attempts");
     });
 
     it("returns empty result when no valid expressions found", async () => {
-        const result = await roll("garbage", { sync: true });
+        const result = await roll("garbage");
 
         expect(result).toEqual({
             notation: "garbage",
@@ -325,7 +418,8 @@ describe("roll", () => {
     });
 
     it("ignores invalid expressions in notation", async () => {
-        const result = await roll("1d20 garbage 2d6", { sync: true });
+        const physicsTray = tray() as Tray;
+        const result = await roll("1d20 garbage 2d6");
 
         expect(result).toEqual({
             notation: "1d20 garbage 2d6",
@@ -344,11 +438,19 @@ describe("roll", () => {
                 },
             ],
         });
+
+        const diceValues = [
+            ...(result.expressions[0].steps[0]["1d20"] as number[]),
+            ...(result.expressions[1].steps[0]["2d6"] as number[]),
+        ];
+        const physicalValues = physicsTray.dice.map((d) => d.readResult());
+        expect(physicalValues).toEqual(diceValues);
     });
 
     describe("d100", () => {
         it("rolls a percentile value", async () => {
-            const result = await roll("1d100", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("1d100");
 
             expect(result).toEqual({
                 notation: "1d100",
@@ -364,13 +466,17 @@ describe("roll", () => {
             });
             expect(result.total).toBeGreaterThanOrEqual(1);
             expect(result.total).toBeLessThanOrEqual(100);
+
+            // d100 uses two physical dice (percentile + ones)
+            expect(physicsTray.dice).toHaveLength(2);
         });
 
         it("produces varied results across multiple rolls", async () => {
+            const physicsTray = tray() as Tray;
             const seen = new Set<number>();
 
             for (let i = 0; i < 100; i++) {
-                const result = await roll("1d100", { sync: true });
+                const result = await roll("1d100");
                 expect(result).toEqual({
                     notation: "1d100",
                     total: expect.any(Number),
@@ -384,6 +490,8 @@ describe("roll", () => {
                     ],
                 });
                 seen.add(result.total);
+
+                expect(physicsTray.dice).toHaveLength(2);
             }
 
             expect(seen.size).toBeGreaterThanOrEqual(20);
@@ -392,7 +500,8 @@ describe("roll", () => {
 
     describe("labels", () => {
         it("unlabelled expressions accumulate under empty string", async () => {
-            const result = await roll("2d6+3", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("2d6+3");
 
             expect(result).toEqual({
                 notation: "2d6+3",
@@ -412,10 +521,15 @@ describe("roll", () => {
             expect(result.label_totals[""]).toBeGreaterThanOrEqual(5);
             expect(result.label_totals[""]).toBeLessThanOrEqual(15);
             expect(result.total).toBe(result.label_totals[""]);
+
+            const diceValues = result.expressions[0].steps[0]["2d6"] as number[];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
         });
 
         it("returns labelled totals for labelled expressions", async () => {
-            const result = await roll("slashing:2d6+3", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("slashing:2d6+3");
 
             expect(result).toEqual({
                 notation: "slashing:2d6+3",
@@ -436,10 +550,15 @@ describe("roll", () => {
             expect(result.label_totals.slashing).toBeGreaterThanOrEqual(5);
             expect(result.label_totals.slashing).toBeLessThanOrEqual(15);
             expect(result.total).toBe(result.label_totals.slashing);
+
+            const diceValues = result.expressions[0].steps[0]["2d6"] as number[];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
         });
 
         it("returns multiple labelled totals", async () => {
-            const result = await roll("slashing:2d6+3 fire:1d6", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("slashing:2d6+3 fire:1d6");
 
             expect(result).toEqual({
                 notation: "slashing:2d6+3 fire:1d6",
@@ -473,10 +592,15 @@ describe("roll", () => {
             expect(result.label_totals.fire).toBe(fireSum);
 
             expect(result.total).toBe(result.label_totals.slashing + result.label_totals.fire);
+
+            const diceValues = [...slashingDice, ...fireDice];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
         });
 
         it("applies modifiers and bonus to labelled expressions", async () => {
-            const result = await roll("slashing:4d6dl1+3 force:2d8kh1+2", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("slashing:4d6dl1+3 force:2d8kh1+2");
 
             expect(result).toEqual({
                 notation: "slashing:4d6dl1+3 force:2d8kh1+2",
@@ -519,10 +643,17 @@ describe("roll", () => {
             expect(result.label_totals.force).toBe(force.total);
 
             expect(result.total).toBe(result.label_totals.slashing + result.label_totals.force);
+
+            const slashingDice = slashing.steps[0]["4d6"] as number[];
+            const forceDice = force.steps[0]["2d8"] as number[];
+            const diceValues = [...slashingDice, ...forceDice];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
         });
 
         it("accumulates same labels", async () => {
-            const result = await roll("fire:1d6 fire:1d4", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("fire:1d6 fire:1d4");
 
             expect(result).toEqual({
                 notation: "fire:1d6 fire:1d4",
@@ -546,10 +677,18 @@ describe("roll", () => {
             expect(result.label_totals.fire).toBeGreaterThanOrEqual(2);
             expect(result.label_totals.fire).toBeLessThanOrEqual(10);
             expect(result.total).toBe(result.label_totals.fire);
+
+            const diceValues = [
+                ...(result.expressions[0].steps[0]["1d6"] as number[]),
+                ...(result.expressions[1].steps[0]["1d4"] as number[]),
+            ];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
         });
 
         it("accumulates labels case-insensitively", async () => {
-            const result = await roll("fire:2d6 FIRE:2d6", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("fire:2d6 FIRE:2d6");
 
             expect(result).toEqual({
                 notation: "fire:2d6 FIRE:2d6",
@@ -573,10 +712,18 @@ describe("roll", () => {
             expect(result.label_totals.fire).toBeGreaterThanOrEqual(4);
             expect(result.label_totals.fire).toBeLessThanOrEqual(24);
             expect(result.total).toBe(result.label_totals.fire);
+
+            const diceValues = [
+                ...(result.expressions[0].steps[0]["2d6"] as number[]),
+                ...(result.expressions[1].steps[0]["2d6"] as number[]),
+            ];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
         });
 
         it("handles mixed labelled and unlabelled", async () => {
-            const result = await roll("1d20 slashing:2d6", { sync: true });
+            const physicsTray = tray() as Tray;
+            const result = await roll("1d20 slashing:2d6");
 
             expect(result).toEqual({
                 notation: "1d20 slashing:2d6",
@@ -601,6 +748,48 @@ describe("roll", () => {
             expect(result.label_totals.slashing).toBeGreaterThanOrEqual(2);
             expect(result.label_totals.slashing).toBeLessThanOrEqual(12);
             expect(result.total).toBe(result.label_totals[""] + result.label_totals.slashing);
+
+            const diceValues = [
+                ...(result.expressions[0].steps[0]["1d20"] as number[]),
+                ...(result.expressions[1].steps[0]["2d6"] as number[]),
+            ];
+            const physicalValues = physicsTray.dice.map((d) => d.readResult());
+            expect(physicalValues).toEqual(diceValues);
+        });
+    });
+
+    describe("concurrent rolls", () => {
+        it("only keeps dice from the latest roll", async () => {
+            const physicsTray = tray() as Tray;
+
+            const rollA = roll("2d6");
+            const rollB = roll("1d8");
+
+            const [resultA, resultB] = await Promise.all([rollA, rollB]);
+
+            expect(resultA.total).toBe(0);
+            expect(resultA.expressions).toHaveLength(0);
+
+            expect(resultB.total).toBeGreaterThanOrEqual(1);
+            expect(resultB.expressions).toHaveLength(1);
+
+            expect(physicsTray.dice).toHaveLength(1);
+            expect(physicsTray.dice[0].physics.faces.length).toBe(8);
+        });
+
+        it("disposes dice from previous roll", async () => {
+            const physicsTray = tray() as Tray;
+
+            await roll("1d6");
+            const oldDie = physicsTray.dice[0];
+            const geometryDispose = vi.spyOn(oldDie.mesh.geometry, "dispose");
+            const material = oldDie.mesh.material as THREE.MeshPhysicalMaterial;
+            const materialDispose = vi.spyOn(material, "dispose");
+
+            await roll("1d8");
+
+            expect(geometryDispose).toHaveBeenCalled();
+            expect(materialDispose).toHaveBeenCalled();
         });
     });
 });

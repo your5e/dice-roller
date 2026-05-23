@@ -50,7 +50,7 @@ async function assertFairDistribution(notation: string, faces: number): Promise<
 
     for (let i = 0; i < ROLL_COUNT; i++) {
         const result = await Promise.race([
-            roll(notation, { sync: true }),
+            roll(notation),
             timeoutAfter(ROLL_TIMEOUT),
         ]);
         const count = counts.get(result.total);

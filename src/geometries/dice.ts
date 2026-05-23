@@ -5,6 +5,10 @@ import type { DieTexture } from "../textures/dice";
 import { CHAMFER, createChamferedGeometry, type DieFaces } from "./chamfer";
 
 export abstract class Die {
+    label?: string;
+    icon?: string;
+    parked?: { x: number; z: number; halfWidth: number };
+
     constructor(
         public mesh: THREE.Mesh,
         public physics: PhysicsDie,

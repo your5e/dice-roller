@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { normalFromVertices } from "../geometry";
+import { centroid, normalFromVertices } from "../geometry";
 
 export const CHAMFER = 0.05;
 
@@ -163,12 +163,4 @@ export function createChamferedGeometry(
     }
     geometry.setIndex(indices);
     return geometry;
-}
-
-function centroid(vertices: THREE.Vector3[]): THREE.Vector3 {
-    const centre = new THREE.Vector3();
-    for (const vertex of vertices) {
-        centre.add(vertex);
-    }
-    return centre.divideScalar(vertices.length);
 }

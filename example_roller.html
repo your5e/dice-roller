@@ -35,6 +35,18 @@
         }
         h2 {
             margin-top: 2rem;
+            margin-bottom: 0;
+            font-size: 1.2em;
+        }
+        p {
+            margin: 0.5rem 0 1rem;
+            line-height: 1.4;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.9em;
         }
         .roll {
             display: inline-block;
@@ -97,13 +109,10 @@
     </style>
 </head>
 <body>
-    <h1>Dice Roller Test</h1>
+    <h1>Dice Roller</h1>
+
     <div id="dice-tray"></div>
     <div id="slow-indicator">too many dice</div>
-    <p>Click any roll to see the result.</p>
-
-    <h2>Debug Die</h2>
-    <div id="debug-controls"></div>
 
     <div id="result-modal">
         <div class="notation"></div>
@@ -111,16 +120,22 @@
         <div class="total"></div>
     </div>
 
-    <h2>Test Roll</h2>
+    <div>
+        <strong>Debug visuals: </strong>
+        <div id="debug-controls"></div>
+    </div>
     <span class="roll" data-roll="3d4 3d6 3d8 3d10 3d12 3d20">all the dice</span>
+    <span class="roll" data-roll="red:1d6 green:1d6 yellow:1d6 blue:1d6 orange:1d6 purple:1d6 cyan:1d6 magenta:1d6 lime:1d6 teal:1d6 brown:1d6 maroon:1d6 olive:1d6 navy:1d6 grey:1d6">all the colours</span>
+    <span class="roll" data-roll="acid:1d6 bludgeoning:1d6 cold:1d6 fire:1d6 force:1d6 lightning:1d6 necrotic:1d6 piercing:1d6 poison:1d6 psychic:1d6 radiant:1d6 slashing:1d6 thunder:1d6">all the damage</span>
 
-    <h2>Custom Roll</h2>
     <form class="roll">
         <input type="text" placeholder="e.g. 2d20kh1+5" required>
         <button type="submit">Roll</button>
     </form>
 
-    <h2>Basic Rolls</h2>
+    <h2>Basic Dice</h2>
+    <p>The standard seven polyhedrals. Write as <code>NdS</code> where N is the
+    number of dice and S is the number of sides.</p>
     <span class="roll">1d4</span>
     <span class="roll">1d6</span>
     <span class="roll">1d8</span>
@@ -128,42 +143,70 @@
     <span class="roll">1d12</span>
     <span class="roll">1d20</span>
     <span class="roll">1d100</span>
+    <span class="roll" data-roll="str:3d6 dex:3d6 con:3d6 int:3d6 wis:3d6 cha:3d6">old-skool character gen</span>
 
-    <h2>Ability Checks</h2>
+    <h2>Bonuses</h2>
+    <p>Add or subtract a fixed value with <code>+N</code> or <code>-N</code>
+    at the end of the expression.</p>
     <span class="roll">1d20+5</span>
-    <span class="roll">1d20+3</span>
     <span class="roll">1d20-1</span>
-    <span class="roll" data-roll="2d20kh1+5">1d20+5 (with advantage)</span>
-    <span class="roll" data-roll="2d20kl1-1">1d20-1 (with disadvantage)</span>
-
-    <h2>Ability Score Generation</h2>
-    <span class="roll">4d6dl1</span>
-    <span class="roll" data-roll="str:4d6dl1 dex:4d6dl1 con:4d6dl1 int:4d6dl1 wis:4d6dl1 cha:4d6dl1">new character</span>
-
-    <h2>Damage Rolls</h2>
     <span class="roll">2d6+3</span>
-    <span class="roll">1d8+4</span>
-    <span class="roll" data-roll="8d6">fireball</span>
+
+    <h2>Keep Highest / Lowest</h2>
+    <p>Roll extra dice and keep only some. Use <code>khN</code> to keep the
+    highest N dice, or <code>klN</code> to keep the lowest N. This is how
+    advantage and disadvantage work in 5e.</p>
+    <span class="roll" data-roll="2d20kh1">advantage</span>
+    <span class="roll" data-roll="2d20kl1">disadvantage</span>
+    <span class="roll">2d20kh1+5</span>
+    <span class="roll">2d20kl1-1</span>
+
+    <h2>Drop Highest / Lowest</h2>
+    <p>Roll extra dice and discard some. Use <code>dlN</code> to drop the
+    lowest N dice, or <code>dhN</code> to drop the highest N.</p>
+    <span class="roll" data-roll="4d6dl1">one ability score</span>
+    <span class="roll" data-roll="red:4d6dl1 orange:4d6dl1 yellow:4d6dl1 green:4d6dl1 blue:4d6dl1 purple:4d6dl1">roll all six at once</span>
+    <span class="roll" data-roll="str:4d6dl1 dex:4d6dl1 con:4d6dl1 int:4d6dl1 wis:4d6dl1 cha:4d6dl1">roll preassigned</span>
+    <span class="roll">5d6dl2</span>
+    <span class="roll">4d6dh1</span>
+
+    <h2>Reroll Below (Once)</h2>
+    <p>Use <code>rbN</code> to reroll any dice that land below N, but only
+    once per die. This is the Halfling Luck trait, rerolling natural 1s only the first time.</p>
+    <span class="roll" data-roll="1d20rb2">halfling luck</span>
+    <span class="roll" data-roll="2d6rb3">great weapon fighting</span>
+    <span class="roll">1d20rb2</span>
+
+    <h2>Reroll Below (Multiple)</h2>
+    <p>Use <code>rmN</code> to keep rerolling dice below N until all dice show
+    at least N. Unlike <code>rb</code>, this continues until the condition
+    is satisfied.</p>
+    <span class="roll" data-roll="1d20rm10">keep rerolling below 10</span>
+    <span class="roll" data-roll="12d6rm3">reroll all 1s and 2s</span>
+    <span class="roll">2d6rm3</span>
+
+    <h2>Minimum Value</h2>
+    <p>Use <code>mN</code> to treat any die result below N as if it were N.
+    This is how Reliable Talent works — you can't roll below 10.</p>
+    <span class="roll" data-roll="1d20m10">reliable talent</span>
+    <span class="roll" data-roll="1d20m10+11">reliable talent +11</span>
+    <span class="roll">1d20m10</span>
+
+    <h2>Labels</h2>
+    <p>Prefix an expression with <code>label:</code> to group dice by damage
+    type or other category. Separate multiple expressions with spaces.</p>
+    <span class="roll" data-roll="fire:8d6">fireball</span>
     <span class="roll" data-roll="fire:4d6 radiant:4d6">flame strike</span>
     <span class="roll" data-roll="bludgeoning:2d8 cold:4d6">ice storm</span>
-    <span class="roll" data-roll="acid:1d6 bludgeoning:1d6 cold:1d6 fire:1d6 force:1d6 lightning:1d6 necrotic:1d6 piercing:1d6 poison:1d6 psychic:1d6 radiant:1d6 slashing:1d6 thunder:1d6">all the damage</span>
-    <span class="roll" data-roll="acid:1d4 acid:1d6 acid:1d8 acid:1d10 acid:1d12 acid:1d20">acid</span>
-    <span class="roll" data-roll="bludgeoning:1d4 bludgeoning:1d6 bludgeoning:1d8 bludgeoning:1d10 bludgeoning:1d12 bludgeoning:1d20">bludgeoning</span>
-    <span class="roll" data-roll="cold:1d4 cold:1d6 cold:1d8 cold:1d10 cold:1d12 cold:1d20">cold</span>
-    <span class="roll" data-roll="fire:1d4 fire:1d6 fire:1d8 fire:1d10 fire:1d12 fire:1d20">fire</span>
-    <span class="roll" data-roll="force:1d4 force:1d6 force:1d8 force:1d10 force:1d12 force:1d20">force</span>
-    <span class="roll" data-roll="lightning:1d4 lightning:1d6 lightning:1d8 lightning:1d10 lightning:1d12 lightning:1d20">lightning</span>
-    <span class="roll" data-roll="necrotic:1d4 necrotic:1d6 necrotic:1d8 necrotic:1d10 necrotic:1d12 necrotic:1d20">necrotic</span>
-    <span class="roll" data-roll="piercing:1d4 piercing:1d6 piercing:1d8 piercing:1d10 piercing:1d12 piercing:1d20">piercing</span>
-    <span class="roll" data-roll="poison:1d4 poison:1d6 poison:1d8 poison:1d10 poison:1d12 poison:1d20">poison</span>
-    <span class="roll" data-roll="psychic:1d4 psychic:1d6 psychic:1d8 psychic:1d10 psychic:1d12 psychic:1d20">psychic</span>
-    <span class="roll" data-roll="radiant:1d4 radiant:1d6 radiant:1d8 radiant:1d10 radiant:1d12 radiant:1d20">radiant</span>
-    <span class="roll" data-roll="slashing:1d4 slashing:1d6 slashing:1d8 slashing:1d10 slashing:1d12 slashing:1d20">slashing</span>
-    <span class="roll" data-roll="thunder:1d4 thunder:1d6 thunder:1d8 thunder:1d10 thunder:1d12 thunder:1d20">thunder</span>
+    <span class="roll">fire:2d6</span>
+    <span class="roll">slashing:1d8+3 fire:1d6</span>
 
-    <h2>Special Modifiers</h2>
-    <span class="roll" data-roll="1d20rb2">halfling luck</span>
-    <span class="roll" data-roll="1d20m10">reliable talent</span>
+    <h2>Complex Examples</h2>
+    <p>Combine modifiers for advanced rolls. Modifiers are applied left to
+    right before the bonus, so ordering matters.</p>
+    <span class="roll">4d6rb3kh1</span>
+    <span class="roll">4d6kh1rb3</span>
+    <span class="roll">fire:3d10rm8+2 cold:2d20kh1rb15 force:1d12m10-1</span>
 
     <script src="dist/dice-roller.js"></script>
     <script>
@@ -205,11 +248,16 @@
             }
             DiceRoller.removeDice(tray.physicsTray, tray);
             debugDie = null;
-            DiceRoller.setCameraSize(tray, 3);
 
             return dieCreators[sides]().then(function(die) {
                 debugDie = die;
                 die.mesh.position.y = 1;
+
+                // size camera so bounding sphere fits at any rotation
+                var radius = die.physics.body.shapes[0].boundingSphereRadius;
+                var aspect = diceTrayEl.clientWidth / diceTrayEl.clientHeight;
+                var size = radius * Math.sqrt(Math.max(aspect, 1 / aspect));
+                DiceRoller.setCameraSize(tray, size * 1.05);
                 targetQuaternion = die.defaultOrientation();
                 if (targetQuaternion) {
                     die.mesh.quaternion.copy(targetQuaternion);
@@ -380,7 +428,8 @@
         }
 
         function showResult(result) {
-            console.log(result);
+            console.log(JSON.stringify(result));
+            if (result.expressions.length === 0) return;
             var groupsByLabel = {};
             var labelOrder = [];
             for (var i = 0; i < result.expressions.length; i++) {

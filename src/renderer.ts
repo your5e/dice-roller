@@ -1,3 +1,4 @@
+import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { loadVarelaRound } from "./fonts/varela-round";
 import { createD4 } from "./geometries/d4";
@@ -7,15 +8,16 @@ import { createD10, createD100 } from "./geometries/d10";
 import { createD12 } from "./geometries/d12";
 import { createD20 } from "./geometries/d20";
 import type { Die } from "./geometries/dice";
-import { getLabelStyles } from "./labels";
-import type { PhysicsDie } from "./physics/dice";
+
+export type DiceWrapper = {
+    dice: Die[];
+    readResult(): number;
+};
+
 import {
     applyFullThrow,
     createTray,
     offsetToEdge,
-    packDice,
-    resizeToFitDice,
-    type SimulateStats,
     simulateThrow,
     type Tray,
 } from "./physics/tray";
@@ -25,7 +27,7 @@ import { D8Texture } from "./textures/d8";
 import { D10Texture, DPercentileTexture } from "./textures/d10";
 import { D12Texture } from "./textures/d12";
 import { D20Texture } from "./textures/d20";
-import { DROPPED_COLOURS, type TextureOptions } from "./textures/dice";
+import { GHOST_COLOURS, type TextureOptions } from "./textures/dice";
 
 export type Stage = {
     container: HTMLElement;
@@ -47,7 +49,7 @@ export function getTrayDimensions(
     return { halfWidth, halfDepth };
 }
 
-function resizeCamera(tray: Stage, halfWidth: number, halfDepth: number): void {
+export function resizeCamera(tray: Stage, halfWidth: number, halfDepth: number): void {
     tray.camera.left = -halfWidth;
     tray.camera.right = halfWidth;
     tray.camera.top = halfDepth;
@@ -65,7 +67,7 @@ export function setCameraSize(
     return dims;
 }
 
-export function windowResize(tray: Stage): void {
+function windowResize(tray: Stage): void {
     const width = tray.container.clientWidth;
     const height = tray.container.clientHeight;
     tray.renderer.setSize(width, height);
@@ -124,6 +126,8 @@ export function createStage(container: HTMLElement, existingTray?: Tray): Stage 
         animationId: null,
     };
 
+    resizeCamera(state, physicsTray.halfWidth, physicsTray.halfDepth);
+
     loadVarelaRound();
 
     window.addEventListener("resize", () => windowResize(state));
@@ -133,34 +137,29 @@ export function createStage(container: HTMLElement, existingTray?: Tray): Stage 
     return state;
 }
 
-async function createDice(sides: number, options?: TextureOptions): Promise<Die[]> {
+export async function createDie(
+    sides: number,
+    options?: TextureOptions,
+): Promise<DiceWrapper> {
     switch (sides) {
         case 4:
-            return (await createD4(1, options ? new D4Texture(options) : undefined))
-                .dice;
+            return createD4(1, options ? new D4Texture(options) : undefined);
         case 6:
-            return (await createD6(1, options ? new D6Texture(options) : undefined))
-                .dice;
+            return createD6(1, options ? new D6Texture(options) : undefined);
         case 8:
-            return (await createD8(1, options ? new D8Texture(options) : undefined))
-                .dice;
+            return createD8(1, options ? new D8Texture(options) : undefined);
         case 10:
-            return (await createD10(1, options ? new D10Texture(options) : undefined))
-                .dice;
+            return createD10(1, options ? new D10Texture(options) : undefined);
         case 12:
-            return (await createD12(1, options ? new D12Texture(options) : undefined))
-                .dice;
+            return createD12(1, options ? new D12Texture(options) : undefined);
         case 20:
-            return (await createD20(1, options ? new D20Texture(options) : undefined))
-                .dice;
+            return createD20(1, options ? new D20Texture(options) : undefined);
         case 100:
-            return (
-                await createD100(
-                    1,
-                    options ? new D10Texture(options) : undefined,
-                    options ? new DPercentileTexture(options) : undefined,
-                )
-            ).dice;
+            return createD100(
+                1,
+                options ? new D10Texture(options) : undefined,
+                options ? new DPercentileTexture(options) : undefined,
+            );
         default:
             throw new Error(`No geometry for d${sides}`);
     }
@@ -187,64 +186,19 @@ export type ThrowOptions = {
 
 export async function throwDice(
     physicsTray: Tray,
-    groups: DiceGroup[],
+    indicesToThrow: number[],
     options?: ThrowOptions,
-): Promise<
-    { dice: Die[]; faces: number[][]; stats: SimulateStats } | { cancelled: true }
-> {
+): Promise<number[] | { cancelled: true }> {
     const stage = options?.stage;
     const whichSide = options?.whichSide ?? Math.random() < 0.5;
-    const myGeneration = ++physicsTray.generation;
+    const dice = physicsTray.dice;
+    const throwSet = new Set(indicesToThrow);
 
-    // a new roll interrupts and replaces the previous roll if it is still in progress
-    if (physicsTray.simulation) await physicsTray.simulation.cancel();
-    if (physicsTray.generation !== myGeneration) return { cancelled: true };
-    removeDice(physicsTray, stage);
+    const diceToThrow = indicesToThrow.map((i) => dice[i]);
+    const physicsDice = diceToThrow.map((d) => d.physics);
 
-    const labels = groups.map((g) => g.label).filter((l): l is string => !!l);
-    const labelStyles = getLabelStyles(labels);
-
-    const dice: Die[] = [];
-    for (const { count, sides, label } of groups) {
-        let options: TextureOptions | undefined;
-        if (label) {
-            const style = labelStyles.get(label);
-            if (!style) throw new Error(`No style for label "${label}"`);
-            options = {
-                bgColour: style.colour,
-                fgColour: style.fgColour,
-                iconColour: style.iconColour,
-                iconScale: style.iconScale,
-                icon: style.icon,
-            };
-        }
-        for (let i = 0; i < count; i++) {
-            const created = await createDice(sides, options);
-            dice.push(...created);
-        }
-    }
-
-    if (physicsTray.generation !== myGeneration) return { cancelled: true };
-
-    // populate the world ... with dice!
-    const physicsDice = dice.map((d) => d.physics);
-    for (const die of physicsDice) {
-        physicsTray.world.addBody(die.body);
-    }
-    physicsTray.dice = dice;
-    if (stage) {
-        for (const die of dice) {
-            stage.scene.add(die.mesh);
-            syncDie(die);
-        }
-        stage.rolling = true;
-    }
-    packDice(physicsDice);
-    resizeToFitDice(physicsTray, physicsDice);
     offsetToEdge(physicsDice, physicsTray, whichSide);
 
-    // find the position along the throwing axis so frontmost dice
-    // move faster -- fewer collisions, better spread in the tray
     const isPortrait = physicsTray.halfDepth > physicsTray.halfWidth;
     const sortedByPosition = [...physicsDice].sort((a, b) => {
         const posA = isPortrait ? a.body.position.z : a.body.position.x;
@@ -257,7 +211,7 @@ export async function throwDice(
               ? posA - posB
               : posB - posA;
     });
-    const positionRanks = new Map<PhysicsDie, number>();
+    const positionRanks = new Map<(typeof physicsDice)[0], number>();
     for (let i = 0; i < sortedByPosition.length; i++) {
         positionRanks.set(
             sortedByPosition[i],
@@ -274,20 +228,23 @@ export async function throwDice(
         );
     }
 
-    // chuck 'em!
+    if (stage) {
+        stage.rolling = true;
+    }
+
     const simulation = simulateThrow(physicsTray, physicsDice, {
         whichSide,
-        rerollCocked: options?.rerollCocked,
+        rerollCocked: options?.rerollCocked ?? true,
         onStep: stage
             ? async () => {
-                  resizeCamera(stage, physicsTray.halfWidth, physicsTray.halfDepth);
-                  for (const die of dice) {
+                  for (const die of diceToThrow) {
                       syncDie(die);
                   }
                   await new Promise((resolve) => requestAnimationFrame(resolve));
               }
             : undefined,
     });
+
     physicsTray.simulation = simulation;
     const result = await simulation.result;
     physicsTray.simulation = undefined;
@@ -295,25 +252,22 @@ export async function throwDice(
     if (stage) {
         stage.rolling = false;
     }
-    if ("cancelled" in result) return { cancelled: true };
 
-    const faces = result.faces;
-    let faceIndex = 0;
-    const faceResults = groups.map(({ count, sides }) => {
-        const groupResults: number[] = [];
-        for (let i = 0; i < count; i++) {
-            if (sides === 100) {
-                const t = faces[faceIndex++] % 100;
-                const o = faces[faceIndex++] % 10;
-                groupResults.push(t === 0 && o === 0 ? 100 : t + o);
-            } else {
-                groupResults.push(faces[faceIndex++]);
-            }
+    if ("cancelled" in result) {
+        return { cancelled: true };
+    }
+
+    // build faces array: keepers keep their face, thrown get new faces
+    const allFaces: number[] = [];
+    let thrownIndex = 0;
+    for (let i = 0; i < dice.length; i++) {
+        if (throwSet.has(i)) {
+            allFaces.push(result.faces[thrownIndex++]);
+        } else {
+            allFaces.push(dice[i].physics.readFace());
         }
-        return groupResults;
-    });
-
-    return { dice, faces: faceResults, stats: result.stats };
+    }
+    return allFaces;
 }
 
 function startAnimationLoop(state: Stage): void {
@@ -338,9 +292,240 @@ export function syncDie(die: Die): void {
     die.mesh.scale.set(scale, scale, scale);
 }
 
-export async function markDieDropped(die: Die): Promise<void> {
+export async function applyGhostTexture(die: Die): Promise<void> {
     const material = die.mesh.material as THREE.MeshPhysicalMaterial;
     material.transparent = true;
     material.alphaTest = 0.25;
-    await die.replaceTexture(DROPPED_COLOURS);
+    const options: TextureOptions = { ...GHOST_COLOURS };
+    if (die.icon) {
+        options.icon = die.icon;
+    }
+    await die.replaceTexture(options);
+}
+
+type ParkingDie = {
+    die: Die;
+    flatHalfWidth: number;
+    startPos: CANNON.Vec3;
+    targetPos: CANNON.Vec3;
+    startQuat: THREE.Quaternion;
+    targetQuat: THREE.Quaternion;
+    progress: number;
+};
+
+const PARKED_SCALE = 0.65;
+export const PARKING_GAP = 0.15;
+export const PARKING_MARGIN = 0.5;
+
+export type ParkedDie = { label?: string; x: number; z: number; halfWidth: number };
+type DieToPark = { label?: string; halfWidth: number };
+export type RowReservation = { label?: string; z: number };
+
+export function reserveRows(
+    tray: { halfWidth: number; halfDepth: number },
+    groups: Array<{ label?: string; count: number; halfWidth: number }>,
+): RowReservation[] {
+    const leftEdge = -tray.halfWidth + PARKING_MARGIN;
+    const rightBoundary = tray.halfWidth - PARKING_MARGIN;
+    const rowWidth = rightBoundary - leftEdge;
+    const frontEdge = tray.halfDepth - PARKING_MARGIN;
+
+    const rows: RowReservation[] = [];
+    let currentFront = frontEdge;
+
+    for (const group of groups) {
+        const dieWidth = group.halfWidth * 2;
+        const dicePerRow = Math.floor(
+            (rowWidth + PARKING_GAP) / (dieWidth + PARKING_GAP),
+        );
+        const rowsNeeded = Math.ceil(group.count / dicePerRow);
+
+        for (let i = 0; i < rowsNeeded; i++) {
+            const rowZ = currentFront - group.halfWidth;
+            rows.push({ label: group.label, z: rowZ });
+            currentFront = rowZ - group.halfWidth - PARKING_GAP;
+        }
+    }
+
+    return rows;
+}
+
+export function parkingPosition(
+    tray: { halfWidth: number; halfDepth: number },
+    existing: ParkedDie[],
+    die: DieToPark,
+    rows: RowReservation[],
+): { x: number; z: number } {
+    const leftEdge = -tray.halfWidth + PARKING_MARGIN;
+    const rightBoundary = tray.halfWidth - PARKING_MARGIN;
+
+    const myRows = rows.filter((r) => r.label === die.label);
+
+    for (const row of myRows) {
+        const diceOnRow = existing.filter(
+            (e) => e.label === die.label && Math.abs(e.z - row.z) < 0.3,
+        );
+
+        let nextX = leftEdge;
+        for (const e of diceOnRow) {
+            const rightEdge = e.x + e.halfWidth + PARKING_GAP;
+            if (rightEdge > nextX) {
+                nextX = rightEdge;
+            }
+        }
+
+        if (nextX + die.halfWidth * 2 <= rightBoundary) {
+            return { x: nextX + die.halfWidth, z: row.z };
+        }
+    }
+
+    throw new Error("No space in reserved rows");
+}
+
+function flatHalfWidth(die: Die, quaternion: THREE.Quaternion): number {
+    const shape = die.physics.body.shapes[0] as CANNON.ConvexPolyhedron;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (const v of shape.vertices) {
+        const rotated = new THREE.Vector3(v.x, v.y, v.z).applyQuaternion(quaternion);
+        minX = Math.min(minX, rotated.x);
+        maxX = Math.max(maxX, rotated.x);
+    }
+    return (maxX - minX) / 2;
+}
+
+function maxFlatHalfWidth(die: Die): number {
+    let max = 0;
+    for (const face of die.physics.faces) {
+        const quat = die.orientToFace(face.value);
+        const hw = flatHalfWidth(die, quat);
+        if (hw > max) max = hw;
+    }
+    return max * PARKED_SCALE;
+}
+
+export async function parkDice(
+    dice: Die[],
+    keepIndices: Set<number>,
+    physicsTray: Tray,
+    stage?: Stage,
+): Promise<void> {
+    const parking: ParkingDie[] = [];
+
+    for (let i = 0; i < dice.length; i++) {
+        if (keepIndices.has(i)) continue;
+
+        const die = dice[i];
+        const body = die.physics.body;
+
+        if (!physicsTray.world.bodies.includes(body)) continue;
+        physicsTray.world.removeBody(body);
+
+        if (stage) {
+            const startQuat = new THREE.Quaternion(
+                body.quaternion.x,
+                body.quaternion.y,
+                body.quaternion.z,
+                body.quaternion.w,
+            );
+            const targetQuat = die.orientToFace(die.readResult());
+            parking.push({
+                die,
+                flatHalfWidth: flatHalfWidth(die, targetQuat) * PARKED_SCALE,
+                startPos: body.position.clone(),
+                targetPos: new CANNON.Vec3(0, 0, 0),
+                startQuat,
+                targetQuat,
+                progress: 0,
+            });
+        }
+    }
+
+    if (parking.length === 0) return;
+
+    // calculate row reservations from the dice being kept
+    const reservationGroups = new Map<
+        string | undefined,
+        { count: number; halfWidth: number }
+    >();
+    for (let i = 0; i < dice.length; i++) {
+        if (keepIndices.has(i)) continue;
+        const die = dice[i];
+        const hw = maxFlatHalfWidth(die);
+        const existing = reservationGroups.get(die.label);
+        if (existing) {
+            existing.count++;
+            existing.halfWidth = Math.max(existing.halfWidth, hw);
+        } else {
+            reservationGroups.set(die.label, { count: 1, halfWidth: hw });
+        }
+    }
+    const tray = {
+        halfWidth: physicsTray.halfWidth,
+        halfDepth: physicsTray.halfDepth,
+    };
+    const reservations = reserveRows(
+        tray,
+        Array.from(reservationGroups.entries()).map(([label, g]) => ({
+            label,
+            count: g.count,
+            halfWidth: g.halfWidth,
+        })),
+    );
+
+    const existing: ParkedDie[] = [];
+    for (const die of dice) {
+        if (die.parked && !parking.some((p) => p.die === die)) {
+            existing.push({ ...die.parked, label: die.label });
+        }
+    }
+
+    for (const p of parking) {
+        const pos = parkingPosition(
+            tray,
+            existing,
+            { label: p.die.label, halfWidth: p.flatHalfWidth },
+            reservations,
+        );
+        p.targetPos.set(pos.x, p.flatHalfWidth, pos.z);
+        p.die.parked = { x: pos.x, z: pos.z, halfWidth: p.flatHalfWidth };
+        existing.push({ ...p.die.parked, label: p.die.label });
+    }
+
+    await Promise.all(parking.map((p) => applyGhostTexture(p.die)));
+
+    while (parking.some((p) => p.progress < 1)) {
+        for (const p of parking) {
+            stepParking(p);
+            syncDie(p.die);
+            applyParkingScale(p);
+        }
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+}
+
+const PARK_DURATION = 1;
+const PARK_STEPS = PARK_DURATION / (1 / 60);
+
+function easeInOut(t: number): number {
+    return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+}
+
+function stepParking(parking: ParkingDie): void {
+    parking.progress = Math.min(1, parking.progress + 1 / PARK_STEPS);
+    const t = easeInOut(parking.progress);
+    const body = parking.die.physics.body;
+    body.position.set(
+        parking.startPos.x + (parking.targetPos.x - parking.startPos.x) * t,
+        parking.startPos.y + (parking.targetPos.y - parking.startPos.y) * t,
+        parking.startPos.z + (parking.targetPos.z - parking.startPos.z) * t,
+    );
+    const slerpedQuat = parking.startQuat.clone().slerp(parking.targetQuat, t);
+    body.quaternion.set(slerpedQuat.x, slerpedQuat.y, slerpedQuat.z, slerpedQuat.w);
+}
+
+function applyParkingScale(parking: ParkingDie): void {
+    const t = easeInOut(parking.progress);
+    const scale = 1 + (PARKED_SCALE - 1) * t;
+    parking.die.mesh.scale.set(scale, scale, scale);
 }
