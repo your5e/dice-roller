@@ -505,6 +505,68 @@ describe("parse", () => {
         });
     });
 
+    describe("reroll minimum total", () => {
+        it("parses", () => {
+            expect(parse("4d6rmt6")).toEqual([
+                {
+                    expression: "4d6rmt6",
+                    count: 4,
+                    sides: 6,
+                    modifiers: [{ type: "rmt", value: 6 }],
+                    bonus: 0,
+                },
+            ]);
+
+            expect(parse("4d6rmt06")).toEqual([
+                {
+                    expression: "4d6rmt6",
+                    count: 4,
+                    sides: 6,
+                    modifiers: [{ type: "rmt", value: 6 }],
+                    bonus: 0,
+                },
+            ]);
+
+            expect(parse("4D6DL1RMT6")).toEqual([
+                {
+                    expression: "4d6dl1rmt6",
+                    count: 4,
+                    sides: 6,
+                    modifiers: [
+                        { type: "dl", value: 1 },
+                        { type: "rmt", value: 6 },
+                    ],
+                    bonus: 0,
+                },
+            ]);
+
+            expect(parse("4d6dl1rmt6+5")).toEqual([
+                {
+                    expression: "4d6dl1rmt6+5",
+                    count: 4,
+                    sides: 6,
+                    modifiers: [
+                        { type: "dl", value: 1 },
+                        { type: "rmt", value: 6 },
+                    ],
+                    bonus: 5,
+                },
+            ]);
+        });
+
+        it("rejects invalid", () => {
+            expect(parse("4d6rmt")).toEqual([null]);
+            expect(parse("4d6rmt-1")).toEqual([null]);
+            expect(parse("4d6rmt!")).toEqual([null]);
+        });
+
+        it("rejects invalid thresholds", () => {
+            expect(parse("4d6rmt0")).toEqual([null]);
+            expect(parse("4d6rmt25")).toEqual([null]);
+            expect(parse("4d6dl1rmt19")).toEqual([null]);
+        });
+    });
+
     describe("bonus", () => {
         it("parses", () => {
             expect(parse("1d20+5")).toEqual([

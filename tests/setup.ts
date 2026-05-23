@@ -1,4 +1,5 @@
 import { createCanvas } from "canvas";
+import type { DiceWrapper } from "../src/renderer";
 
 class Path2DShim {
     // biome-ignore lint/complexity/noUselessConstructor: shim must accept path string
@@ -33,3 +34,16 @@ globalThis.HTMLCanvasElement.prototype.getContext = function (
     }
     return originalGetContext.call(this, contextId, options);
 };
+
+export async function preprogrammed(
+    sides: number,
+    values: number[],
+): Promise<DiceWrapper> {
+    const { createDie } = await import("../src/renderer");
+    const wrapper = await createDie(sides);
+    let i = 0;
+    for (const die of wrapper.dice) {
+        die.physics.readFace = () => values[i++] ?? values[values.length - 1];
+    }
+    return wrapper;
+}

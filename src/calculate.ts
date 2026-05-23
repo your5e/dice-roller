@@ -29,7 +29,7 @@ export function calculate(parsed: ParsedDice): Calculator {
     let pendingReroll: { indices: number[]; modifier: Modifier } | null = null;
     const steps: Step[] = [];
 
-    function advance(current: number[]): number[] {
+    function advance(current: number[]): number[] | null {
         while (modifierIndex < modifiers.length) {
             const modifier = modifiers[modifierIndex];
             const name = `${modifier.type}${modifier.value}`;
@@ -65,7 +65,8 @@ export function calculate(parsed: ParsedDice): Calculator {
                     modifierIndex++;
                     break;
 
-                case "rb": {
+                case "rb":
+                case "rm": {
                     const indices = findBelowThreshold(current, modifier.value);
                     if (indices.length > 0) {
                         pendingReroll = { indices, modifier };
@@ -76,13 +77,13 @@ export function calculate(parsed: ParsedDice): Calculator {
                     break;
                 }
 
-                case "rm": {
-                    const indices = findBelowThreshold(current, modifier.value);
-                    if (indices.length > 0) {
-                        pendingReroll = { indices, modifier };
-                        return current;
-                    }
+                case "rmt": {
+                    const total = current.reduce((a, b) => a + b, 0);
                     steps.push({ [name]: [...current] });
+                    if (total < modifier.value) {
+                        modifierIndex = 0;
+                        return null;
+                    }
                     modifierIndex++;
                     break;
                 }

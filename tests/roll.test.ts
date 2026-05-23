@@ -117,54 +117,6 @@ describe("roll", () => {
         expect(physicalValues).toEqual(diceValues);
     });
 
-    it("replaces texture on dropped dice (dl)", async () => {
-        const physicsTray = tray() as Tray;
-        await roll("4d6dl1");
-
-        const dice = physicsTray.dice;
-        expect(dice).toHaveLength(4);
-
-        const values = dice.map((d) => d.readResult());
-        const minValue = Math.min(...values);
-        const droppedIndex = values.indexOf(minValue);
-
-        const textures = dice.map(
-            (d) => (d.mesh.material as THREE.MeshPhysicalMaterial).map,
-        );
-
-        // kept dice share the same cached texture
-        const keptTextures = textures.filter((_, i) => i !== droppedIndex);
-        expect(keptTextures[0]).toBe(keptTextures[1]);
-        expect(keptTextures[1]).toBe(keptTextures[2]);
-
-        // dropped die has a different texture
-        expect(textures[droppedIndex]).not.toBe(keptTextures[0]);
-    });
-
-    it("replaces texture on dropped dice (kh)", async () => {
-        const physicsTray = tray() as Tray;
-        await roll("4d6kh3");
-
-        const dice = physicsTray.dice;
-        expect(dice).toHaveLength(4);
-
-        const values = dice.map((d) => d.readResult());
-        const minValue = Math.min(...values);
-        const droppedIndex = values.indexOf(minValue);
-
-        const textures = dice.map(
-            (d) => (d.mesh.material as THREE.MeshPhysicalMaterial).map,
-        );
-
-        // kept dice share the same cached texture
-        const keptTextures = textures.filter((_, i) => i !== droppedIndex);
-        expect(keptTextures[0]).toBe(keptTextures[1]);
-        expect(keptTextures[1]).toBe(keptTextures[2]);
-
-        // dropped die has a different texture
-        expect(textures[droppedIndex]).not.toBe(keptTextures[0]);
-    });
-
     it("applies positive modifiers", async () => {
         const physicsTray = tray() as Tray;
         const result = await roll("1d20+5");

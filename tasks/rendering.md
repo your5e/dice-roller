@@ -38,10 +38,10 @@ small dice box image.
 
 # Results
 
-- [ ] highlight (or rearrange?) the chosen dice when rerolls are in place
+- [X] highlight (or rearrange?) the chosen dice when rerolls are in place
       (eg `4d6rb3kh1`, one of the parked could be the dice used)
 
 # Headless
 
-- [ ] there is no need to create or manipulate textures when we're doing
-      a purely physics-based roll
+- [#] there is no need to create or manipulate textures when we're doing
+      a purely physics-based roll -- cancelled, textures are being tested

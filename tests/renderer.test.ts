@@ -8,14 +8,7 @@ import { createD12 } from "../src/geometries/d12";
 import { createD20 } from "../src/geometries/d20";
 import type { Die } from "../src/geometries/dice";
 import { createTray } from "../src/physics/tray";
-import {
-    getTrayDimensions,
-    PARKING_GAP,
-    PARKING_MARGIN,
-    parkingPosition,
-    removeDice,
-    reserveRows,
-} from "../src/renderer";
+import { getTrayDimensions, removeDice } from "../src/renderer";
 import { D4Texture } from "../src/textures/d4";
 import { D6Texture } from "../src/textures/d6";
 import { D8Texture } from "../src/textures/d8";
@@ -204,101 +197,4 @@ describe("texture caching", () => {
             expect(material2.map).toBe(material3.map);
         },
     );
-});
-
-describe("reserveRows", () => {
-    const tray = { halfWidth: 5, halfDepth: 5 };
-    const frontEdge = tray.halfDepth - PARKING_MARGIN;
-
-    it("reserves one row for a small group", () => {
-        const rows = reserveRows(tray, [{ label: "a", count: 2, halfWidth: 0.5 }]);
-
-        expect(rows).toHaveLength(1);
-        expect(rows[0].label).toBe("a");
-        expect(rows[0].z).toBeCloseTo(frontEdge - 0.5);
-    });
-
-    it("reserves multiple rows when group needs them", () => {
-        const rows = reserveRows(tray, [{ label: "a", count: 20, halfWidth: 0.5 }]);
-
-        expect(rows.length).toBeGreaterThan(1);
-        expect(rows.every((r) => r.label === "a")).toBe(true);
-        expect(rows[0].z).toBeGreaterThan(rows[1].z);
-    });
-
-    it("reserves rows for each label in order", () => {
-        const rows = reserveRows(tray, [
-            { label: "a", count: 2, halfWidth: 0.5 },
-            { label: "b", count: 2, halfWidth: 0.5 },
-        ]);
-
-        const aRows = rows.filter((r) => r.label === "a");
-        const bRows = rows.filter((r) => r.label === "b");
-
-        expect(aRows.length).toBeGreaterThan(0);
-        expect(bRows.length).toBeGreaterThan(0);
-        expect(Math.min(...aRows.map((r) => r.z))).toBeGreaterThan(
-            Math.max(...bRows.map((r) => r.z)),
-        );
-    });
-});
-
-describe("parkingPosition", () => {
-    const tray = { halfWidth: 5, halfDepth: 5 };
-    const leftEdge = -tray.halfWidth + PARKING_MARGIN;
-    const rightBoundary = tray.halfWidth - PARKING_MARGIN;
-
-    it("places first die at left of its reserved row", () => {
-        const rows = reserveRows(tray, [{ label: "a", count: 2, halfWidth: 0.5 }]);
-        const pos = parkingPosition(tray, [], { label: "a", halfWidth: 0.5 }, rows);
-
-        expect(pos.x).toBeCloseTo(leftEdge + 0.5);
-        expect(pos.z).toBeCloseTo(rows[0].z);
-    });
-
-    it("places subsequent dice to the right", () => {
-        const rows = reserveRows(tray, [{ label: "a", count: 3, halfWidth: 0.5 }]);
-        const existing = [
-            { label: "a", x: leftEdge + 0.5, z: rows[0].z, halfWidth: 0.5 },
-        ];
-        const pos = parkingPosition(tray, existing, { label: "a", halfWidth: 0.5 }, rows);
-
-        expect(pos.x).toBeCloseTo(leftEdge + 0.5 + 0.5 + PARKING_GAP + 0.5);
-        expect(pos.z).toBeCloseTo(rows[0].z);
-    });
-
-    it("wraps to next reserved row when current is full", () => {
-        const rows = reserveRows(tray, [{ label: "a", count: 20, halfWidth: 0.5 }]);
-        const existing = [
-            { label: "a", x: rightBoundary - 0.5, z: rows[0].z, halfWidth: 0.5 },
-        ];
-        const pos = parkingPosition(tray, existing, { label: "a", halfWidth: 0.5 }, rows);
-
-        expect(pos.x).toBeCloseTo(leftEdge + 0.5);
-        expect(pos.z).toBeCloseTo(rows[1].z);
-    });
-
-    it("keeps labels in their reserved rows", () => {
-        const rows = reserveRows(tray, [
-            { label: "a", count: 20, halfWidth: 0.5 },
-            { label: "b", count: 2, halfWidth: 0.5 },
-        ]);
-        const aRows = rows.filter((r) => r.label === "a");
-        const bRows = rows.filter((r) => r.label === "b");
-
-        const existing = [
-            { label: "a", x: leftEdge + 0.5, z: aRows[0].z, halfWidth: 0.5 },
-        ];
-        const posB = parkingPosition(tray, existing, { label: "b", halfWidth: 0.5 }, rows);
-
-        expect(posB.z).toBeCloseTo(bRows[0].z);
-    });
-
-    it("aligns different sized dice to row centre", () => {
-        const rows = reserveRows(tray, [{ count: 3, halfWidth: 1.0 }]);
-        const existing = [{ x: leftEdge + 1.0, z: rows[0].z, halfWidth: 1.0 }];
-        const pos = parkingPosition(tray, existing, { halfWidth: 0.5 }, rows);
-
-        expect(pos.z).toBeCloseTo(rows[0].z);
-    });
 });

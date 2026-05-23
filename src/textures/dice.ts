@@ -65,7 +65,7 @@ export const GHOST_COLOURS: TextureOptions = {
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
 function optionsKey(options?: TextureOptions): string {
-    if (!options) return "";
+    if (!options || Object.keys(options).length === 0) return "";
     const sorted = Object.keys(options)
         .sort()
         .reduce(

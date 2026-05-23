@@ -4,12 +4,16 @@ import { type Modifier, parse } from "./notation";
 import { createTray, packDice, resizeToFitDice, type Tray } from "./physics/tray";
 import {
     applyGhostTexture,
+    parkDice,
+    presentResults,
+    reserveRows,
+} from "./presentation";
+import {
     createDie,
     createStage,
     type DiceGroup,
     type DiceWrapper,
     getTrayDimensions,
-    parkDice,
     removeDice,
     resizeCamera,
     type Stage,
@@ -63,10 +67,44 @@ type Expression = {
     total: number;
 };
 
-type DiceCreationResult = {
+export type DiceCreationResult = {
     wrappersPerExpr: DiceWrapper[][];
     wrapperPhysicalStarts: number[][];
 };
+
+type TextureOptions = Parameters<typeof createDie>[1];
+
+function buildTextureOptions(
+    label: string | undefined,
+    labelStyles: Map<
+        string,
+        ReturnType<typeof getLabelStyles> extends Map<string, infer V> ? V : never
+    >,
+): TextureOptions | undefined {
+    if (!label) return undefined;
+    const style = labelStyles.get(label);
+    if (!style) return undefined;
+    return {
+        bgColour: style.colour,
+        fgColour: style.fgColour,
+        iconColour: style.iconColour,
+        iconScale: style.iconScale,
+        icon: style.icon,
+    };
+}
+
+async function applyLabelStyle(
+    die: import("./geometries/dice").Die,
+    label: string | undefined,
+    textureOptions: TextureOptions | undefined,
+): Promise<void> {
+    die.label = label;
+    die.icon = textureOptions?.icon;
+    die.originalTextureOptions = textureOptions;
+    if (textureOptions) {
+        await die.replaceTexture(textureOptions);
+    }
+}
 
 async function createRollDice(groups: DiceGroup[]): Promise<DiceCreationResult> {
     const labels = groups.map((g) => g.label).filter((l): l is string => !!l);
@@ -76,18 +114,7 @@ async function createRollDice(groups: DiceGroup[]): Promise<DiceCreationResult> 
     let physicalIndex = 0;
 
     for (const { count, sides, label } of groups) {
-        let textureOptions: Parameters<typeof createDie>[1];
-        if (label) {
-            const style = labelStyles.get(label);
-            if (!style) throw new Error(`No style for label "${label}"`);
-            textureOptions = {
-                bgColour: style.colour,
-                fgColour: style.fgColour,
-                iconColour: style.iconColour,
-                iconScale: style.iconScale,
-                icon: style.icon,
-            };
-        }
+        const textureOptions = buildTextureOptions(label, labelStyles);
         const exprWrappers: DiceWrapper[] = [];
         const exprStarts: number[] = [];
         for (let i = 0; i < count; i++) {
@@ -95,8 +122,7 @@ async function createRollDice(groups: DiceGroup[]): Promise<DiceCreationResult> 
             exprWrappers.push(wrapper);
             exprStarts.push(physicalIndex);
             for (const die of wrapper.dice) {
-                die.label = label;
-                die.icon = textureOptions?.icon;
+                await applyLabelStyle(die, label, textureOptions);
                 physicalIndex++;
             }
         }
@@ -139,7 +165,11 @@ let currentTray: Tray | undefined;
 let currentStage: Stage | undefined;
 let onRollCallback: RollCallback = () => {};
 
-export function roll(input: string): Promise<RollResult> {
+export type RollOptions = {
+    dice?: DiceCreationResult;
+};
+
+export function roll(input: string, options?: RollOptions): Promise<RollResult> {
     if (!currentTray) {
         throw new Error("No tray: call tray() before rolling");
     }
@@ -184,8 +214,28 @@ export function roll(input: string): Promise<RollResult> {
         if (trayForSimulation.generation !== myGeneration) return cancelled();
         removeDice(trayForSimulation, stageForSimulation);
 
-        const { wrappersPerExpr, wrapperPhysicalStarts } = await createRollDice(groups);
+        const { wrappersPerExpr, wrapperPhysicalStarts } =
+            options?.dice ?? (await createRollDice(groups));
         if (trayForSimulation.generation !== myGeneration) return cancelled();
+
+        // assign labels and textures to custom dice
+        if (options?.dice) {
+            const labels = animated
+                .map((a) => a.expr.label)
+                .filter((l): l is string => !!l);
+            const labelStyles = getLabelStyles(labels);
+
+            for (let i = 0; i < wrappersPerExpr.length; i++) {
+                const label = animated[i].expr.label;
+                const textureOptions = buildTextureOptions(label, labelStyles);
+                for (const wrapper of wrappersPerExpr[i]) {
+                    for (const die of wrapper.dice) {
+                        await applyLabelStyle(die, label, textureOptions);
+                    }
+                }
+            }
+        }
+
         addDiceToTray(wrappersPerExpr, trayForSimulation, stageForSimulation);
 
         if (trayForSimulation.dice.length === 0) {
@@ -210,6 +260,11 @@ export function roll(input: string): Promise<RollResult> {
                 trayForSimulation.halfDepth,
             );
         }
+
+        const parkingReservations = reserveRows(
+            trayForSimulation,
+            trayForSimulation.dice,
+        );
 
         // helper to get indices that need rolling
         const getRollIndices = (): number[] => {
@@ -236,7 +291,7 @@ export function roll(input: string): Promise<RollResult> {
                 stage: stageForSimulation,
             });
 
-            if ("cancelled" in result) {
+            if (result?.cancelled) {
                 const emptyResult: RollResult = {
                     notation: input,
                     total: 0,
@@ -264,6 +319,7 @@ export function roll(input: string): Promise<RollResult> {
                     trayForSimulation.dice,
                     keepSet,
                     trayForSimulation,
+                    parkingReservations,
                     stageForSimulation,
                 );
                 const physicsDice = rollIndices.map(
@@ -313,11 +369,19 @@ export function roll(input: string): Promise<RollResult> {
             const droppedIndices = getDroppedIndices(faces, animated[i].expr.modifiers);
             for (const idx of droppedIndices) {
                 for (const die of wrappersPerExpr[i][idx].dice) {
+                    die.dropped = true;
                     ghosting.push(applyGhostTexture(die));
                 }
             }
         }
         await Promise.all(ghosting);
+
+        await presentResults(
+            trayForSimulation.dice,
+            trayForSimulation,
+            parkingReservations,
+            stageForSimulation,
+        );
 
         const rollResult: RollResult = {
             notation: input,
@@ -390,7 +454,7 @@ export { createD8 } from "./geometries/d8";
 export { createD10, createPercentile } from "./geometries/d10";
 export { createD12 } from "./geometries/d12";
 export { createD20 } from "./geometries/d20";
-export type { Stage } from "./renderer";
+export type { DiceWrapper, Stage } from "./renderer";
 export { D4DebugTexture } from "./textures/d4";
 export { D6DebugTexture } from "./textures/d6";
 export { D8DebugTexture } from "./textures/d8";

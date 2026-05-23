@@ -33,13 +33,16 @@
         #slow-indicator.visible {
             opacity: 1;
         }
+        h1 {
+            margin-top: 0;
+        }
         h2 {
-            margin-top: 2rem;
+            margin-top: 1rem;
             margin-bottom: 0;
             font-size: 1.2em;
         }
         p {
-            margin: 0.5rem 0 1rem;
+            margin: 0 0 1rem;
             line-height: 1.4;
         }
         code {
@@ -191,6 +194,14 @@
     <span class="roll" data-roll="1d20m10">reliable talent</span>
     <span class="roll" data-roll="1d20m10+11">reliable talent +11</span>
     <span class="roll">1d20m10</span>
+
+    <h2>Reroll Minimum Total</h2>
+    <p>Use <code>rmtN</code> to reroll all dice if the total (after other
+    modifiers) is below N. Useful for ability score generation where you
+    want to guarantee a minimum result.</p>
+    <span class="roll" data-roll="4d6dl1rmt6">ability score (min 6)</span>
+    <span class="roll" data-roll="str:4d6dl1rmt10 dex:4d6dl1rmt10 con:4d6dl1rmt10 int:4d6dl1rmt10 wis:4d6dl1rmt10 cha:4d6dl1rmt10">above average character</span>
+    <span class="roll">3d6rmt10</span>
 
     <h2>Labels</h2>
     <p>Prefix an expression with <code>label:</code> to group dice by damage

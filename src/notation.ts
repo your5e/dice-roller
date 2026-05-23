@@ -1,7 +1,7 @@
 const VALID_DICE = new Set([4, 6, 8, 10, 12, 20, 100]);
 
 export type Modifier = {
-    type: "kh" | "kl" | "dl" | "dh" | "rb" | "rm" | "m";
+    type: "kh" | "kl" | "dl" | "dh" | "rb" | "rm" | "m" | "rmt";
     value: number;
 };
 
@@ -51,7 +51,7 @@ function parseExpression(exp: string): ParsedDice | null {
     let bonusStarted = false;
 
     while (remainder.length > 0) {
-        const modMatch = remainder.match(/^(kh|kl|dl|dh|rb|rm|m)(\d+)/i);
+        const modMatch = remainder.match(/^(kh|kl|dl|dh|rb|rmt|rm|m)(\d+)/i);
         if (modMatch) {
             if (bonusStarted) {
                 return null;
@@ -131,5 +131,7 @@ function validateModifier(
         case "rm":
         case "m":
             return value >= 1 && value <= sides;
+        case "rmt":
+            return value >= 1 && value <= remaining * sides;
     }
 }

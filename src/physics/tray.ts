@@ -446,7 +446,7 @@ export type SimulateStats = {
 };
 
 export type SimulateResult =
-    | { faces: number[]; rerollCount: number; stats: SimulateStats }
+    | { rerollCount: number; stats: SimulateStats }
     | { cancelled: true };
 
 export function simulateThrow(
@@ -577,7 +577,7 @@ export function simulateThrow(
             renderDrops,
         };
 
-        return { faces: dice.map((die) => die.readFace()), rerollCount, stats };
+        return { rerollCount, stats };
     })();
 
     return {

@@ -8,6 +8,9 @@ export abstract class Die {
     label?: string;
     icon?: string;
     parked?: { x: number; z: number; halfWidth: number };
+    result?: { x: number; z: number; halfWidth: number };
+    dropped?: boolean;
+    originalTextureOptions?: import("../textures/dice").TextureOptions;
 
     constructor(
         public mesh: THREE.Mesh,

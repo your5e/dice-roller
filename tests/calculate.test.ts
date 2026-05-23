@@ -802,4 +802,180 @@ describe("calculate", () => {
             });
         });
     });
+
+    describe("reroll minimum total", () => {
+        it("completes when total meets threshold", () => {
+            const calc = calculate({
+                expression: "4d6rmt10",
+                count: 4,
+                sides: 6,
+                modifiers: [{ type: "rmt", value: 10 }],
+                bonus: 0,
+            });
+            expect(calc.state()).toEqual({
+                type: "roll",
+                sides: 6,
+                indices: [0, 1, 2, 3],
+            });
+
+            calc.provide([3, 4, 2, 5]);
+            expect(calc.state()).toEqual({
+                type: "done",
+                steps: [{ "4d6": [3, 4, 2, 5] }, { rmt10: [3, 4, 2, 5] }],
+                total: 14,
+            });
+        });
+
+        it("requests reroll when total is below threshold", () => {
+            const calc = calculate({
+                expression: "4d6rmt10",
+                count: 4,
+                sides: 6,
+                modifiers: [{ type: "rmt", value: 10 }],
+                bonus: 0,
+            });
+            expect(calc.state()).toEqual({
+                type: "roll",
+                sides: 6,
+                indices: [0, 1, 2, 3],
+            });
+
+            calc.provide([1, 2, 3, 2]);
+            expect(calc.state()).toEqual({
+                type: "roll",
+                sides: 6,
+                indices: [0, 1, 2, 3],
+            });
+
+            calc.provide([4, 3, 2, 5]);
+            expect(calc.state()).toEqual({
+                type: "done",
+                steps: [
+                    { "4d6": [1, 2, 3, 2] },
+                    { rmt10: [1, 2, 3, 2] },
+                    { "4d6": [4, 3, 2, 5] },
+                    { rmt10: [4, 3, 2, 5] },
+                ],
+                total: 14,
+            });
+        });
+
+        it("rerolls multiple times until threshold met", () => {
+            const calc = calculate({
+                expression: "2d6rmt8",
+                count: 2,
+                sides: 6,
+                modifiers: [{ type: "rmt", value: 8 }],
+                bonus: 0,
+            });
+
+            calc.provide([1, 2]);
+            expect(calc.state().type).toBe("roll");
+
+            calc.provide([2, 3]);
+            expect(calc.state().type).toBe("roll");
+
+            calc.provide([4, 5]);
+            expect(calc.state()).toEqual({
+                type: "done",
+                steps: [
+                    { "2d6": [1, 2] },
+                    { rmt8: [1, 2] },
+                    { "2d6": [2, 3] },
+                    { rmt8: [2, 3] },
+                    { "2d6": [4, 5] },
+                    { rmt8: [4, 5] },
+                ],
+                total: 9,
+            });
+        });
+
+        it("works with drop lowest modifier", () => {
+            const calc = calculate({
+                expression: "4d6dl1rmt6",
+                count: 4,
+                sides: 6,
+                modifiers: [
+                    { type: "dl", value: 1 },
+                    { type: "rmt", value: 6 },
+                ],
+                bonus: 0,
+            });
+
+            calc.provide([1, 1, 1, 2]);
+            expect(calc.state()).toEqual({
+                type: "roll",
+                sides: 6,
+                indices: [0, 1, 2, 3],
+            });
+
+            calc.provide([2, 3, 4, 1]);
+            expect(calc.state()).toEqual({
+                type: "done",
+                steps: [
+                    { "4d6": [1, 1, 1, 2] },
+                    { dl1: [1, 1, 2] },
+                    { rmt6: [1, 1, 2] },
+                    { "4d6": [2, 3, 4, 1] },
+                    { dl1: [2, 3, 4] },
+                    { rmt6: [2, 3, 4] },
+                ],
+                total: 9,
+            });
+        });
+
+        it("checks total after all modifiers applied", () => {
+            const calc = calculate({
+                expression: "4d6dl1rmt10",
+                count: 4,
+                sides: 6,
+                modifiers: [
+                    { type: "dl", value: 1 },
+                    { type: "rmt", value: 10 },
+                ],
+                bonus: 0,
+            });
+
+            calc.provide([6, 6, 6, 1]);
+            expect(calc.state()).toEqual({
+                type: "done",
+                steps: [
+                    { "4d6": [6, 6, 6, 1] },
+                    { dl1: [6, 6, 6] },
+                    { rmt10: [6, 6, 6] },
+                ],
+                total: 18,
+            });
+        });
+
+        it("does not include bonus in threshold check", () => {
+            const calc = calculate({
+                expression: "2d6rmt8+5",
+                count: 2,
+                sides: 6,
+                modifiers: [{ type: "rmt", value: 8 }],
+                bonus: 5,
+            });
+
+            calc.provide([3, 3]);
+            expect(calc.state()).toEqual({
+                type: "roll",
+                sides: 6,
+                indices: [0, 1],
+            });
+
+            calc.provide([4, 5]);
+            expect(calc.state()).toEqual({
+                type: "done",
+                steps: [
+                    { "2d6": [3, 3] },
+                    { rmt8: [3, 3] },
+                    { "2d6": [4, 5] },
+                    { rmt8: [4, 5] },
+                    { bonus: 5 },
+                ],
+                total: 14,
+            });
+        });
+    });
 });

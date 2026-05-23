@@ -91,13 +91,13 @@ describe("Tray", () => {
         const result = await simulateThrow(tray, [die.physics]).result;
 
         expect(result).toEqual({
-            faces: [expect.any(Number)],
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
         });
-        if ("faces" in result) {
-            expect(result.faces[0]).toBeGreaterThanOrEqual(1);
-            expect(result.faces[0]).toBeLessThanOrEqual(6);
+        if (!("cancelled" in result)) {
+            const face = die.physics.readFace();
+            expect(face).toBeGreaterThanOrEqual(1);
+            expect(face).toBeLessThanOrEqual(6);
         }
     });
 
@@ -111,12 +111,12 @@ describe("Tray", () => {
         const result = await simulateThrow(tray, dice.map((d) => d.physics)).result;
 
         expect(result).toEqual({
-            faces: [expect.any(Number), expect.any(Number), expect.any(Number)],
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
         });
-        if ("faces" in result) {
-            for (const face of result.faces) {
+        if (!("cancelled" in result)) {
+            for (const die of dice) {
+                const face = die.physics.readFace();
                 expect(face).toBeGreaterThanOrEqual(1);
                 expect(face).toBeLessThanOrEqual(6);
             }
@@ -132,8 +132,8 @@ describe("Tray", () => {
             tray.world.addBody(die.physics.body);
             packDice([die.physics]);
             const result = await simulateThrow(tray, [die.physics]).result;
-            if ("faces" in result) {
-                seen.add(result.faces[0]);
+            if (!("cancelled" in result)) {
+                seen.add(die.physics.readFace());
             }
         }
 
@@ -286,7 +286,6 @@ describe("syncDie", () => {
 
         expect(syncCount).toBeGreaterThan(0);
         expect(result).toEqual({
-            faces: [expect.any(Number)],
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
         });
@@ -549,7 +548,7 @@ describe("simulateThrow() cancel", () => {
         expect(result).toEqual({ cancelled: true });
     });
 
-    it("returns face values when simulation completes without interruption", async () => {
+    it("completes simulation with valid result", async () => {
         const tray = createTray(5, 5);
         const die = (await createD6(1)).physics;
 
@@ -566,13 +565,13 @@ describe("simulateThrow() cancel", () => {
 
         expect(steps).toBeGreaterThan(5);
         expect(result).toEqual({
-            faces: [expect.any(Number)],
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
         });
-        if ("faces" in result) {
-            expect(result.faces[0]).toBeGreaterThanOrEqual(1);
-            expect(result.faces[0]).toBeLessThanOrEqual(6);
+        if (!("cancelled" in result)) {
+            const face = die.readFace();
+            expect(face).toBeGreaterThanOrEqual(1);
+            expect(face).toBeLessThanOrEqual(6);
         }
     });
 });
