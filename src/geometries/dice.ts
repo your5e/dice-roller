@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { normalFromVertices } from "../geometry";
-import { createDieBody, type PhysicsDie } from "../physics/dice";
+import { createDieBody, type DiceConfig, type PhysicsDie } from "../physics/dice";
 import type { DieTexture } from "../textures/dice";
 import { CHAMFER, createChamferedGeometry, type DieFaces } from "./chamfer";
 
@@ -89,7 +89,7 @@ export async function createDie<T extends Die>(
     texture: DieTexture,
     geometryCache: Map<number, THREE.BufferGeometry>,
     size: number,
-    mass?: number,
+    diceConfig?: DiceConfig,
     readDown = false,
 ): Promise<T> {
     const scale = size * dieScale;
@@ -116,7 +116,7 @@ export async function createDie<T extends Die>(
     });
     const mesh = new THREE.Mesh(geometry, material);
 
-    const physics = createDieBody(scaledVertices, faces, mass, readDown);
+    const physics = createDieBody(scaledVertices, faces, diceConfig, readDown);
 
     return new DieClass(mesh, physics);
 }

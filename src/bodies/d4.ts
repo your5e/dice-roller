@@ -7,7 +7,6 @@ export const DIE_SCALE = 1.3;
 // a cube has two sets of four corners where no two share an
 // edge, and either set forms a pyramid
 const S = 1 / Math.sqrt(2); // scale edges to unit length
-export const DIE_MASS = 1000;
 export const VERTICES: THREE.Vector3[] = [
     new THREE.Vector3(S, S, S),
     new THREE.Vector3(S, -S, -S),

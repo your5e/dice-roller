@@ -1,12 +1,6 @@
 import * as THREE from "three";
-import {
-    DIE_MASS,
-    DIE_SCALE,
-    FACE_STANCE,
-    FACE_VERTICES,
-    FACES,
-    VERTICES,
-} from "../bodies/d4";
+import { DIE_SCALE, FACE_STANCE, FACE_VERTICES, FACES, VERTICES } from "../bodies/d4";
+import { DEFAULT_DICE_CONFIG } from "../physics/dice";
 import { D4Texture } from "../textures/d4";
 import type { TextureOptions } from "../textures/dice";
 import { createDie, Die } from "./dice";
@@ -46,7 +40,7 @@ export async function createD4(
         texture,
         geometryCache,
         size,
-        DIE_MASS,
+        DEFAULT_DICE_CONFIG,
         true,
     );
 }

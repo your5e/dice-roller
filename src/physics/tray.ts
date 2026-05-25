@@ -2,11 +2,41 @@ import * as CANNON from "cannon-es";
 import type { Die } from "../geometries/dice";
 import type { PhysicsDie } from "./dice";
 
+const START_HEIGHT = 2;
+
+export type TrayConfig = {
+    gravity: number;
+    solverIterations: number;
+    floorFriction: number;
+    floorRestitution: number;
+    wallFriction: number;
+    wallRestitution: number;
+    diceFriction: number;
+    diceRestitution: number;
+};
+
+export const DEFAULT_TRAY_CONFIG: TrayConfig = {
+    // bring things down quickly, not bounding around like a beachball
+    gravity: -50,
+    solverIterations: 10,
+
+    // things don't bounce much on my leatherette tray
+    floorFriction: 0.6,
+    floorRestitution: 0.1,
+
+    // dice should bounce off the walls
+    wallFriction: 0.2,
+    wallRestitution: 0.8,
+
+    // dice should bounce and slide off each other
+    diceFriction: 0.2,
+    diceRestitution: 0.8,
+};
+
 // wall tall enough to contain bouncing dice
 const TRAY_WALL_HEIGHT = 12;
 export const WALL_THICKNESS = 0.5;
 
-export const SETTLE_THRESHOLD = 0.01;
 export const TIME_STEP = 1 / 60;
 export const COCKED_THRESHOLD = 0.98;
 
@@ -18,12 +48,6 @@ const MAX_SIMULATION_TIME = 10;
 export const diceMaterial = new CANNON.Material("dice");
 const floorMaterial = new CANNON.Material("floor");
 const wallMaterial = new CANNON.Material("wall");
-
-export function isSettled(die: PhysicsDie): boolean {
-    const speed = die.body.velocity.length();
-    const angularSpeed = die.body.angularVelocity.length();
-    return speed < SETTLE_THRESHOLD && angularSpeed < SETTLE_THRESHOLD;
-}
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
@@ -77,7 +101,7 @@ export function packDice(dice: PhysicsDie[]): void {
         while (true) {
             const x = radius * Math.cos(angle);
             const z = radius * Math.sin(angle);
-            die.body.position.set(x, 2, z);
+            die.body.position.set(x, START_HEIGHT, z);
             let overlaps = false;
             for (let j = placed.length - 1; j >= 0; j--) {
                 if (boundingSpheresOverlap(die.body, placed[j].body)) {
@@ -156,15 +180,41 @@ function getThrowAngle(tray: Tray, whichSide: boolean, spread: number): number {
     return baseAngle + (Math.random() - 0.5) * spread;
 }
 
+function velocityToTravel(distance: number, die: PhysicsDie, tray: Tray): number {
+    const gravity = Math.abs(tray.world.gravity.y);
+    const friction = tray.floorFriction;
+    const damping = die.body.linearDamping;
+
+    // base speed needed to roll a given distance before friction stops it
+    const rollingVelocity = Math.sqrt(2 * friction * gravity * distance);
+
+    // compensate for speed lost to air resistance during the fall
+    const fallTime = Math.sqrt((2 * START_HEIGHT) / gravity);
+    const dampingRetained = (1 - damping) ** fallTime;
+
+    // longer throws mean more tumbles and bounces, each losing energy
+    const tumbleLoss = (friction * distance) / 2;
+
+    return (rollingVelocity + tumbleLoss) / dampingRetained;
+}
+
+export type ThrowOptions = {
+    spread?: number;
+    velocityMultiplier?: number;
+};
+
 export function applyFullThrow(
     die: PhysicsDie,
     tray: Tray,
     whichSide: boolean,
     positionRank: number,
     total: number,
+    options: ThrowOptions = {},
 ): void {
+    const spread = options.spread ?? Math.PI / 2;
+    const velocityMultiplier = options.velocityMultiplier ?? 1;
     const isPortrait = tray.halfDepth > tray.halfWidth;
-    const throwAngle = getThrowAngle(tray, whichSide, Math.PI / 2);
+    const throwAngle = getThrowAngle(tray, whichSide, spread);
 
     // aim for most dice thrown to reach the far wall...
     const pos = die.body.position;
@@ -172,16 +222,16 @@ export function applyFullThrow(
         ? Math.abs((whichSide ? -tray.halfDepth : tray.halfDepth) - pos.z)
         : Math.abs((whichSide ? tray.halfWidth : -tray.halfWidth) - pos.x);
 
+    const baseSpeed = velocityToTravel(distance, die, tray);
+
     // ...but taper the velocity off when lots of dice are rolled, so we don't
     // end up with a pile of dice on the far wall
-    const baseK = 1.65;
     const taperStrength = total > 6 ? Math.min(0.55, 0.15 + (total - 7) / 20) : 0;
     const taper = 1 - taperStrength + positionRank * taperStrength;
-    const k = baseK * taper;
 
     // always with a soupçon of randomness
     const perturbation = 0.8 + Math.random() * 0.4;
-    const throwSpeed = k * distance * perturbation;
+    const throwSpeed = baseSpeed * taper * perturbation * velocityMultiplier;
 
     die.body.wakeUp();
     die.body.velocity.set(
@@ -197,16 +247,25 @@ export function applyFullThrow(
     );
 }
 
-function applyGentleThrow(die: PhysicsDie, tray: Tray, whichSide: boolean): void {
+export function applyGentleThrow(
+    die: PhysicsDie,
+    tray: Tray,
+    whichSide: boolean,
+    options: ThrowOptions = {},
+): void {
+    const spread = options.spread ?? Math.PI / 4;
+    const velocityMultiplier = options.velocityMultiplier ?? 1;
     const isPortrait = tray.halfDepth > tray.halfWidth;
-    const throwAngle = getThrowAngle(tray, whichSide, Math.PI / 4);
+    const throwAngle = getThrowAngle(tray, whichSide, spread);
 
     // aim to stop at the midpoint (not pass it)
     const pos = die.body.position;
     const distance = isPortrait ? Math.abs(pos.z) : Math.abs(pos.x);
-    const k = 1.1;
+
+    // always with a soupçon of randomness
     const perturbation = 0.8 + Math.random() * 0.4;
-    const throwSpeed = k * distance * perturbation;
+    const throwSpeed =
+        velocityToTravel(distance, die, tray) * perturbation * velocityMultiplier;
 
     die.body.wakeUp();
     die.body.velocity.set(
@@ -293,11 +352,14 @@ export type Tray = {
     halfDepth: number;
     initialHalfWidth: number;
     initialHalfDepth: number;
+    floorFriction: number;
+    floorRestitution: number;
     walls: CANNON.Body[];
     dice: Die[];
     simulation: Simulation | undefined;
     generation: number;
     isDropping: boolean;
+    frameDelay: number;
 };
 
 function createWalls(halfWidth: number, halfDepth: number): CANNON.Body[] {
@@ -339,36 +401,40 @@ function createWalls(halfWidth: number, halfDepth: number): CANNON.Body[] {
     return [leftWall, rightWall, backWall, frontWall];
 }
 
-export function createTray(halfWidth: number, halfDepth: number): Tray {
+export function createTray(
+    halfWidth: number,
+    halfDepth: number,
+    config: TrayConfig = DEFAULT_TRAY_CONFIG,
+): Tray {
     const world = new CANNON.World({
-        gravity: new CANNON.Vec3(0, -20, 0),
+        gravity: new CANNON.Vec3(0, config.gravity, 0),
         allowSleep: true,
     });
 
     // fewer iterations, faster steps, overlapping dice have a tendency to jitter
     // more iterations, slower steps, cleaner collisions, faster settling
     const solver = new CANNON.SplitSolver(new CANNON.GSSolver());
-    solver.iterations = 10;
+    solver.iterations = config.solverIterations;
     world.solver = solver;
 
     // friction: 0 = ice, 0.5 = wood, 1.0 = rubber
     // restitution: 0 = clay, 0.5 = wood, 1.0 = superball
     world.addContactMaterial(
         new CANNON.ContactMaterial(floorMaterial, diceMaterial, {
-            friction: 0.5,
-            restitution: 0.3,
+            friction: config.floorFriction,
+            restitution: config.floorRestitution,
         }),
     );
     world.addContactMaterial(
         new CANNON.ContactMaterial(wallMaterial, diceMaterial, {
-            friction: 0.3,
-            restitution: 0.8,
+            friction: config.wallFriction,
+            restitution: config.wallRestitution,
         }),
     );
     world.addContactMaterial(
         new CANNON.ContactMaterial(diceMaterial, diceMaterial, {
-            friction: 0.3,
-            restitution: 0.2,
+            friction: config.diceFriction,
+            restitution: config.diceRestitution,
         }),
     );
 
@@ -391,11 +457,14 @@ export function createTray(halfWidth: number, halfDepth: number): Tray {
         halfDepth,
         initialHalfWidth: halfWidth,
         initialHalfDepth: halfDepth,
+        floorFriction: config.floorFriction,
+        floorRestitution: config.floorRestitution,
         walls,
         dice: [],
         simulation: undefined,
         generation: 0,
         isDropping: false,
+        frameDelay: 1,
     };
 }
 
@@ -445,8 +514,13 @@ export type SimulateStats = {
     renderDrops: number;
 };
 
+export type DieBehaviour = {
+    maxPosition: number;
+    wallHits: number;
+};
+
 export type SimulateResult =
-    | { rerollCount: number; stats: SimulateStats }
+    | { rerollCount: number; stats: SimulateStats; behaviour: DieBehaviour[] }
     | { cancelled: true };
 
 export function simulateThrow(
@@ -470,12 +544,18 @@ export function simulateThrow(
         const side = options?.whichSide ?? Math.random() < 0.5;
         const returning: ReturningDie[] = [...initialReturning];
         const maxSteps = Math.round(MAX_SIMULATION_TIME / TIME_STEP);
-        const timeStepMs = TIME_STEP * 1000;
+        const timeStepMs = TIME_STEP * 1000 * tray.frameDelay;
         const minRenderInterval = 6;
         let lastRenderStep = 0;
         let shouldRender = true;
         let physicsDrops = 0;
         let renderDrops = 0;
+
+        const isPortrait = tray.halfDepth > tray.halfWidth;
+        const maxPositions = dice.map(() => Number.NEGATIVE_INFINITY);
+        const wallHitCounts = dice.map(() => 0);
+        const wasTouchingWall = dice.map(() => false);
+        const wallSet = new Set(tray.walls);
 
         function stepPhysics(): void {
             world.step(TIME_STEP);
@@ -497,6 +577,42 @@ export function simulateThrow(
 
             stepPhysics();
             physicsSteps++;
+
+            // count wall bounces: when die starts touching a wall it wasn't before
+            const isTouchingWall = dice.map(() => false);
+            for (const contact of world.contacts) {
+                const aStatic = contact.bi.type === CANNON.Body.STATIC;
+                const bStatic = contact.bj.type === CANNON.Body.STATIC;
+                if (aStatic === bStatic) continue;
+
+                const dieBody = aStatic ? contact.bj : contact.bi;
+                const staticBody = aStatic ? contact.bi : contact.bj;
+                if (!wallSet.has(staticBody)) continue;
+
+                const dieIndex = dice.findIndex((d) => d.body === dieBody);
+                if (dieIndex === -1) continue;
+                isTouchingWall[dieIndex] = true;
+            }
+            for (let i = 0; i < dice.length; i++) {
+                if (isTouchingWall[i] && !wasTouchingWall[i]) {
+                    wallHitCounts[i]++;
+                }
+                wasTouchingWall[i] = isTouchingWall[i];
+            }
+
+            for (let i = 0; i < dice.length; i++) {
+                const pos = isPortrait
+                    ? side
+                        ? -dice[i].body.position.z
+                        : dice[i].body.position.z
+                    : side
+                      ? dice[i].body.position.x
+                      : -dice[i].body.position.x;
+                if (pos > maxPositions[i]) {
+                    maxPositions[i] = pos;
+                }
+            }
+
             const simulatedTime = physicsSteps * timeStepMs;
             const wallClockElapsed = performance.now() - simulationStart;
 
@@ -518,7 +634,9 @@ export function simulateThrow(
                 // even if it slows further
                 if (shouldRender || mustRender) {
                     lastRenderStep = physicsSteps;
-                    await options.onStep();
+                    for (let f = 0; f < tray.frameDelay; f++) {
+                        await options.onStep();
+                    }
 
                     // check after render: are we now over time?
                     const overTimeAfterRender =
@@ -549,7 +667,7 @@ export function simulateThrow(
                     allSettled = false;
                     continue;
                 }
-                if (!isSettled(die)) {
+                if (die.body.sleepState !== CANNON.Body.SLEEPING) {
                     allSettled = false;
                     continue;
                 }
@@ -577,7 +695,12 @@ export function simulateThrow(
             renderDrops,
         };
 
-        return { rerollCount, stats };
+        const behaviour: DieBehaviour[] = dice.map((_, i) => ({
+            maxPosition: maxPositions[i],
+            wallHits: wallHitCounts[i],
+        }));
+
+        return { rerollCount, stats, behaviour };
     })();
 
     return {

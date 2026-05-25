@@ -18,3 +18,8 @@ simulation.
 - [ ] dice that jiggle too much are rerolled?
 - [X] monte carlo fairness test
 - [ ] extend the max run time on more complex roll simulations
+
+Cannon-ES last commit was 2.4 years ago — effectively unmaintained. Rapier is
+actively developed, performant (Rust + WASM), and deterministic.
+
+- [ ] migrate physics engine from Cannon-ES to Rapier?

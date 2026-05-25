@@ -1,18 +1,197 @@
 import { describe, expect, it } from "vitest";
-import { createTray, packDice, resizeToFitDice } from "../src/physics/tray";
+import {
+    applyFullThrow,
+    applyGentleThrow,
+    createTray,
+    offsetToEdge,
+    type PhysicsDie,
+    packDice,
+    resizeToFitDice,
+    simulateThrow,
+    type Tray,
+} from "../src/physics/tray";
 import { createDie, syncDie, throwDice } from "../src/renderer";
 
+const trayWidths = [
+    { shape: "square 10:10", halfWidth: 10, halfDepth: 10 },
+    { shape: "16:9", halfWidth: 13.3, halfDepth: 7.5 },
+    { shape: "25:10", halfWidth: 25, halfDepth: 10 },
+    { shape: "50:10", halfWidth: 50, halfDepth: 10 },
+];
 
-function timeoutAfter(ms: number): Promise<never> {
-    return new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Trial timeout after ${ms}ms`)), ms),
+describe("Full throw velocity", () => {
+    it.each(trayWidths)(
+        "$shape tray",
+        async ({ halfWidth, halfDepth }) => {
+            let lowWallHits = 0;
+            let farLandings = 0;
+
+            for (let t = 0; t < VELOCITY_TRIALS; t++) {
+                const { tray, wallHits } = await angleAdjustedThrow(
+                    halfWidth,
+                    halfDepth,
+                    (die, tray, whichSide) => applyFullThrow(die, tray, whichSide, 0, 1, { spread: 0 }),
+                );
+
+                if (wallHits <= 1) lowWallHits++;
+                if (measureDistribution(tray, true).far === 1) farLandings++;
+            }
+
+            const wallHitPct = (lowWallHits / VELOCITY_TRIALS) * 100;
+            const farPct = (farLandings / VELOCITY_TRIALS) * 100;
+
+            expect(wallHitPct, "≤1 wall hit 75%+").toBeGreaterThanOrEqual(75);
+            expect(farPct, "far third 80%+").toBeGreaterThanOrEqual(80);
+        },
+        60000,
     );
-}
+});
 
-const TRIALS = 50;
+describe("Gentle throw velocity", () => {
+    it.each(trayWidths)(
+        "$shape tray",
+        async ({ halfWidth, halfDepth }) => {
+            let totalFinalX = 0;
+
+            for (let t = 0; t < VELOCITY_TRIALS; t++) {
+                const { tray } = await angleAdjustedThrow(
+                    halfWidth,
+                    halfDepth,
+                    (die, tray, whichSide) => applyGentleThrow(die, tray, whichSide, { spread: 0 }),
+                );
+
+                totalFinalX += tray.dice[0].physics.body.position.x;
+            }
+
+            const avgFinalX = totalFinalX / VELOCITY_TRIALS;
+
+            expect(avgFinalX, "avg within ±5 of midpoint").toBeGreaterThanOrEqual(-5);
+            expect(avgFinalX, "avg within ±5 of midpoint").toBeLessThanOrEqual(5);
+        },
+        60000,
+    );
+});
+
+const trayRatios = [
+    { shape: "square", halfWidth: 10, halfDepth: 10 },
+    { shape: "landscape", halfWidth: 16, halfDepth: 8 },
+    { shape: "portrait", halfWidth: 8, halfDepth: 16 },
+];
+
+describe("Throw distribution", () => {
+    describe("small numbers of dice should land near the far wall", () => {
+        const diceCounts = [1, 3, 6];
+        const cases = trayRatios.flatMap((s) =>
+            diceCounts.map((diceCount) => ({ ...s, diceCount })),
+        );
+
+        it.each(cases)(
+            "$shape tray, $diceCount dice",
+            async ({ halfWidth, halfDepth, diceCount }) => {
+                const { totals, total } = await runDistributionTrials(halfWidth, halfDepth, diceCount);
+                const pctNear = (totals.near / total) * 100;
+                const pctMiddle = (totals.middle / total) * 100;
+                const pctFar = (totals.far / total) * 100;
+
+                expect(pctFar, "far > 50%").toBeGreaterThan(50);
+                expect(pctNear, "near < 10%").toBeLessThan(10);
+                expect(pctFar, "far > middle").toBeGreaterThan(pctMiddle);
+                expect(pctMiddle, "middle > near").toBeGreaterThan(pctNear);
+            },
+            DISTRIBUTION_TRIALS * TRIAL_TIMEOUT * 2,
+        );
+    });
+
+    describe("speed adjusted medium numbers of dice should spread more but favour far", () => {
+        const diceCounts = [8, 12];
+        const cases = trayRatios.flatMap((s) =>
+            diceCounts.map((diceCount) => ({ ...s, diceCount })),
+        );
+
+        it.each(cases)(
+            "$shape tray, $diceCount dice",
+            async ({ halfWidth, halfDepth, diceCount }) => {
+                const { totals, total } = await runDistributionTrials(halfWidth, halfDepth, diceCount);
+                const pctNear = (totals.near / total) * 100;
+                const pctMiddle = (totals.middle / total) * 100;
+                const pctFar = (totals.far / total) * 100;
+
+                expect(pctNear, "near < 15%").toBeLessThan(15);
+                expect(pctMiddle, "middle > near").toBeGreaterThan(pctNear);
+                expect(pctFar, "far > near").toBeGreaterThan(pctNear);
+            },
+            DISTRIBUTION_TRIALS * TRIAL_TIMEOUT * 2,
+        );
+    });
+
+    describe("speed adjusted with many dice should spread evenly", () => {
+        const diceCounts = [20, 30, 50];
+        const cases = trayRatios.flatMap((s) =>
+            diceCounts.map((diceCount) => ({ ...s, diceCount })),
+        );
+
+        it.each(cases)(
+            "$shape tray, $diceCount dice",
+            async ({ halfWidth, halfDepth, diceCount }) => {
+                const { totals, total } = await runDistributionTrials(halfWidth, halfDepth, diceCount);
+                const pctNear = (totals.near / total) * 100;
+                const pctMiddle = (totals.middle / total) * 100;
+                const pctFar = (totals.far / total) * 100;
+
+                expect(pctNear, "near < 30%").toBeLessThan(30);
+                expect(pctMiddle, "middle > near").toBeGreaterThan(pctNear);
+                expect(pctMiddle, "middle > far").toBeGreaterThan(pctFar);
+                expect(pctFar, "far >= near").toBeGreaterThanOrEqual(pctNear - 5);
+            },
+            DISTRIBUTION_TRIALS * TRIAL_TIMEOUT * 2,
+        );
+    });
+});
+
+
+const VELOCITY_TRIALS = 100;
+const DISTRIBUTION_TRIALS = 50;
 const TRIAL_TIMEOUT = 500;
 
 type Distribution = { near: number; middle: number; far: number };
+
+type ThrowResult = {
+    tray: Tray;
+    wallHits: number;
+};
+
+async function angleAdjustedThrow(
+    halfWidth: number,
+    halfDepth: number,
+    applyThrow: (die: PhysicsDie, tray: Tray, whichSide: boolean) => void,
+): Promise<ThrowResult> {
+    const tray = createTray(halfWidth, halfDepth);
+    const whichSide = true;
+
+    const wrapper = await createDie(6);
+    for (const die of wrapper.dice) {
+        tray.world.addBody(die.physics.body);
+        tray.dice.push(die);
+        syncDie(die);
+    }
+
+    const physicsDie = tray.dice[0].physics;
+    packDice([physicsDie]);
+    offsetToEdge([physicsDie], tray, whichSide);
+
+    applyThrow(physicsDie, tray, whichSide);
+
+    const simulation = simulateThrow(tray, [physicsDie], {
+        whichSide,
+        rerollCocked: false,
+    });
+    const result = await simulation.result;
+
+    return {
+        tray,
+        wallHits: "behaviour" in result ? result.behaviour[0].wallHits : 0,
+    };
+}
 
 function measureDistribution(
     physicsTray: ReturnType<typeof createTray>,
@@ -48,20 +227,19 @@ function measureDistribution(
     return totals;
 }
 
-const shapes = [
-    { shape: "square", halfWidth: 10, halfDepth: 10 },
-    { shape: "landscape", halfWidth: 16, halfDepth: 8 },
-    { shape: "portrait", halfWidth: 8, halfDepth: 16 },
-];
+type TrialResult = {
+    totals: Distribution;
+    total: number;
+};
 
-async function runTrials(
+async function runDistributionTrials(
     halfWidth: number,
     halfDepth: number,
     diceCount: number,
-): Promise<{ totals: Distribution; total: number }> {
+): Promise<TrialResult> {
     const totals = { near: 0, middle: 0, far: 0 };
 
-    for (let t = 0; t < TRIALS; t++) {
+    for (let t = 0; t < DISTRIBUTION_TRIALS; t++) {
         const physicsTray = createTray(halfWidth, halfDepth);
         const whichSide = true;
 
@@ -90,74 +268,11 @@ async function runTrials(
         totals.far += dist.far;
     }
 
-    return { totals, total: TRIALS * diceCount };
+    return { totals, total: DISTRIBUTION_TRIALS * diceCount };
 }
 
-describe("Throw distribution", () => {
-    describe("small numbers of dice should land near the far wall", () => {
-        const diceCounts = [1, 3, 6];
-        const cases = shapes.flatMap((s) =>
-            diceCounts.map((diceCount) => ({ ...s, diceCount })),
-        );
-
-        it.each(cases)(
-            "$shape tray, $diceCount dice",
-            async ({ halfWidth, halfDepth, diceCount }) => {
-                const { totals, total } = await runTrials(halfWidth, halfDepth, diceCount);
-                const pctNearNum = (totals.near / total) * 100;
-                const pctMiddleNum = (totals.middle / total) * 100;
-                const pctFarNum = (totals.far / total) * 100;
-                expect(pctFarNum, "far > 50%").toBeGreaterThan(50);
-                expect(pctNearNum, "near < 10%").toBeLessThan(10);
-                expect(pctFarNum, "far > middle").toBeGreaterThan(pctMiddleNum);
-                expect(pctMiddleNum, "middle > near").toBeGreaterThan(pctNearNum);
-            },
-            TRIALS * TRIAL_TIMEOUT * 2,
-        );
-    });
-
-    describe("speed adjusted medium numbers of dice should spread more but favour far", () => {
-        const diceCounts = [8, 12];
-        const cases = shapes.flatMap((s) =>
-            diceCounts.map((diceCount) => ({ ...s, diceCount })),
-        );
-
-        it.each(cases)(
-            "$shape tray, $diceCount dice",
-            async ({ halfWidth, halfDepth, diceCount }) => {
-                const { totals, total } = await runTrials(halfWidth, halfDepth, diceCount);
-                const pctNearNum = (totals.near / total) * 100;
-                const pctMiddleNum = (totals.middle / total) * 100;
-                const pctFarNum = (totals.far / total) * 100;
-                expect(pctNearNum, "near < 10%").toBeLessThan(10);
-                expect(pctFarNum, "far <= 80%").toBeLessThanOrEqual(80);
-                expect(pctFarNum, "far >= middle").toBeGreaterThanOrEqual(pctMiddleNum - 5);
-                expect(pctMiddleNum, "middle > near").toBeGreaterThan(pctNearNum);
-            },
-            TRIALS * TRIAL_TIMEOUT * 2,
-        );
-    });
-
-    describe("speed adjusted with many dice should spread evenly", () => {
-        const diceCounts = [20, 30, 50];
-        const cases = shapes.flatMap((s) =>
-            diceCounts.map((diceCount) => ({ ...s, diceCount })),
-        );
-
-        it.each(cases)(
-            "$shape tray, $diceCount dice",
-            async ({ halfWidth, halfDepth, diceCount }) => {
-                const { totals, total } = await runTrials(halfWidth, halfDepth, diceCount);
-                const pctNearNum = (totals.near / total) * 100;
-                const pctMiddleNum = (totals.middle / total) * 100;
-                const pctFarNum = (totals.far / total) * 100;
-                expect(pctNearNum, "near < 10%").toBeLessThan(10);
-                expect(pctMiddleNum, "middle <= 60%").toBeLessThanOrEqual(60);
-                expect(pctFarNum, "far <= 75%").toBeLessThanOrEqual(75);
-                expect(pctFarNum, "far >= middle").toBeGreaterThanOrEqual(pctMiddleNum - 5);
-                expect(pctMiddleNum, "middle > near").toBeGreaterThan(pctNearNum);
-            },
-            TRIALS * TRIAL_TIMEOUT * 2,
-        );
-    });
-});
+function timeoutAfter(ms: number): Promise<never> {
+    return new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Trial timeout after ${ms}ms`)), ms),
+    );
+}

@@ -4,6 +4,26 @@ import type { DieFaces } from "../geometries/chamfer";
 import { normalFromVertices } from "../geometry";
 import { diceMaterial } from "./tray";
 
+export type DiceConfig = {
+    mass: number;
+    linearDamping: number;
+    angularDamping: number;
+    sleepSpeedLimit: number;
+    sleepTimeLimit: number;
+};
+
+export const DEFAULT_DICE_CONFIG: DiceConfig = {
+    mass: 10,
+
+    // stop the rolling without making it feel like glue
+    linearDamping: 0.5,
+    angularDamping: 0.9,
+
+    // do not jiggle endlessly when landing on or against something
+    sleepSpeedLimit: 0.1,
+    sleepTimeLimit: 0.05,
+};
+
 export type PhysicsDie = {
     body: CANNON.Body;
     faces: DieFaces;
@@ -12,12 +32,10 @@ export type PhysicsDie = {
     liftProgress: number;
 };
 
-const DEFAULT_MASS = 0.1;
-
 export function createDieBody(
     vertices: THREE.Vector3[],
     faces: DieFaces,
-    mass = DEFAULT_MASS,
+    config: DiceConfig = DEFAULT_DICE_CONFIG,
     readDown = false,
 ): PhysicsDie {
     const cannonVerts = vertices.map((v) => new CANNON.Vec3(v.x, v.y, v.z));
@@ -29,14 +47,14 @@ export function createDieBody(
     });
 
     const body = new CANNON.Body({
-        mass,
+        mass: config.mass,
         shape,
         material: diceMaterial,
-        linearDamping: 0.3, // scale: 0 = vacuum, 0.3 = air, 1.0 = honey
-        angularDamping: 0.5,
+        linearDamping: config.linearDamping,
+        angularDamping: config.angularDamping,
         allowSleep: true,
-        sleepSpeedLimit: 0.05,
-        sleepTimeLimit: 0.1,
+        sleepSpeedLimit: config.sleepSpeedLimit,
+        sleepTimeLimit: config.sleepTimeLimit,
     });
 
     return {

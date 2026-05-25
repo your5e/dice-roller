@@ -50,7 +50,7 @@ jobs:
       - name: Stage pages
         run: |
           mkdir _site
-          cp example_roller.html _site/index.html
+          cp index.html example_roller.html simulation.html _site/
           cp -r dist _site/
 
       - uses: actions/configure-pages@v5

@@ -16,6 +16,7 @@ export type DiceWrapper = {
 import {
     applyFullThrow,
     createTray,
+    type DieBehaviour,
     offsetToEdge,
     simulateThrow,
     type Tray,
@@ -183,11 +184,13 @@ export type ThrowOptions = {
     rerollCocked?: boolean;
 };
 
+export type ThrowResult = { behaviour: DieBehaviour[] } | { cancelled: true };
+
 export async function throwDice(
     physicsTray: Tray,
     indicesToThrow: number[],
     options?: ThrowOptions,
-): Promise<undefined | { cancelled: true }> {
+): Promise<ThrowResult> {
     const stage = options?.stage;
     const whichSide = options?.whichSide ?? Math.random() < 0.5;
     const dice = physicsTray.dice;
@@ -253,6 +256,8 @@ export async function throwDice(
     if ("cancelled" in result) {
         return { cancelled: true };
     }
+
+    return { behaviour: result.behaviour };
 }
 
 function startAnimationLoop(state: Stage): void {

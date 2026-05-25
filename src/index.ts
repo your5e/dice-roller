@@ -311,7 +311,7 @@ export function roll(input: string, options?: RollOptions): Promise<RollResult> 
                     stage: stageForSimulation,
                 });
 
-                if (result?.cancelled) {
+                if ("cancelled" in result) {
                     const emptyResult: RollResult = {
                         notation: input,
                         total: 0,
@@ -542,11 +542,29 @@ export { createD8 } from "./geometries/d8";
 export { createD10, createPercentile } from "./geometries/d10";
 export { createD12 } from "./geometries/d12";
 export { createD20 } from "./geometries/d20";
-export type { DiceWrapper, Stage } from "./renderer";
+export { createDieBody, DEFAULT_DICE_CONFIG, type DiceConfig } from "./physics/dice";
+export {
+    applyFullThrow,
+    applyGentleThrow,
+    createTray,
+    DEFAULT_TRAY_CONFIG,
+    offsetToEdge,
+    packDice,
+    simulateThrow,
+    type ThrowOptions,
+    TIME_STEP,
+    type TrayConfig,
+} from "./physics/tray";
+export {
+    createStage,
+    type DiceWrapper,
+    getTrayDimensions,
+    type Stage,
+} from "./renderer";
 export { D4DebugTexture } from "./textures/d4";
 export { D6DebugTexture } from "./textures/d6";
 export { D8DebugTexture } from "./textures/d8";
 export { D10DebugTexture, DPercentileDebugTexture } from "./textures/d10";
 export { D12DebugTexture } from "./textures/d12";
 export { D20DebugTexture } from "./textures/d20";
-export { removeDice, setCameraSize };
+export { removeDice, resizeCamera, setCameraSize, syncDie };

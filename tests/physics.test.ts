@@ -93,6 +93,7 @@ describe("Tray", () => {
         expect(result).toEqual({
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
+            behaviour: expect.any(Array),
         });
         if (!("cancelled" in result)) {
             const face = die.physics.readFace();
@@ -113,6 +114,7 @@ describe("Tray", () => {
         expect(result).toEqual({
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
+            behaviour: expect.any(Array),
         });
         if (!("cancelled" in result)) {
             for (const die of dice) {
@@ -288,6 +290,7 @@ describe("syncDie", () => {
         expect(result).toEqual({
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
+            behaviour: expect.any(Array),
         });
         expect(die.mesh.position.y).toBeGreaterThan(0);
     });
@@ -567,6 +570,7 @@ describe("simulateThrow() cancel", () => {
         expect(result).toEqual({
             rerollCount: expect.any(Number),
             stats: expect.any(Object),
+            behaviour: expect.any(Array),
         });
         if (!("cancelled" in result)) {
             const face = die.readFace();
