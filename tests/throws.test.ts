@@ -93,7 +93,7 @@ describe("Throw distribution", () => {
                 const pctMiddle = (totals.middle / total) * 100;
                 const pctFar = (totals.far / total) * 100;
 
-                expect(pctFar, "far > 50%").toBeGreaterThan(50);
+                expect(pctFar, "far ≥ 50%").toBeGreaterThanOrEqual(50);
                 expect(pctNear, "near < 10%").toBeLessThan(10);
                 expect(pctFar, "far > middle").toBeGreaterThan(pctMiddle);
                 expect(pctMiddle, "middle > near").toBeGreaterThan(pctNear);

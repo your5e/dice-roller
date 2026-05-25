@@ -558,7 +558,6 @@ export {
 export {
     createStage,
     type DiceWrapper,
-    getTrayDimensions,
     type Stage,
 } from "./renderer";
 export { D4DebugTexture } from "./textures/d4";
@@ -567,4 +566,4 @@ export { D8DebugTexture } from "./textures/d8";
 export { D10DebugTexture, DPercentileDebugTexture } from "./textures/d10";
 export { D12DebugTexture } from "./textures/d12";
 export { D20DebugTexture } from "./textures/d20";
-export { removeDice, resizeCamera, setCameraSize, syncDie };
+export { getTrayDimensions, removeDice, resizeCamera, setCameraSize, syncDie };
