@@ -451,30 +451,42 @@
             console.log(JSON.stringify(result));
             if (result.expressions.length === 0) return;
             var groupsByLabel = {};
+            var bonusByLabel = {};
             var labelOrder = [];
             for (var i = 0; i < result.expressions.length; i++) {
                 var expr = result.expressions[i];
                 var label = expr.label || '';
                 var lastDice = null;
+                var bonus = 0;
                 for (var j = 0; j < expr.steps.length; j++) {
                     var key = Object.keys(expr.steps[j])[0];
                     var values = expr.steps[j][key];
                     if (Array.isArray(values)) {
                         lastDice = values;
+                    } else if (key === 'bonus') {
+                        bonus = values;
                     }
                 }
                 if (lastDice !== null) {
                     if (!groupsByLabel[label]) {
                         groupsByLabel[label] = [];
+                        bonusByLabel[label] = 0;
                         labelOrder.push(label);
                     }
                     groupsByLabel[label] = groupsByLabel[label].concat(lastDice);
+                    bonusByLabel[label] += bonus;
                 }
             }
             var diceHtml = labelOrder.map(function(label) {
                 var dice = groupsByLabel[label];
+                var bonus = bonusByLabel[label];
                 var diceStr = dice.join('+');
-                var total = dice.reduce(function(sum, v) { return sum + v; }, 0);
+                if (bonus > 0) {
+                    diceStr += '+' + bonus;
+                } else if (bonus < 0) {
+                    diceStr += bonus;
+                }
+                var total = dice.reduce(function(sum, v) { return sum + v; }, 0) + bonus;
                 return label ? label + ': ' + diceStr + ' = ' + total : diceStr;
             }).join('<br>');
             modal.querySelector('.notation').textContent = result.notation;
