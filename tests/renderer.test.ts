@@ -1,16 +1,18 @@
 import type * as THREE from "three";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createD4 } from "../src/geometries/d4";
-import { createD6 } from "../src/geometries/d6";
+import { createD6, D6 } from "../src/geometries/d6";
 import { createD8 } from "../src/geometries/d8";
 import { createD10, createD100 } from "../src/geometries/d10";
 import { createD12 } from "../src/geometries/d12";
 import { createD20 } from "../src/geometries/d20";
 import type { Die } from "../src/geometries/dice";
-import { createTray } from "../src/physics/tray";
-import { getTrayDimensions, removeDice } from "../src/renderer";
+import { onRoll, roll, tray } from "../src/index";
+import { isDamageLabel } from "../src/labels";
+import { createTray, type Tray } from "../src/physics/tray";
+import { createDie, getTrayDimensions, removeDice } from "../src/renderer";
 import { D4Texture } from "../src/textures/d4";
-import { D6Texture } from "../src/textures/d6";
+import { D6KintsugiTexture, D6Texture } from "../src/textures/d6";
 import { D8Texture } from "../src/textures/d8";
 import { D10Texture, DPercentileTexture } from "../src/textures/d10";
 import { D12Texture } from "../src/textures/d12";
@@ -24,6 +26,8 @@ beforeEach(() => {
         fillStyle: "",
         strokeStyle: "",
         lineWidth: 0,
+        lineCap: "",
+        lineJoin: "",
         textAlign: "",
         textBaseline: "",
         font: "",
@@ -38,7 +42,11 @@ beforeEach(() => {
         restore: vi.fn(),
         translate: vi.fn(),
         rotate: vi.fn(),
+        scale: vi.fn(),
+        arc: vi.fn(),
+        bezierCurveTo: vi.fn(),
         fillText: vi.fn(),
+        strokeText: vi.fn(),
         roundRect: vi.fn(),
         measureText: vi.fn(() => ({ width: 10 })),
     };
@@ -197,4 +205,154 @@ describe("texture caching", () => {
             expect(material2.map).toBe(material3.map);
         },
     );
+});
+
+describe("texture style", () => {
+    beforeEach(() => {
+        tray();
+        onRoll(() => {});
+    });
+
+    afterEach(() => {
+        onRoll(() => {});
+    });
+
+    describe("tray texture properties", () => {
+        it("defaults textureStyle to standard", () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            expect(physicsTray.textureStyle).toBe("standard");
+        });
+
+        it("defaults overrideColours to false", () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            expect(physicsTray.overrideColours).toBe(false);
+        });
+
+        it("defaults overrideDamageColours to false", () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            expect(physicsTray.overrideDamageColours).toBe(false);
+        });
+    });
+
+    describe("createDie texture selection", () => {
+        it("uses standard texture when passed standard", async () => {
+            const wrapper = await createDie(6, "standard");
+            expect(wrapper.dice[0].texture).toBeInstanceOf(D6Texture);
+        });
+
+        it("uses kintsugi texture when passed kintsugi", async () => {
+            const wrapper = await createDie(6, "kintsugi", { seed: 1 });
+            expect(wrapper.dice[0].texture).toBeInstanceOf(D6KintsugiTexture);
+        });
+    });
+
+    describe("isDamageLabel", () => {
+        it("returns true for damage types", () => {
+            expect(isDamageLabel("fire")).toBe(true);
+            expect(isDamageLabel("cold")).toBe(true);
+            expect(isDamageLabel("slashing")).toBe(true);
+            expect(isDamageLabel("radiant")).toBe(true);
+        });
+
+        it("returns false for colour names", () => {
+            expect(isDamageLabel("red")).toBe(false);
+            expect(isDamageLabel("blue")).toBe(false);
+            expect(isDamageLabel("green")).toBe(false);
+        });
+
+        it("returns false for unknown labels", () => {
+            expect(isDamageLabel("foo")).toBe(false);
+            expect(isDamageLabel("bar")).toBe(false);
+        });
+    });
+
+    describe("rolling with texture overrides", () => {
+        it("does not call replaceTexture when using selected style", async () => {
+            const replaceTextureSpy = vi.spyOn(D6.prototype, "replaceTexture");
+
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.seed = 1;
+            physicsTray.textureStyle = "kintsugi";
+            physicsTray.overrideDamageColours = true;
+
+            await roll("fire:1d6");
+
+            expect(replaceTextureSpy).not.toHaveBeenCalled();
+
+            replaceTextureSpy.mockRestore();
+        });
+
+        it("calls replaceTexture when not using selected style", async () => {
+            const replaceTextureSpy = vi.spyOn(D6.prototype, "replaceTexture");
+
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.textureStyle = "kintsugi";
+            physicsTray.overrideDamageColours = false;
+
+            await roll("fire:1d6");
+
+            expect(replaceTextureSpy).toHaveBeenCalled();
+
+            replaceTextureSpy.mockRestore();
+        });
+
+        it("does not replace kintsugi texture for damage label when override damage is on", async () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.seed = 1;
+            physicsTray.textureStyle = "kintsugi";
+            physicsTray.overrideDamageColours = true;
+
+            await roll("fire:1d6");
+
+            const die = physicsTray.dice[0];
+            expect(die.texture).toBeInstanceOf(D6KintsugiTexture);
+            expect(die.originalTextureOptions?.bgColour).toBeUndefined();
+        });
+
+        it("does not replace kintsugi texture for colour label when override colours is on", async () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.seed = 1;
+            physicsTray.textureStyle = "kintsugi";
+            physicsTray.overrideColours = true;
+
+            await roll("red:1d6");
+
+            const die = physicsTray.dice[0];
+            expect(die.texture).toBeInstanceOf(D6KintsugiTexture);
+            expect(die.originalTextureOptions?.bgColour).toBeUndefined();
+        });
+
+        it("replaces texture with label style when override damage is off", async () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.textureStyle = "kintsugi";
+            physicsTray.overrideDamageColours = false;
+
+            await roll("fire:1d6");
+
+            const die = physicsTray.dice[0];
+            expect(die.texture).toBeInstanceOf(D6Texture);
+            expect(die.originalTextureOptions?.bgColour).toBeDefined();
+        });
+
+        it("does not replace kintsugi texture for unlabelled dice", async () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.seed = 1;
+            physicsTray.textureStyle = "kintsugi";
+
+            await roll("1d6");
+
+            const die = physicsTray.dice[0];
+            expect(die.texture).toBeInstanceOf(D6KintsugiTexture);
+            expect(die.originalTextureOptions?.bgColour).toBeUndefined();
+        });
+
+        it("uses standard texture for unlabelled dice when standard selected", async () => {
+            const physicsTray = tray({ halfWidth: 10, halfDepth: 10 }) as Tray;
+            physicsTray.textureStyle = "standard";
+
+            await roll("1d6");
+
+            expect(physicsTray.dice[0].texture).toBeInstanceOf(D6Texture);
+        });
+    });
 });

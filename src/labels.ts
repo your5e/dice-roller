@@ -94,6 +94,10 @@ const colourNameToIndex = new Map<string, number>(
     DEBUG_COLOURS.map((c, i) => [c.name, i]),
 );
 
+export function isDamageLabel(label: string): boolean {
+    return label in LABEL_STYLES;
+}
+
 function fgColourForHex(hex: string): string {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);

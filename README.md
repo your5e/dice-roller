@@ -12,7 +12,8 @@ common adjustments, such as advantage/disadvantage.
 ```html
 <script src="dice-roller.js"></script>
 <script>
-  DiceRoller.tray('#dice-box');
+  DiceRoller.tray('#dice-box', { seed: 1 });
+  DiceRoller.texture('kintsugi', { asColours: true });
   DiceRoller.onRoll(function(result) {
     alert('You rolled ' + result.total);
   });
@@ -21,8 +22,18 @@ common adjustments, such as advantage/disadvantage.
 </script>
 ```
 
-`.tray(selector)` creates the "rolling tray" that the dice will be animated
-in. Could be a specific element or the entire page.
+`.tray(selector, options)` creates the "rolling tray" that the dice will be
+animated in. Could be a specific element or the entire page. `options`
+contains the `seed` used to generate textures predictably, such as the
+kintsugi.
+
+`.texture(style, options)` sets the dice texture style. Available styles are
+`'standard'`, `'kintsugi'`, and `'debug'`. The `options` can include:
+
+- `asColours` — override dice with arbitrary labels (like `rage:2d6`) changing
+  the texture
+- `asDamage` — override dice with damage labels (like `fire:2d6`) changing
+  the texture
 
 `.bind(selector)` makes any click on matching elements trigger a roll in the
 tray. If the matched elements have the `data-roll` attribute, that is used

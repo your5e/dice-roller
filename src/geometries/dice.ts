@@ -11,6 +11,7 @@ export abstract class Die {
     result?: { x: number; z: number; halfWidth: number };
     dropped?: boolean;
     originalTextureOptions?: import("../textures/dice").TextureOptions;
+    texture?: DieTexture;
 
     constructor(
         public mesh: THREE.Mesh,
@@ -118,5 +119,7 @@ export async function createDie<T extends Die>(
 
     const physics = createDieBody(scaledVertices, faces, diceConfig, readDown);
 
-    return new DieClass(mesh, physics);
+    const die = new DieClass(mesh, physics);
+    die.texture = texture;
+    return die;
 }

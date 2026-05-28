@@ -230,7 +230,7 @@
 
     <script src="dist/dice-roller.js"></script>
     <script>
-        var tray = DiceRoller.tray('#dice-tray');
+        var tray = DiceRoller.tray('#dice-tray', { seed: 1 });
         var modal = document.getElementById('result-modal');
         var diceTrayEl = document.getElementById('dice-tray');
         var debugControlsEl = document.getElementById('debug-controls');
@@ -251,15 +251,54 @@
         var ROTATE_DURATION = 2000;
         var PAUSE_DURATION = 1000;
         var RESUME_DELAY = 2000;
+        var textureStyle = 'standard';
+
+        var textureClasses = {
+            debug: {
+                4: DiceRoller.D4DebugTexture,
+                6: DiceRoller.D6DebugTexture,
+                8: DiceRoller.D8DebugTexture,
+                10: DiceRoller.D10DebugTexture,
+                12: DiceRoller.D12DebugTexture,
+                20: DiceRoller.D20DebugTexture,
+                100: DiceRoller.DPercentileDebugTexture
+            },
+            standard: {
+                4: DiceRoller.D4Texture,
+                6: DiceRoller.D6Texture,
+                8: DiceRoller.D8Texture,
+                10: DiceRoller.D10Texture,
+                12: DiceRoller.D12Texture,
+                20: DiceRoller.D20Texture,
+                100: DiceRoller.DPercentileTexture
+            },
+            kintsugi: {
+                4: DiceRoller.D4KintsugiTexture,
+                6: DiceRoller.D6KintsugiTexture,
+                8: DiceRoller.D8KintsugiTexture,
+                10: DiceRoller.D10KintsugiTexture,
+                12: DiceRoller.D12KintsugiTexture,
+                20: DiceRoller.D20KintsugiTexture,
+                100: DiceRoller.DPercentileKintsugiTexture
+            }
+        };
+
+        function createDebugTexture(sides) {
+            var TextureClass = textureClasses[textureStyle][sides];
+            if (textureStyle === 'kintsugi') {
+                return new TextureClass({ seed: tray.physicsTray.seed || 1 });
+            }
+            return new TextureClass();
+        }
 
         var dieCreators = {
-            4: function() { return DiceRoller.createD4(1, new DiceRoller.D4DebugTexture()); },
-            6: function() { return DiceRoller.createD6(1, new DiceRoller.D6DebugTexture()); },
-            8: function() { return DiceRoller.createD8(1, new DiceRoller.D8DebugTexture()); },
-            10: function() { return DiceRoller.createD10(1, new DiceRoller.D10DebugTexture()); },
-            12: function() { return DiceRoller.createD12(1, new DiceRoller.D12DebugTexture()); },
-            20: function() { return DiceRoller.createD20(1, new DiceRoller.D20DebugTexture()); },
-            100: function() { return DiceRoller.createPercentile(1, new DiceRoller.DPercentileDebugTexture()); }
+            4: function() { return DiceRoller.createD4(1, createDebugTexture(4)); },
+            6: function() { return DiceRoller.createD6(1, createDebugTexture(6)); },
+            8: function() { return DiceRoller.createD8(1, createDebugTexture(8)); },
+            10: function() { return DiceRoller.createD10(1, createDebugTexture(10)); },
+            12: function() { return DiceRoller.createD12(1, createDebugTexture(12)); },
+            20: function() { return DiceRoller.createD20(1, createDebugTexture(20)); },
+            100: function() { return DiceRoller.createPercentile(1, createDebugTexture(100)); }
         };
 
         function createDebugDie(sides) {
@@ -441,6 +480,55 @@
         autoRotateLabel.appendChild(autoRotateCheckbox);
         autoRotateLabel.appendChild(document.createTextNode(' Auto-rotate'));
         debugControlsEl.appendChild(autoRotateLabel);
+
+        var textureSelect = document.createElement('select');
+        var textureOptions = [
+            { value: 'debug', label: 'Debug' },
+            { value: 'standard', label: 'Standard' },
+            { value: 'kintsugi', label: 'Kintsugi' }
+        ];
+        textureOptions.forEach(function(opt) {
+            var option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            textureSelect.appendChild(option);
+        });
+        textureSelect.value = textureStyle;
+        DiceRoller.texture(textureStyle);
+        textureSelect.addEventListener('change', function(e) {
+            textureStyle = e.target.value;
+            DiceRoller.texture(textureStyle);
+
+            if (debugDie) {
+                var sides = debugDie instanceof DiceRoller.DPercentile
+                    ? 100
+                    : debugDie.physics.faces.length;
+                createDebugDie(sides);
+            }
+        });
+        debugControlsEl.appendChild(textureSelect);
+
+        var overrideColoursLabel = document.createElement('label');
+        var overrideColoursCheckbox = document.createElement('input');
+        overrideColoursCheckbox.type = 'checkbox';
+        overrideColoursCheckbox.checked = false;
+        overrideColoursCheckbox.addEventListener('change', function(e) {
+            DiceRoller.texture(textureStyle, { asColours: e.target.checked });
+        });
+        overrideColoursLabel.appendChild(overrideColoursCheckbox);
+        overrideColoursLabel.appendChild(document.createTextNode(' Override colours'));
+        debugControlsEl.appendChild(overrideColoursLabel);
+
+        var overrideDamageLabel = document.createElement('label');
+        var overrideDamageCheckbox = document.createElement('input');
+        overrideDamageCheckbox.type = 'checkbox';
+        overrideDamageCheckbox.checked = false;
+        overrideDamageCheckbox.addEventListener('change', function(e) {
+            DiceRoller.texture(textureStyle, { asDamage: e.target.checked });
+        });
+        overrideDamageLabel.appendChild(overrideDamageCheckbox);
+        overrideDamageLabel.appendChild(document.createTextNode(' Override damage'));
+        debugControlsEl.appendChild(overrideDamageLabel);
 
         // Result modal
         function hideModal() {

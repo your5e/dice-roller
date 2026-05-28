@@ -1,5 +1,6 @@
 import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d8";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
+import { KintsugiMixin } from "./kintsugi";
 import { Unfoldable } from "./unfold";
 
 export class D8Texture extends Unfoldable(DieTexture) {
@@ -35,5 +36,5 @@ export class D8Texture extends Unfoldable(DieTexture) {
 }
 
 export class D8TemplateTexture extends TemplateMixin(D8Texture) {}
-
 export class D8DebugTexture extends DebugMixin(D8Texture) {}
+export class D8KintsugiTexture extends KintsugiMixin(D8Texture) {}

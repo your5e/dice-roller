@@ -268,14 +268,30 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 const data = this.faceData.get(face);
                 if (!data) continue;
                 const pts = data.points;
-                this.drawFaceBackground(ctx, pts);
-                this.drawFaceIcon(ctx, face, pts);
+                this.drawFaceBackground(ctx, face, pts);
+                this.drawFaceBackgroundDecoration(ctx, face, pts);
                 this.drawFaceNumerals(ctx, face, pts);
+                this.drawFaceForegroundDecoration(ctx, face, pts);
             }
         }
 
+        protected drawFaceBackgroundDecoration(
+            ctx: CanvasRenderingContext2D,
+            face: number,
+            pts: Point[],
+        ): void {
+            this.drawFaceIcon(ctx, face, pts);
+        }
+
+        protected drawFaceForegroundDecoration(
+            _ctx: CanvasRenderingContext2D,
+            _face: number,
+            _pts: Point[],
+        ): void {}
+
         protected drawFaceBackground(
             ctx: CanvasRenderingContext2D,
+            _face: number,
             pts: Point[],
         ): void {
             ctx.fillStyle = this.faceColour ?? this.bgColour;
@@ -336,7 +352,8 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 this.fontFamily,
                 this.numberColour ?? this.fgColour,
                 this.underlineColour ?? this.fgColour,
-                this.icon ? (this.faceColour ?? this.bgColour) : undefined,
+                this.numberOutlineColour ??
+                    (this.icon && (this.faceColour ?? this.bgColour)),
             );
             ctx.restore();
         }

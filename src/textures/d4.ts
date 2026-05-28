@@ -2,6 +2,7 @@ import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d4";
 import { drawIcon } from "../icons";
 import type { Point } from "./dice";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
+import { KintsugiMixin } from "./kintsugi";
 import { Unfoldable } from "./unfold";
 
 export class D4Texture extends Unfoldable(DieTexture) {
@@ -113,3 +114,4 @@ export class D4Texture extends Unfoldable(DieTexture) {
 
 export class D4TemplateTexture extends TemplateMixin(D4Texture) {}
 export class D4DebugTexture extends DebugMixin(D4Texture) {}
+export class D4KintsugiTexture extends KintsugiMixin(D4Texture) {}

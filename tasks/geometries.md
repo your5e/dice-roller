@@ -17,3 +17,4 @@ showing 00–90 (tens).
 - [X] d00 (00–90)
 - [X] d12
 - [X] d20
+- [ ] d2, coin flip

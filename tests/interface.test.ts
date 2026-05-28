@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { roll, tray } from "../src/index";
+import { roll, texture, tray } from "../src/index";
 import type { Stage } from "../src/renderer";
 import { getTrayDimensions } from "../src/renderer";
 
@@ -123,5 +123,37 @@ describe("camera sizing", () => {
         expect(stage.camera.right).toBeCloseTo(halfWidth);
         expect(stage.camera.top).toBeCloseTo(halfDepth);
         expect(stage.camera.bottom).toBeCloseTo(-halfDepth);
+    });
+});
+
+describe("texture", () => {
+    it("sets texture style on the tray", () => {
+        const container = createMockContainer(800, 600);
+        vi.spyOn(document, "querySelector").mockReturnValue(container);
+
+        const stage = tray("#container") as Stage;
+        expect(stage.physicsTray.textureStyle).toBe("standard");
+
+        texture("kintsugi");
+        expect(stage.physicsTray.textureStyle).toBe("kintsugi");
+    });
+
+    it("sets override flags via options", () => {
+        const container = createMockContainer(800, 600);
+        vi.spyOn(document, "querySelector").mockReturnValue(container);
+
+        const stage = tray("#container") as Stage;
+        expect(stage.physicsTray.overrideColours).toBe(false);
+        expect(stage.physicsTray.overrideDamageColours).toBe(false);
+
+        texture("kintsugi", { asColours: true, asDamage: true });
+        expect(stage.physicsTray.overrideColours).toBe(true);
+        expect(stage.physicsTray.overrideDamageColours).toBe(true);
+    });
+
+    it("throws if called before tray", async () => {
+        vi.resetModules();
+        const { texture: freshTexture } = await import("../src/index");
+        expect(() => freshTexture("kintsugi")).toThrow("No tray");
     });
 });

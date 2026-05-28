@@ -346,6 +346,8 @@ export type Simulation = {
     result: Promise<SimulateResult>;
 };
 
+export type TextureStyle = "standard" | "kintsugi" | "debug";
+
 export type Tray = {
     world: CANNON.World;
     halfWidth: number;
@@ -360,6 +362,10 @@ export type Tray = {
     generation: number;
     isDropping: boolean;
     frameDelay: number;
+    seed?: number;
+    textureStyle: TextureStyle;
+    overrideColours: boolean;
+    overrideDamageColours: boolean;
 };
 
 function createWalls(halfWidth: number, halfDepth: number): CANNON.Body[] {
@@ -405,6 +411,7 @@ export function createTray(
     halfWidth: number,
     halfDepth: number,
     config: TrayConfig = DEFAULT_TRAY_CONFIG,
+    seed?: number,
 ): Tray {
     const world = new CANNON.World({
         gravity: new CANNON.Vec3(0, config.gravity, 0),
@@ -465,6 +472,10 @@ export function createTray(
         generation: 0,
         isDropping: false,
         frameDelay: 1,
+        seed,
+        textureStyle: "standard",
+        overrideColours: false,
+        overrideDamageColours: false,
     };
 }
 

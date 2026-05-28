@@ -1,6 +1,7 @@
 import * as THREE from "three";
+import { SimplexNoise } from "three/addons/math/SimplexNoise.js";
 import { CHAMFER } from "../geometries/chamfer";
-import { perpendicular } from "../geometry";
+import { perpendicular, pointInPolygon } from "../geometry";
 
 export type TextureOptions = {
     bgColour?: string;
@@ -13,6 +14,7 @@ export type TextureOptions = {
     icon?: string;
     iconColour?: string;
     iconScale?: number;
+    seed?: number | string;
 };
 
 export type Point = { x: number; y: number };
@@ -33,6 +35,22 @@ export type CrownData = {
     uvs: UV[];
     faceOrder?: number[];
 };
+
+export type EdgeTarget = {
+    face: number;
+    adjFace: number;
+    t: number;
+};
+
+export type ClosedLoopState = {
+    usedEdges: Set<string>;
+    usedTargets: Set<string>;
+    faceVisitCount: Map<number, number>;
+    allEdges: Array<{ face: number; adjFace: number }>;
+    edgeConnections: Map<string, number[]>;
+};
+
+export const FIXED_T_VALUES = [0.25, 0.5, 0.75] as const;
 
 // colours from "List of 20 Simple, Distinct Colors" by Sasha Trubetskoy
 // https://sashamaps.net/docs/resources/20-colors/
@@ -80,6 +98,241 @@ function optionsKey(options?: TextureOptions): string {
 
 export abstract class DieTexture {
     protected options?: TextureOptions;
+
+    private static hashString(str: string): number {
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+        }
+        return hash >>> 0;
+    }
+
+    private _prngState?: number;
+
+    protected seededRandom(): number {
+        if (this._prngState === undefined) {
+            if (this.options?.seed === undefined) {
+                throw new Error("Texture requires a seed for seededRandom");
+            }
+            this._prngState =
+                typeof this.options.seed === "string"
+                    ? DieTexture.hashString(this.options.seed)
+                    : this.options.seed;
+        }
+        this._prngState = (this._prngState + 0x6d2b79f5) | 0;
+        let t = Math.imul(
+            this._prngState ^ (this._prngState >>> 15),
+            1 | this._prngState,
+        );
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+
+    private _simplex?: SimplexNoise;
+
+    protected get simplex(): SimplexNoise {
+        if (!this._simplex) {
+            this._simplex = new SimplexNoise({ random: () => this.seededRandom() });
+        }
+        return this._simplex;
+    }
+
+    protected findAllClosedLoops(): {
+        loops: EdgeTarget[][];
+        edgeConnections: Map<string, number[]>;
+    } {
+        const allEdges: Array<{ face: number; adjFace: number }> = [];
+        for (const { value: face } of this.faces) {
+            for (const adjFace of this.getAdjacentFaces(face)) {
+                if (adjFace < face) continue;
+                allEdges.push({ face, adjFace });
+            }
+        }
+
+        const state: ClosedLoopState = {
+            usedEdges: new Set(),
+            usedTargets: new Set(),
+            faceVisitCount: new Map(),
+            allEdges,
+            edgeConnections: new Map(),
+        };
+
+        const loops: EdgeTarget[][] = [];
+        for (;;) {
+            const loop = this.findNextLoop(state);
+            if (!loop) break;
+            loops.push(loop);
+        }
+
+        return { loops, edgeConnections: state.edgeConnections };
+    }
+
+    private closedLoopTargetKey(edge: string, t: number): string {
+        return `${edge}@${t}`;
+    }
+
+    private findNextLoop(state: ClosedLoopState): EdgeTarget[] | null {
+        const MAX_FACE_VISITS = 2;
+
+        const getAvailableT = (edge: string) =>
+            FIXED_T_VALUES.filter(
+                (t) => !state.usedTargets.has(this.closedLoopTargetKey(edge, t)),
+            );
+
+        const availableEdges = state.allEdges.filter((e) => {
+            if (state.usedEdges.has(this.stripKey(e.face, e.adjFace))) return false;
+            const faceACount = state.faceVisitCount.get(e.face) ?? 0;
+            const faceBCount = state.faceVisitCount.get(e.adjFace) ?? 0;
+            return faceACount < MAX_FACE_VISITS && faceBCount < MAX_FACE_VISITS;
+        });
+
+        if (availableEdges.length === 0) return null;
+
+        const startEdge =
+            availableEdges[Math.floor(this.seededRandom() * availableEdges.length)];
+        const startEdgeStr = this.stripKey(startEdge.face, startEdge.adjFace);
+
+        const faceACount = state.faceVisitCount.get(startEdge.face) ?? 0;
+        const faceBCount = state.faceVisitCount.get(startEdge.adjFace) ?? 0;
+        let startFace: number;
+        if (faceACount < faceBCount) {
+            startFace = startEdge.face;
+        } else if (faceBCount < faceACount) {
+            startFace = startEdge.adjFace;
+        } else {
+            startFace = this.seededRandom() < 0.5 ? startEdge.face : startEdge.adjFace;
+        }
+        const firstFace =
+            startFace === startEdge.face ? startEdge.adjFace : startEdge.face;
+
+        const startAvailableT = getAvailableT(startEdgeStr);
+        const startT =
+            startAvailableT[Math.floor(this.seededRandom() * startAvailableT.length)];
+
+        const walkEdges = new Set(state.usedEdges);
+        const walkTargets = new Set(state.usedTargets);
+        const walkFaces = new Map(state.faceVisitCount);
+        const visitedInLoop = new Set<number>([firstFace]);
+
+        walkEdges.add(startEdgeStr);
+        walkTargets.add(this.closedLoopTargetKey(startEdgeStr, startT));
+        walkFaces.set(firstFace, (walkFaces.get(firstFace) ?? 0) + 1);
+
+        const loop: EdgeTarget[] = [{ face: startFace, adjFace: firstFace, t: startT }];
+        const found = this.tryNextFace(
+            loop,
+            firstFace,
+            startFace,
+            visitedInLoop,
+            walkEdges,
+            walkTargets,
+            walkFaces,
+            MAX_FACE_VISITS,
+        );
+
+        if (!found) return null;
+
+        const facesEntered = new Set<number>();
+        for (const target of loop) {
+            const edge = this.stripKey(target.face, target.adjFace);
+            state.usedEdges.add(edge);
+            state.usedTargets.add(this.closedLoopTargetKey(edge, target.t));
+            facesEntered.add(target.adjFace);
+
+            let points = state.edgeConnections.get(edge);
+            if (!points) {
+                points = [];
+                state.edgeConnections.set(edge, points);
+            }
+            if (!points.includes(target.t)) {
+                points.push(target.t);
+            }
+        }
+        for (const face of facesEntered) {
+            state.faceVisitCount.set(face, (state.faceVisitCount.get(face) ?? 0) + 1);
+        }
+
+        return loop;
+    }
+
+    private tryNextFace(
+        loop: EdgeTarget[],
+        currentFace: number,
+        startFace: number,
+        visitedInLoop: Set<number>,
+        usedEdges: Set<string>,
+        usedTargets: Set<string>,
+        faceVisitCount: Map<number, number>,
+        maxFaceVisits: number,
+    ): boolean {
+        const getAvailableT = (edge: string) =>
+            FIXED_T_VALUES.filter(
+                (t) => !usedTargets.has(this.closedLoopTargetKey(edge, t)),
+            );
+
+        const prevFace = loop[loop.length - 1].face;
+        const allAdjacent = this.getAdjacentFaces(currentFace);
+
+        const adjacentFaces = allAdjacent.filter((adj) => {
+            if (adj === prevFace) return false;
+            const edge = this.stripKey(currentFace, adj);
+            if (getAvailableT(edge).length === 0) return false;
+            if (adj === startFace) return true;
+            if (visitedInLoop.has(adj)) return false;
+            return (faceVisitCount.get(adj) ?? 0) < maxFaceVisits;
+        });
+
+        if (adjacentFaces.length === 0) {
+            return false;
+        }
+
+        const shuffled = [...adjacentFaces];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(this.seededRandom() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        for (const nextFace of shuffled) {
+            const nextEdgeStr = this.stripKey(currentFace, nextFace);
+            const availableT = getAvailableT(nextEdgeStr);
+            const t = availableT[Math.floor(this.seededRandom() * availableT.length)];
+
+            usedEdges.add(nextEdgeStr);
+            usedTargets.add(this.closedLoopTargetKey(nextEdgeStr, t));
+            loop.push({ face: currentFace, adjFace: nextFace, t });
+
+            if (nextFace === startFace) {
+                return true;
+            }
+
+            faceVisitCount.set(nextFace, (faceVisitCount.get(nextFace) ?? 0) + 1);
+            visitedInLoop.add(nextFace);
+
+            const success = this.tryNextFace(
+                loop,
+                nextFace,
+                startFace,
+                visitedInLoop,
+                usedEdges,
+                usedTargets,
+                faceVisitCount,
+                maxFaceVisits,
+            );
+
+            if (success) {
+                return true;
+            }
+
+            loop.pop();
+            usedEdges.delete(nextEdgeStr);
+            usedTargets.delete(this.closedLoopTargetKey(nextEdgeStr, t));
+            faceVisitCount.set(nextFace, (faceVisitCount.get(nextFace) ?? 0) - 1);
+            visitedInLoop.delete(nextFace);
+        }
+
+        return false;
+    }
+
     protected abstract faceVertices: Record<number, number[]>;
     protected abstract faces: { value: number }[];
     protected abstract get edgeLength(): number;
@@ -89,6 +342,8 @@ export abstract class DieTexture {
     protected stripColour?: string;
     protected crownColour?: string;
     protected numberColour?: string;
+    protected numberOutlineColour?: string;
+    protected numberOutlineWidth = 0.08;
     protected underlineColour?: string;
     protected iconColour?: string;
     protected fontFamily = "Varela Round, sans-serif";
@@ -238,12 +493,12 @@ export abstract class DieTexture {
         canvas.height = this.height;
         const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-        this.drawStrips(ctx);
+        this.drawStripBackground(ctx);
+        this.decorateStripBackground(ctx);
         this.decorateStrips(ctx);
         this.drawCrowns(ctx);
         this.decorateCrowns(ctx);
         this.drawFaces(ctx);
-        this.decorateFaces(ctx);
 
         return canvas;
     }
@@ -343,28 +598,12 @@ export abstract class DieTexture {
     protected calculateStripUVs(
         points: Point[],
         requestingFace: number,
-        otherFace: number,
+        _otherFace: number,
         stripFace: number,
     ): UV[] {
         const [inner1, inner2, outer2, outer1] = points;
-        const vertexCount = this.faceVertices[stripFace].length;
 
-        const strip3DIdx = this.get2DEdgeIndex(
-            stripFace,
-            stripFace === requestingFace ? otherFace : requestingFace,
-        );
-        const stripVerts = this.faceVertices[stripFace];
-        const requestingVerts = this.faceVertices[requestingFace];
-        const sharedVerts = requestingVerts.filter((vx) =>
-            this.faceVertices[otherFace].includes(vx),
-        );
-        const aIdx = requestingVerts.indexOf(sharedVerts[0]);
-        const v3DStart =
-            requestingVerts[(aIdx + 1) % vertexCount] === sharedVerts[1]
-                ? sharedVerts[0]
-                : sharedVerts[1];
-
-        const reverseEdge = stripVerts[strip3DIdx] !== v3DStart;
+        const reverseEdge = this.isEdgeReversed(requestingFace, stripFace);
         const swapSides = stripFace !== requestingFace;
 
         let uvs: UV[] = [
@@ -401,7 +640,7 @@ export abstract class DieTexture {
         return offsets;
     }
 
-    protected drawStrips(ctx: CanvasRenderingContext2D): void {
+    protected drawStripBackground(ctx: CanvasRenderingContext2D): void {
         for (const data of this.stripData.values()) {
             const [p1, p2, p3, p4] = data.points;
             ctx.fillStyle = this.stripColour ?? this.bgColour;
@@ -414,6 +653,8 @@ export abstract class DieTexture {
             ctx.fill();
         }
     }
+
+    protected decorateStripBackground(_ctx: CanvasRenderingContext2D): void {}
 
     protected drawCrowns(ctx: CanvasRenderingContext2D): void {
         for (const data of this.crownData.values()) {
@@ -451,7 +692,7 @@ export abstract class DieTexture {
         const drawChar = (ch: string, cx: number) => {
             if (outlineColour) {
                 ctx.strokeStyle = outlineColour;
-                ctx.lineWidth = fontPx * 0.08;
+                ctx.lineWidth = fontPx * this.numberOutlineWidth;
                 ctx.lineJoin = "round";
                 ctx.strokeText(ch, cx, y);
             }
@@ -501,7 +742,6 @@ export abstract class DieTexture {
         return [];
     }
     protected decorateCrowns(_ctx: CanvasRenderingContext2D): void {}
-    protected decorateFaces(_ctx: CanvasRenderingContext2D): void {}
     protected decorateStrips(_ctx: CanvasRenderingContext2D): void {}
     protected drawFaces(_ctx: CanvasRenderingContext2D): void {}
     protected get2DEdgeIndex(_face: number, _adjFace: number): number {
@@ -520,6 +760,107 @@ export abstract class DieTexture {
 
     protected getIconColour(): string {
         return this.iconColour ?? this.fgColour;
+    }
+
+    protected getEdgeDirection(face: number, adjFace: number): Point {
+        const data = this.faceData.get(face);
+        if (!data) throw new Error(`Unknown face ${face}`);
+
+        const pts = data.points;
+        const n = pts.length;
+        const edgeIdx = this.get2DEdgeIndex(face, adjFace);
+        const p1 = pts[edgeIdx];
+        const p2 = pts[(edgeIdx + 1) % n];
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+
+        return { x: dx / len, y: dy / len };
+    }
+
+    protected isEdgeReversed(face: number, otherFace: number): boolean {
+        const faceVerts = this.faceVertices[face];
+        const otherVerts = this.faceVertices[otherFace];
+
+        const faceEdgeIdx = this.get2DEdgeIndex(face, otherFace);
+        const otherEdgeIdx = this.get2DEdgeIndex(otherFace, face);
+
+        const faceStartVert = faceVerts[faceEdgeIdx];
+        const otherStartVert = otherVerts[otherEdgeIdx];
+
+        return faceStartVert !== otherStartVert;
+    }
+
+    protected edgeTargetToCanvas(target: EdgeTarget): Point {
+        const data = this.faceData.get(target.face);
+        if (!data) throw new Error(`Unknown face ${target.face}`);
+
+        const pts = data.points;
+        const n = pts.length;
+        const edgeIdx = this.get2DEdgeIndex(target.face, target.adjFace);
+        const p1 = pts[edgeIdx];
+        const p2 = pts[(edgeIdx + 1) % n];
+
+        const priorityFace = this.getStripPriorityFace(target.face, target.adjFace);
+        const needsFlip =
+            target.face !== priorityFace &&
+            this.isEdgeReversed(target.face, priorityFace);
+        const effectiveT = needsFlip ? 1 - target.t : target.t;
+
+        return {
+            x: p1.x + effectiveT * (p2.x - p1.x),
+            y: p1.y + effectiveT * (p2.y - p1.y),
+        };
+    }
+
+    protected stippleArea(
+        ctx: CanvasRenderingContext2D,
+        polygon: Point[],
+        baseWidth: number,
+        colour: { r: number; g: number; b: number },
+        spacingMultiplier: number,
+        sizeMultiplier: number,
+    ): void {
+        const noiseScale = 0.008;
+        const dotRadius = baseWidth * 0.06 * sizeMultiplier;
+        const spacing = baseWidth * 0.18 * spacingMultiplier;
+
+        let minX = polygon[0].x;
+        let maxX = polygon[0].x;
+        let minY = polygon[0].y;
+        let maxY = polygon[0].y;
+        for (const p of polygon) {
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+        }
+
+        const startX = Math.floor(minX / spacing) * spacing;
+        const startY = Math.floor(minY / spacing) * spacing;
+
+        for (let x = startX; x <= maxX; x += spacing) {
+            for (let y = startY; y <= maxY; y += spacing) {
+                if (!pointInPolygon({ x, y }, polygon)) continue;
+
+                const noiseVal = this.simplex.noise(x * noiseScale, y * noiseScale);
+                const density = (noiseVal + 1) / 2;
+
+                if (this.seededRandom() > density * 0.8 + 0.2) continue;
+
+                const jitterX = (this.seededRandom() - 0.5) * spacing * 0.8;
+                const jitterY = (this.seededRandom() - 0.5) * spacing * 0.8;
+
+                const brightness = 0.6 + this.seededRandom() * 0.4;
+                const actualRadius = dotRadius * (0.6 + this.seededRandom() * 0.4);
+
+                ctx.fillStyle = `rgba(${colour.r}, ${colour.g}, ${colour.b}, ${brightness})`;
+                ctx.beginPath();
+                ctx.arc(x + jitterX, y + jitterY, actualRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
     }
 }
 
@@ -618,48 +959,49 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
             }
         }
 
-        protected override decorateFaces(ctx: CanvasRenderingContext2D): void {
-            for (const { value: face } of this.faces) {
-                const data = this.faceData.get(face);
-                if (!data) continue;
-                const pts = data.points;
-                const n = pts.length;
+        protected drawFaceBackgroundDecoration(
+            ctx: CanvasRenderingContext2D,
+            face: number,
+            pts: Point[],
+        ): void {
+            const n = pts.length;
 
-                const centreX = pts.reduce((sum, p) => sum + p.x, 0) / n;
-                const centreY = pts.reduce((sum, p) => sum + p.y, 0) / n;
+            const centreX = pts.reduce((sum, p) => sum + p.x, 0) / n;
+            const centreY = pts.reduce((sum, p) => sum + p.y, 0) / n;
 
-                ctx.lineWidth = 0.03 * this.pixelDensity;
+            ctx.lineWidth = 0.03 * this.pixelDensity;
 
-                for (const adjFace of this.getAdjacentFaces(face)) {
-                    ctx.strokeStyle = this.getStripColour(face, adjFace);
-                    const edgeIdx = this.get2DEdgeIndex(face, adjFace);
-                    const edgePt = pts[edgeIdx];
-                    const startX = centreX + 0.5 * (edgePt.x - centreX);
-                    const startY = centreY + 0.5 * (edgePt.y - centreY);
-                    const midX = (pts[edgeIdx].x + pts[(edgeIdx + 1) % n].x) / 2;
-                    const midY = (pts[edgeIdx].y + pts[(edgeIdx + 1) % n].y) / 2;
-                    const offsetRatio = this.stripWidth / this.edgeLength;
-                    const toX = midX + offsetRatio * (edgePt.x - midX);
-                    const toY = midY + offsetRatio * (edgePt.y - midY);
-                    ctx.beginPath();
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(toX, toY);
-                    ctx.stroke();
-                }
-
-                const faceVerts = this.faceVertices[face];
-                for (let i = 0; i < n; i++) {
-                    const vertex = faceVerts[i];
-                    ctx.strokeStyle = this.getCrownColour(vertex);
-                    const cornerPt = pts[i];
-                    const endX = cornerPt.x + 0.3 * (centreX - cornerPt.x);
-                    const endY = cornerPt.y + 0.3 * (centreY - cornerPt.y);
-                    ctx.beginPath();
-                    ctx.moveTo(cornerPt.x, cornerPt.y);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-                }
+            for (const adjFace of this.getAdjacentFaces(face)) {
+                ctx.strokeStyle = this.getStripColour(face, adjFace);
+                const edgeIdx = this.get2DEdgeIndex(face, adjFace);
+                const edgePt = pts[edgeIdx];
+                const startX = centreX + 0.5 * (edgePt.x - centreX);
+                const startY = centreY + 0.5 * (edgePt.y - centreY);
+                const midX = (pts[edgeIdx].x + pts[(edgeIdx + 1) % n].x) / 2;
+                const midY = (pts[edgeIdx].y + pts[(edgeIdx + 1) % n].y) / 2;
+                const offsetRatio = this.stripWidth / this.edgeLength;
+                const toX = midX + offsetRatio * (edgePt.x - midX);
+                const toY = midY + offsetRatio * (edgePt.y - midY);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(toX, toY);
+                ctx.stroke();
             }
+
+            const faceVerts = this.faceVertices[face];
+            for (let i = 0; i < n; i++) {
+                const vertex = faceVerts[i];
+                ctx.strokeStyle = this.getCrownColour(vertex);
+                const cornerPt = pts[i];
+                const endX = cornerPt.x + 0.3 * (centreX - cornerPt.x);
+                const endY = cornerPt.y + 0.3 * (centreY - cornerPt.y);
+                ctx.beginPath();
+                ctx.moveTo(cornerPt.x, cornerPt.y);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+            }
+            // biome-ignore lint/suspicious/noExplicitAny: mixin type limitation
+            (this as any).drawFaceIcon(ctx, face, pts);
         }
     };
 }

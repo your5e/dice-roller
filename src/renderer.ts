@@ -19,15 +19,67 @@ import {
     type DieBehaviour,
     offsetToEdge,
     simulateThrow,
+    type TextureStyle,
     type Tray,
 } from "./physics/tray";
-import { D4Texture } from "./textures/d4";
-import { D6Texture } from "./textures/d6";
-import { D8Texture } from "./textures/d8";
-import { D10Texture, DPercentileTexture } from "./textures/d10";
-import { D12Texture } from "./textures/d12";
-import { D20Texture } from "./textures/d20";
-import type { TextureOptions } from "./textures/dice";
+import { D4DebugTexture, D4KintsugiTexture, D4Texture } from "./textures/d4";
+import { D6DebugTexture, D6KintsugiTexture, D6Texture } from "./textures/d6";
+import { D8DebugTexture, D8KintsugiTexture, D8Texture } from "./textures/d8";
+import {
+    D10DebugTexture,
+    D10KintsugiTexture,
+    D10Texture,
+    DPercentileDebugTexture,
+    DPercentileKintsugiTexture,
+    DPercentileTexture,
+} from "./textures/d10";
+import { D12DebugTexture, D12KintsugiTexture, D12Texture } from "./textures/d12";
+import { D20DebugTexture, D20KintsugiTexture, D20Texture } from "./textures/d20";
+import type { DieTexture, TextureOptions } from "./textures/dice";
+
+type TextureConstructor = new (options?: TextureOptions) => DieTexture;
+
+type TextureRegistry = {
+    [K in TextureStyle]: {
+        4: TextureConstructor;
+        6: TextureConstructor;
+        8: TextureConstructor;
+        10: TextureConstructor;
+        12: TextureConstructor;
+        20: TextureConstructor;
+        100: TextureConstructor;
+    };
+};
+
+const textureRegistry: TextureRegistry = {
+    standard: {
+        4: D4Texture,
+        6: D6Texture,
+        8: D8Texture,
+        10: D10Texture,
+        12: D12Texture,
+        20: D20Texture,
+        100: DPercentileTexture,
+    },
+    kintsugi: {
+        4: D4KintsugiTexture,
+        6: D6KintsugiTexture,
+        8: D8KintsugiTexture,
+        10: D10KintsugiTexture,
+        12: D12KintsugiTexture,
+        20: D20KintsugiTexture,
+        100: DPercentileKintsugiTexture,
+    },
+    debug: {
+        4: D4DebugTexture,
+        6: D6DebugTexture,
+        8: D8DebugTexture,
+        10: D10DebugTexture,
+        12: D12DebugTexture,
+        20: D20DebugTexture,
+        100: DPercentileDebugTexture,
+    },
+};
 
 export type Stage = {
     container: HTMLElement;
@@ -137,28 +189,56 @@ export function createStage(container: HTMLElement, existingTray?: Tray): Stage 
     return state;
 }
 
+function createTextureForSides(
+    sides: 4 | 6 | 8 | 10 | 12 | 20 | 100,
+    textureStyle: TextureStyle,
+    options?: TextureOptions,
+): DieTexture {
+    const TextureClass = textureRegistry[textureStyle][sides];
+    return new TextureClass(options);
+}
+
 export async function createDie(
     sides: number,
+    textureStyle: TextureStyle = "standard",
     options?: TextureOptions,
 ): Promise<DiceWrapper> {
     switch (sides) {
         case 4:
-            return createD4(1, options ? new D4Texture(options) : undefined);
+            return createD4(
+                1,
+                createTextureForSides(4, textureStyle, options) as D4Texture,
+            );
         case 6:
-            return createD6(1, options ? new D6Texture(options) : undefined);
+            return createD6(
+                1,
+                createTextureForSides(6, textureStyle, options) as D6Texture,
+            );
         case 8:
-            return createD8(1, options ? new D8Texture(options) : undefined);
+            return createD8(
+                1,
+                createTextureForSides(8, textureStyle, options) as D8Texture,
+            );
         case 10:
-            return createD10(1, options ? new D10Texture(options) : undefined);
+            return createD10(
+                1,
+                createTextureForSides(10, textureStyle, options) as D10Texture,
+            );
         case 12:
-            return createD12(1, options ? new D12Texture(options) : undefined);
+            return createD12(
+                1,
+                createTextureForSides(12, textureStyle, options) as D12Texture,
+            );
         case 20:
-            return createD20(1, options ? new D20Texture(options) : undefined);
+            return createD20(
+                1,
+                createTextureForSides(20, textureStyle, options) as D20Texture,
+            );
         case 100:
             return createD100(
                 1,
-                options ? new D10Texture(options) : undefined,
-                options ? new DPercentileTexture(options) : undefined,
+                createTextureForSides(10, textureStyle, options) as D10Texture,
+                createTextureForSides(100, textureStyle, options) as DPercentileTexture,
             );
         default:
             throw new Error(`No geometry for d${sides}`);
