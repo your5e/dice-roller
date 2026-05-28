@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Roller</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: system-ui, sans-serif;
+            overflow: hidden;
+        }
+        #dice-tray {
+            position: fixed;
+            inset: 0;
+            background: #000;
+        }
+
+        /* Hamburger button */
+        #menu-toggle {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            z-index: 100;
+        }
+        #menu-toggle span {
+            display: block;
+            width: 24px;
+            height: 3px;
+            background: #333;
+            border-radius: 2px;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        #menu-toggle.open span:nth-child(1) {
+            transform: translateY(8px) rotate(45deg);
+        }
+        #menu-toggle.open span:nth-child(2) {
+            opacity: 0;
+        }
+        #menu-toggle.open span:nth-child(3) {
+            transform: translateY(-8px) rotate(-45deg);
+        }
+
+        /* Menu panel */
+        #menu {
+            position: fixed;
+            bottom: 5rem;
+            right: 1rem;
+            width: min(320px, calc(100vw - 2rem));
+            max-height: calc(100vh - 7rem);
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 99;
+            display: none;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow-y: auto;
+        }
+        #menu.open {
+            display: flex;
+        }
+
+        /* Roll input */
+        #roll-form {
+            display: flex;
+            gap: 0.5rem;
+        }
+        #roll-input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font: inherit;
+        }
+        #roll-form button {
+            padding: 0.5rem 1rem;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #roll-form button:hover {
+            background: #555;
+        }
+
+        /* History sections */
+        .history-section h3 {
+            margin: 0 0 0.5rem;
+            font-size: 0.85rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.5rem;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .history-item .item-text {
+            flex: 1;
+            cursor: pointer;
+            word-break: break-all;
+            display: flex;
+            flex-direction: column;
+        }
+        .history-item .item-text:hover {
+            text-decoration: underline;
+        }
+        .history-item .item-name {
+            font-weight: bold;
+        }
+        .history-item .item-notation {
+            font-size: 0.85em;
+            color: #666;
+        }
+        .history-item .item-text:not(:has(.item-name)) .item-notation {
+            font-size: 1em;
+            color: inherit;
+        }
+        .history-item button {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            background: #ddd;
+        }
+        .history-item button:hover {
+            background: #ccc;
+        }
+
+        /* Result display */
+        #result {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 25vh;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        #result.visible {
+            display: flex;
+        }
+        #result .total {
+            font-size: 15vh;
+            font-weight: bold;
+            line-height: 1;
+        }
+        #result .notation {
+            font-size: 2vh;
+            opacity: 0.7;
+        }
+
+        /* Help button */
+        #help-btn {
+            width: 100%;
+            padding: 0.5rem;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font: inherit;
+            color: #666;
+        }
+        #help-btn:hover {
+            background: #e0e0e0;
+        }
+
+        /* Help splash */
+        #help {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+        #help.visible {
+            display: flex;
+        }
+        #help-close {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            width: 48px;
+            height: 48px;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            line-height: 1;
+            z-index: 201;
+        }
+        #help-close:hover {
+            background: #555;
+        }
+        #help h1 {
+            margin: 0 0 1.5rem;
+            font-size: 1.5rem;
+        }
+        #help h2 {
+            margin: 1.5rem 0 0.5rem;
+            font-size: 1.1rem;
+        }
+        #help p {
+            margin: 0 0 0.5rem;
+            line-height: 1.5;
+            max-width: 40rem;
+        }
+        #help code {
+            background: #f0f0f0;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div id="dice-tray"></div>
+
+    <button id="menu-toggle" type="button">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <div id="menu">
+        <div id="saved-section" class="history-section" hidden>
+            <h3>Saved</h3>
+            <div id="saved-list" class="history-list"></div>
+        </div>
+
+        <div id="recent-section" class="history-section" hidden>
+            <h3>Recent</h3>
+            <div id="recent-list" class="history-list"></div>
+        </div>
+
+        <form id="roll-form">
+            <input type="text" id="roll-input" placeholder="e.g. 2d20kh1+5" required>
+            <button type="submit">Roll</button>
+        </form>
+
+        <button type="button" id="help-btn">Notation Help</button>
+    </div>
+
+    <div id="help">
+        <button type="button" id="help-close">×</button>
+        <h1>Dice Notation</h1>
+
+        <h2>Basic Dice</h2>
+        <p>Write as <code>NdS</code> where N is the number of dice and S is the number of sides. Example: <code>2d6</code>, <code>1d20</code>, <code>1d100</code></p>
+
+        <h2>Bonuses</h2>
+        <p>Add or subtract a fixed value with <code>+N</code> or <code>-N</code> at the end. Example: <code>1d20+5</code>, <code>2d6-1</code></p>
+
+        <h2>Keep Highest / Lowest</h2>
+        <p>Use <code>khN</code> to keep the highest N dice, or <code>klN</code> for lowest. This is how advantage and disadvantage work. Example: <code>2d20kh1</code> (advantage), <code>2d20kl1</code> (disadvantage)</p>
+
+        <h2>Drop Highest / Lowest</h2>
+        <p>Use <code>dlN</code> to drop the lowest N dice, or <code>dhN</code> for highest. Example: <code>4d6dl1</code> (ability score generation)</p>
+
+        <h2>Reroll Below (Once)</h2>
+        <p>Use <code>rbN</code> to reroll dice below N once per die. Example: <code>1d20rb2</code> (Halfling Luck), <code>2d6rb3</code> (Great Weapon Fighting)</p>
+
+        <h2>Reroll Below (Multiple)</h2>
+        <p>Use <code>rmN</code> to keep rerolling dice below N until satisfied. Example: <code>2d6rm3</code></p>
+
+        <h2>Minimum Value</h2>
+        <p>Use <code>mN</code> to treat results below N as N. Example: <code>1d20m10</code> (Reliable Talent)</p>
+
+        <h2>Reroll Minimum Total</h2>
+        <p>Use <code>rmtN</code> to reroll all dice if total is below N. Example: <code>4d6dl1rmt6</code></p>
+
+        <h2>Labels</h2>
+        <p>Prefix with <code>label:</code> to group by damage type. Separate expressions with spaces. Example: <code>fire:8d6</code>, <code>slashing:1d8+3 fire:1d6</code></p>
+
+        <h2>Constraints</h2>
+        <p>Use <code>label:rmtN</code> to reroll labelled dice if their total is below N. Use <code>*:rmtN</code> for all dice. Example: <code>str:4d6dl1 dex:4d6dl1 *:rmt70</code></p>
+    </div>
+
+    <div id="result">
+        <div class="notation"></div>
+        <div class="total"></div>
+    </div>
+
+    <script src="dist/dice-roller.js"></script>
+    <script>
+        var tray = DiceRoller.tray('#dice-tray');
+
+        var menuToggle = document.getElementById('menu-toggle');
+        var menu = document.getElementById('menu');
+        var rollForm = document.getElementById('roll-form');
+        var rollInput = document.getElementById('roll-input');
+        var savedSection = document.getElementById('saved-section');
+        var savedList = document.getElementById('saved-list');
+        var recentSection = document.getElementById('recent-section');
+        var recentList = document.getElementById('recent-list');
+        var resultEl = document.getElementById('result');
+
+        var helpEl = document.getElementById('help');
+        var helpBtn = document.getElementById('help-btn');
+        var helpClose = document.getElementById('help-close');
+
+        var recentNotations = [];
+        var defaultSaved = [
+            { name: 'Advantage', notation: '2d20kh1' },
+            { name: 'Disadvantage', notation: '2d20kl1' }
+        ];
+        var storedSaved = localStorage.getItem('savedRolls');
+        var savedNotations = storedSaved !== null ? JSON.parse(storedSaved) : defaultSaved;
+
+        function toggleMenu() {
+            menuToggle.classList.toggle('open');
+            menu.classList.toggle('open');
+        }
+
+        menuToggle.addEventListener('click', toggleMenu);
+
+        function findSavedIndex(notation) {
+            for (var i = 0; i < savedNotations.length; i++) {
+                if (savedNotations[i].notation === notation) return i;
+            }
+            return -1;
+        }
+
+        function savePermanently(notation) {
+            if (findSavedIndex(notation) === -1) {
+                var name = prompt('Name for this roll (optional):');
+                savedNotations.push({ name: name || '', notation: notation });
+                localStorage.setItem('savedRolls', JSON.stringify(savedNotations));
+            }
+            var idx = recentNotations.indexOf(notation);
+            if (idx !== -1) {
+                recentNotations.splice(idx, 1);
+            }
+            renderHistory();
+        }
+
+        function unsave(notation) {
+            var idx = findSavedIndex(notation);
+            if (idx !== -1) {
+                savedNotations.splice(idx, 1);
+                localStorage.setItem('savedRolls', JSON.stringify(savedNotations));
+            }
+            if (recentNotations.indexOf(notation) === -1) {
+                recentNotations.unshift(notation);
+            }
+            renderHistory();
+        }
+
+        function addToRecent(notation) {
+            if (findSavedIndex(notation) !== -1) return;
+            var idx = recentNotations.indexOf(notation);
+            if (idx !== -1) {
+                recentNotations.splice(idx, 1);
+            }
+            recentNotations.unshift(notation);
+            renderHistory();
+        }
+
+        function doRoll(notation) {
+            DiceRoller.roll(notation);
+            addToRecent(notation);
+            toggleMenu();
+        }
+
+        function createSavedItem(saved) {
+            var item = document.createElement('div');
+            item.className = 'history-item';
+
+            var textWrapper = document.createElement('span');
+            textWrapper.className = 'item-text';
+            textWrapper.addEventListener('click', function() {
+                doRoll(saved.notation);
+            });
+
+            if (saved.name) {
+                var nameSpan = document.createElement('span');
+                nameSpan.className = 'item-name';
+                nameSpan.textContent = saved.name;
+                textWrapper.appendChild(nameSpan);
+            }
+
+            var notationSpan = document.createElement('span');
+            notationSpan.className = 'item-notation';
+            notationSpan.textContent = saved.notation;
+            textWrapper.appendChild(notationSpan);
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = '−';
+            btn.title = 'Remove from saved';
+            btn.addEventListener('click', function() {
+                unsave(saved.notation);
+            });
+
+            item.appendChild(textWrapper);
+            item.appendChild(btn);
+            return item;
+        }
+
+        function createRecentItem(notation) {
+            var item = document.createElement('div');
+            item.className = 'history-item';
+
+            var textWrapper = document.createElement('span');
+            textWrapper.className = 'item-text';
+            textWrapper.addEventListener('click', function() {
+                doRoll(notation);
+            });
+
+            var notationSpan = document.createElement('span');
+            notationSpan.className = 'item-notation';
+            notationSpan.textContent = notation;
+            textWrapper.appendChild(notationSpan);
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = '+';
+            btn.title = 'Save permanently';
+            btn.addEventListener('click', function() {
+                savePermanently(notation);
+            });
+
+            item.appendChild(textWrapper);
+            item.appendChild(btn);
+            return item;
+        }
+
+        function renderHistory() {
+            savedList.innerHTML = '';
+            recentList.innerHTML = '';
+
+            savedNotations.forEach(function(saved) {
+                savedList.appendChild(createSavedItem(saved));
+            });
+            savedSection.hidden = savedNotations.length === 0;
+
+            for (var i = recentNotations.length - 1; i >= 0; i--) {
+                recentList.appendChild(createRecentItem(recentNotations[i]));
+            }
+            recentSection.hidden = recentNotations.length === 0;
+        }
+
+        rollForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var notation = rollInput.value.trim();
+            if (notation) {
+                doRoll(notation);
+                rollInput.value = '';
+            }
+        });
+
+        DiceRoller.onRoll(function(result) {
+            if (result.expressions.length === 0) return;
+            resultEl.querySelector('.notation').textContent = result.notation;
+            resultEl.querySelector('.total').textContent = result.total;
+            resultEl.classList.add('visible');
+        });
+
+        resultEl.addEventListener('click', function() {
+            resultEl.classList.remove('visible');
+        });
+
+        helpBtn.addEventListener('click', function() {
+            helpEl.classList.add('visible');
+        });
+
+        helpClose.addEventListener('click', function() {
+            helpEl.classList.remove('visible');
+        });
+
+        renderHistory();
+    </script>
+</body>
+</html>
