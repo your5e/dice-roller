@@ -334,6 +334,7 @@ export abstract class DieTexture {
     }
 
     protected abstract faceVertices: Record<number, number[]>;
+    protected abstract vertices: THREE.Vector3[];
     protected abstract faces: { value: number }[];
     protected abstract get edgeLength(): number;
     protected abstract bgColour: string;
@@ -360,9 +361,26 @@ export abstract class DieTexture {
     protected get pixelDensity(): number {
         return 100;
     }
+
     protected get stripWidth(): number {
-        return this.edgeLength * CHAMFER;
+        // the gap is chamfer * the distance between adjacent face centres
+        const faceA = this.faces[0];
+        const centreA = new THREE.Vector3();
+        for (const vi of this.faceVertices[faceA.value]) {
+            centreA.add(this.vertices[vi]);
+        }
+        centreA.divideScalar(this.faceVertices[faceA.value].length);
+
+        const faceBValue = this.getAdjacentFaces(faceA.value)[0];
+        const centreB = new THREE.Vector3();
+        for (const vi of this.faceVertices[faceBValue]) {
+            centreB.add(this.vertices[vi]);
+        }
+        centreB.divideScalar(this.faceVertices[faceBValue].length);
+
+        return centreA.distanceTo(centreB) * CHAMFER * this.pixelDensity;
     }
+
     protected get margin(): number {
         return this.stripWidth * 1.5;
     }
