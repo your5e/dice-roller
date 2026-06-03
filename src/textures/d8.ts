@@ -4,26 +4,26 @@ import { KintsugiMixin } from "./kintsugi";
 import { Unfoldable } from "./unfold";
 
 export class D8Texture extends Unfoldable(DieTexture) {
-    protected faces = FACES;
-    protected vertices = VERTICES;
-    protected faceVertices = FACE_VERTICES;
-    protected bgColour = "#3366aa";
-    protected fgColour = "#ffffff";
+    faces = FACES;
+    vertices = VERTICES;
+    faceVertices = FACE_VERTICES;
+    bgColour = "#3366aa";
+    fgColour = "#ffffff";
 
     get startRotation(): number {
         return 90;
     }
 
-    protected get edgeLength(): number {
+    get edgeLength(): number {
         return this.pixelDensity * Math.SQRT2;
     }
 
     // triangles taper towards the apex, so the text appears over-scaled
-    protected override getShapeFontScale(): number {
+    override getShapeFontScale(): number {
         return 0.75;
     }
 
-    protected override getIconScale(): number {
+    override getIconScale(): number {
         return 0.65 * (this.iconScale ?? 1);
     }
 

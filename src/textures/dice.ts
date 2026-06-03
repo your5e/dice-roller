@@ -1,5 +1,7 @@
 import * as THREE from "three";
+import { CubicBezierCurve, Vector2 } from "three";
 import { SimplexNoise } from "three/addons/math/SimplexNoise.js";
+import { loadVarelaRound } from "../fonts/varela-round";
 import { CHAMFER } from "../geometries/chamfer";
 import { perpendicular, pointInPolygon } from "../geometry";
 
@@ -9,7 +11,7 @@ export type TextureOptions = {
     faceColour?: string;
     stripColour?: string;
     crownColour?: string;
-    numberColour?: string;
+    numeralColour?: string;
     underlineColour?: string;
     icon?: string;
     iconColour?: string;
@@ -40,6 +42,23 @@ export type EdgeTarget = {
     face: number;
     adjFace: number;
     t: number;
+};
+
+export type BezierSample = {
+    point: Point;
+    tangent: Point;
+};
+
+export type EdgeBezierData = {
+    samples: BezierSample[];
+    from: Point;
+    to: Point;
+    entryEase: Point;
+    exitEase: Point;
+    anchor: Point;
+    mid1: Point;
+    mid2: Point;
+    isSymmetric: boolean;
 };
 
 export type ClosedLoopState = {
@@ -76,7 +95,7 @@ export const GHOST_COLOURS: TextureOptions = {
     faceColour: "transparent",
     stripColour: "rgba(255, 255, 255, 0.66)",
     crownColour: "rgba(255, 255, 255, 0.66)",
-    numberColour: "rgba(255, 255, 255, 0.66)",
+    numeralColour: "rgba(255, 255, 255, 0.66)",
     iconColour: "rgba(255, 255, 255, 0.33)",
 };
 
@@ -97,9 +116,9 @@ function optionsKey(options?: TextureOptions): string {
 }
 
 export abstract class DieTexture {
-    protected options?: TextureOptions;
+    options?: TextureOptions;
 
-    private static hashString(str: string): number {
+    static hashString(str: string): number {
         let hash = 5381;
         for (let i = 0; i < str.length; i++) {
             hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
@@ -107,9 +126,9 @@ export abstract class DieTexture {
         return hash >>> 0;
     }
 
-    private _prngState?: number;
+    _prngState?: number;
 
-    protected seededRandom(): number {
+    seededRandom(): number {
         if (this._prngState === undefined) {
             if (this.options?.seed === undefined) {
                 throw new Error("Texture requires a seed for seededRandom");
@@ -128,16 +147,16 @@ export abstract class DieTexture {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     }
 
-    private _simplex?: SimplexNoise;
+    _simplex?: SimplexNoise;
 
-    protected get simplex(): SimplexNoise {
+    get simplex(): SimplexNoise {
         if (!this._simplex) {
             this._simplex = new SimplexNoise({ random: () => this.seededRandom() });
         }
         return this._simplex;
     }
 
-    protected findAllClosedLoops(): {
+    findAllClosedLoops(): {
         loops: EdgeTarget[][];
         edgeConnections: Map<string, number[]>;
     } {
@@ -167,11 +186,11 @@ export abstract class DieTexture {
         return { loops, edgeConnections: state.edgeConnections };
     }
 
-    private closedLoopTargetKey(edge: string, t: number): string {
+    closedLoopTargetKey(edge: string, t: number): string {
         return `${edge}@${t}`;
     }
 
-    private findNextLoop(state: ClosedLoopState): EdgeTarget[] | null {
+    findNextLoop(state: ClosedLoopState): EdgeTarget[] | null {
         const MAX_FACE_VISITS = 2;
 
         const getAvailableT = (edge: string) =>
@@ -255,7 +274,7 @@ export abstract class DieTexture {
         return loop;
     }
 
-    private tryNextFace(
+    tryNextFace(
         loop: EdgeTarget[],
         currentFace: number,
         startFace: number,
@@ -333,36 +352,38 @@ export abstract class DieTexture {
         return false;
     }
 
-    protected abstract faceVertices: Record<number, number[]>;
-    protected abstract vertices: THREE.Vector3[];
-    protected abstract faces: { value: number }[];
-    protected abstract get edgeLength(): number;
-    protected abstract bgColour: string;
-    protected abstract fgColour: string;
-    protected faceColour?: string;
-    protected stripColour?: string;
-    protected crownColour?: string;
-    protected numberColour?: string;
-    protected numberOutlineColour?: string;
-    protected numberOutlineWidth = 0.08;
-    protected underlineColour?: string;
-    protected iconColour?: string;
-    protected fontFamily = "Varela Round, sans-serif";
-    protected fontWeight = 400;
-    protected fontSize = 1.2;
-    protected faceData = new Map<number, FaceData>();
-    protected stripData = new Map<string, StripData>();
-    protected crownData = new Map<number, CrownData>();
-    public width = 0;
-    public height = 0;
-    protected icon?: string;
-    protected iconScale?: number;
+    abstract faceVertices: Record<number, number[]>;
+    abstract vertices: THREE.Vector3[];
+    abstract faces: { value: number }[];
+    abstract get edgeLength(): number;
+    abstract bgColour: string;
+    abstract fgColour: string;
+    faceColour?: string;
+    stripColour?: string;
+    crownColour?: string;
+    numeralColour?: string;
+    fgOutlineColour?: string;
+    numeralOutlineColour?: string;
+    numberOutlineWidth = 0.08;
+    underlineColour?: string;
+    iconColour?: string;
+    iconOutlineColour?: string;
+    fontFamily = "Varela Round, sans-serif";
+    fontWeight = 400;
+    fontSize = 1.2;
+    faceData = new Map<number, FaceData>();
+    stripData = new Map<string, StripData>();
+    crownData = new Map<number, CrownData>();
+    width = 0;
+    height = 0;
+    icon?: string;
+    iconScale?: number;
 
-    protected get pixelDensity(): number {
+    get pixelDensity(): number {
         return 100;
     }
 
-    protected get stripWidth(): number {
+    get stripWidth(): number {
         // the gap is chamfer * the distance between adjacent face centres
         const faceA = this.faces[0];
         const centreA = new THREE.Vector3();
@@ -381,11 +402,11 @@ export abstract class DieTexture {
         return centreA.distanceTo(centreB) * CHAMFER * this.pixelDensity;
     }
 
-    protected get margin(): number {
+    get margin(): number {
         return this.stripWidth * 1.5;
     }
 
-    protected buildFaceData(): void {
+    buildFaceData(): void {
         for (const { value: face } of this.faces) {
             const points = this.calculateFacePoints(face);
             const uvs = points.map((p) => ({
@@ -395,7 +416,7 @@ export abstract class DieTexture {
             this.faceData.set(face, { points, uvs });
         }
     }
-    protected buildStripData(): void {
+    buildStripData(): void {
         for (const { value: faceA } of this.faces) {
             for (const faceB of this.getAdjacentFaces(faceA)) {
                 if (faceB < faceA) continue;
@@ -420,7 +441,7 @@ export abstract class DieTexture {
             }
         }
     }
-    protected buildCrownData(): void {
+    buildCrownData(): void {
         const vertexCount = Math.max(...Object.values(this.faceVertices).flat()) + 1;
         for (let vertex = 0; vertex < vertexCount; vertex++) {
             const hasVertex = this.faces.some(({ value: face }) =>
@@ -438,7 +459,7 @@ export abstract class DieTexture {
         }
     }
 
-    protected buildLayoutData(): void {
+    buildLayoutData(): void {
         this.buildFaceLayout();
         this.buildFaceData();
         this.buildStripData();
@@ -446,7 +467,7 @@ export abstract class DieTexture {
         this.validateBounds();
     }
 
-    protected validateBounds(): void {
+    validateBounds(): void {
         const epsilon = 0.01;
         const check = (pt: Point, label: string) => {
             if (
@@ -478,7 +499,7 @@ export abstract class DieTexture {
         }
     }
 
-    protected calculateStripPoints(faceA: number, faceB: number): Point[] {
+    calculateStripPoints(faceA: number, faceB: number): Point[] {
         const stripFace = this.getStripPriorityFace(faceA, faceB);
         const otherFace = stripFace === faceA ? faceB : faceA;
 
@@ -498,34 +519,136 @@ export abstract class DieTexture {
         ];
     }
 
-    protected createTextureFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+    createTextureFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
         const texture = new THREE.CanvasTexture(canvas);
         texture.flipY = false;
         texture.colorSpace = THREE.SRGBColorSpace;
         return texture;
     }
 
-    protected async createCanvas(): Promise<HTMLCanvasElement> {
+    designData(): void {}
+
+    async createCanvas(): Promise<HTMLCanvasElement> {
+        this.designData();
+
         const canvas = document.createElement("canvas");
         canvas.width = this.width;
         canvas.height = this.height;
         const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-        this.drawStripBackground(ctx);
-        this.decorateStripBackground(ctx);
-        this.decorateStrips(ctx);
-        this.drawCrowns(ctx);
-        this.decorateCrowns(ctx);
-        this.drawFaces(ctx);
+        for (const [key, data] of this.stripData) {
+            this.drawStripBackground(ctx, key, data);
+        }
+        for (const [vertex, data] of this.crownData) {
+            this.drawCrownBackground(ctx, vertex, data);
+        }
+        for (const [face, data] of this.faceData) {
+            this.drawFaceBackground(ctx, face, data);
+        }
+        for (const [key, data] of this.stripData) {
+            this.drawStripGrain(ctx, key, data);
+        }
+        for (const [vertex, data] of this.crownData) {
+            this.drawCrownGrain(ctx, vertex, data);
+        }
+        for (const [face, data] of this.faceData) {
+            this.drawFaceGrain(ctx, face, data);
+        }
+        for (const [key, data] of this.stripData) {
+            this.drawStripDecoration(ctx, key, data);
+        }
+        for (const [vertex, data] of this.crownData) {
+            this.drawCrownDecoration(ctx, vertex, data);
+        }
+        for (const [face, data] of this.faceData) {
+            this.drawFaceDecoration(ctx, face, data);
+        }
+        for (const [face, data] of this.faceData) {
+            this.drawFaceIcon(ctx, face, data);
+        }
+        for (const [face, data] of this.faceData) {
+            this.drawFaceNumeral(ctx, face, data);
+        }
+        for (const [key, data] of this.stripData) {
+            this.drawStripFinish(ctx, key, data);
+        }
+        for (const [vertex, data] of this.crownData) {
+            this.drawCrownFinish(ctx, vertex, data);
+        }
+        for (const [face, data] of this.faceData) {
+            this.drawFaceFinish(ctx, face, data);
+        }
 
         return canvas;
     }
+
+    drawFaceBackground(
+        _ctx: CanvasRenderingContext2D,
+        _face: number,
+        _data: FaceData,
+    ): void {}
+    drawStripGrain(
+        _ctx: CanvasRenderingContext2D,
+        _key: string,
+        _data: StripData,
+    ): void {}
+    drawCrownGrain(
+        _ctx: CanvasRenderingContext2D,
+        _vertex: number,
+        _data: CrownData,
+    ): void {}
+    drawFaceGrain(
+        _ctx: CanvasRenderingContext2D,
+        _face: number,
+        _data: FaceData,
+    ): void {}
+    drawStripDecoration(
+        _ctx: CanvasRenderingContext2D,
+        _key: string,
+        _data: StripData,
+    ): void {}
+    drawCrownDecoration(
+        _ctx: CanvasRenderingContext2D,
+        _vertex: number,
+        _data: CrownData,
+    ): void {}
+    drawFaceDecoration(
+        _ctx: CanvasRenderingContext2D,
+        _face: number,
+        _data: FaceData,
+    ): void {}
+    drawFaceIcon(
+        _ctx: CanvasRenderingContext2D,
+        _face: number,
+        _data: FaceData,
+    ): void {}
+    drawFaceNumeral(
+        _ctx: CanvasRenderingContext2D,
+        _face: number,
+        _data: FaceData,
+    ): void {}
+    drawStripFinish(
+        _ctx: CanvasRenderingContext2D,
+        _key: string,
+        _data: StripData,
+    ): void {}
+    drawCrownFinish(
+        _ctx: CanvasRenderingContext2D,
+        _vertex: number,
+        _data: CrownData,
+    ): void {}
+    drawFaceFinish(
+        _ctx: CanvasRenderingContext2D,
+        _face: number,
+        _data: FaceData,
+    ): void {}
 
     async createTexture(): Promise<THREE.CanvasTexture> {
         const cacheKey = `${this.constructor.name}:${optionsKey(this.options)}`;
         const cached = textureCache.get(cacheKey);
         if (cached) return cached;
 
+        await loadVarelaRound();
         const canvas = await this.createCanvas();
         const texture = this.createTextureFromCanvas(canvas);
         textureCache.set(cacheKey, texture);
@@ -533,7 +656,7 @@ export abstract class DieTexture {
         return texture;
     }
 
-    protected getDebugColour(index: number): { hex: string; name: string } {
+    getDebugColour(index: number): { hex: string; name: string } {
         return DEBUG_COLOURS[index % DEBUG_COLOURS.length];
     }
 
@@ -562,7 +685,7 @@ export abstract class DieTexture {
         return adjacent;
     }
 
-    protected getFaceAtEdge(face: number, edgeIdx: number): number {
+    getFaceAtEdge(face: number, edgeIdx: number): number {
         for (const adjFace of this.getAdjacentFaces(face)) {
             if (this.get2DEdgeIndex(face, adjFace) === edgeIdx) return adjFace;
         }
@@ -579,7 +702,7 @@ export abstract class DieTexture {
         return null;
     }
 
-    protected stripKey(faceA: number, faceB: number): string {
+    stripKey(faceA: number, faceB: number): string {
         return `${Math.min(faceA, faceB)},${Math.max(faceA, faceB)}`;
     }
 
@@ -604,16 +727,23 @@ export abstract class DieTexture {
             throw new Error(`No common vertex for faces [${faces.join(", ")}]`);
         const data = this.crownData.get(vertex);
         if (!data) throw new Error(`No crown data for vertex ${vertex}`);
-        return data.uvs;
+        if (!data.faceOrder) throw new Error(`No face order for vertex ${vertex}`);
+
+        const { faceOrder } = data;
+        return faces.map((f) => {
+            const idx = faceOrder.indexOf(f);
+            if (idx === -1) throw new Error(`Face ${f} not in crown ${vertex}`);
+            return data.uvs[idx];
+        });
     }
 
-    protected getStripPriorityFace(faceA: number, faceB: number): number {
+    getStripPriorityFace(faceA: number, faceB: number): number {
         const idxA = this.faces.findIndex((f) => f.value === faceA);
         const idxB = this.faces.findIndex((f) => f.value === faceB);
         return idxA < idxB ? faceA : faceB;
     }
 
-    protected calculateStripUVs(
+    calculateStripUVs(
         points: Point[],
         requestingFace: number,
         _otherFace: number,
@@ -641,7 +771,7 @@ export abstract class DieTexture {
         return uvs;
     }
 
-    protected getPolygonOffsets(
+    getPolygonOffsets(
         sides: number,
         rotation: number,
         radius: number,
@@ -658,40 +788,42 @@ export abstract class DieTexture {
         return offsets;
     }
 
-    protected drawStripBackground(ctx: CanvasRenderingContext2D): void {
-        for (const data of this.stripData.values()) {
-            const [p1, p2, p3, p4] = data.points;
-            ctx.fillStyle = this.stripColour ?? this.bgColour;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.lineTo(p3.x, p3.y);
-            ctx.lineTo(p4.x, p4.y);
-            ctx.closePath();
-            ctx.fill();
-        }
+    drawStripBackground(
+        ctx: CanvasRenderingContext2D,
+        _key: string,
+        data: StripData,
+    ): void {
+        const [p1, p2, p3, p4] = data.points;
+        ctx.fillStyle = this.stripColour ?? this.bgColour;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineTo(p3.x, p3.y);
+        ctx.lineTo(p4.x, p4.y);
+        ctx.closePath();
+        ctx.fill();
     }
 
-    protected decorateStripBackground(_ctx: CanvasRenderingContext2D): void {}
-
-    protected drawCrowns(ctx: CanvasRenderingContext2D): void {
-        for (const data of this.crownData.values()) {
-            ctx.fillStyle = this.crownColour ?? this.bgColour;
-            ctx.beginPath();
-            ctx.moveTo(data.points[0].x, data.points[0].y);
-            for (let i = 1; i < data.points.length; i++) {
-                ctx.lineTo(data.points[i].x, data.points[i].y);
-            }
-            ctx.closePath();
-            ctx.fill();
+    drawCrownBackground(
+        ctx: CanvasRenderingContext2D,
+        _vertex: number,
+        data: CrownData,
+    ): void {
+        ctx.fillStyle = this.crownColour ?? this.bgColour;
+        ctx.beginPath();
+        ctx.moveTo(data.points[0].x, data.points[0].y);
+        for (let i = 1; i < data.points.length; i++) {
+            ctx.lineTo(data.points[i].x, data.points[i].y);
         }
+        ctx.closePath();
+        ctx.fill();
     }
 
-    protected getFaceLabel(face: number): string {
+    getFaceLabel(face: number): string {
         return String(face);
     }
 
-    protected drawFaceNumber(
+    drawNumeral(
         ctx: CanvasRenderingContext2D,
         value: number,
         x: number,
@@ -752,35 +884,36 @@ export abstract class DieTexture {
         }
     }
 
-    protected buildFaceLayout(): void {}
-    protected calculateCrownPoints(_vertex: number): Point[] {
+    buildFaceLayout(): void {}
+    calculateCrownPoints(_vertex: number): Point[] {
         return [];
     }
-    protected calculateFacePoints(_face: number): Point[] {
+    calculateFacePoints(_face: number): Point[] {
         return [];
     }
-    protected decorateCrowns(_ctx: CanvasRenderingContext2D): void {}
-    protected decorateStrips(_ctx: CanvasRenderingContext2D): void {}
-    protected drawFaces(_ctx: CanvasRenderingContext2D): void {}
-    protected get2DEdgeIndex(_face: number, _adjFace: number): number {
+    get2DEdgeIndex(_face: number, _adjFace: number): number {
         return -1;
     }
-    protected getFaceHeight(): number {
+    getFaceHeight(): number {
         return 1.0;
     }
-    protected getShapeFontScale(): number {
+    getShapeFontScale(): number {
         return 1.0;
     }
 
-    protected getIconScale(): number {
+    getIconScale(): number {
         return 1.0 * (this.iconScale ?? 1);
     }
 
-    protected getIconColour(): string {
+    getIconColour(): string {
         return this.iconColour ?? this.fgColour;
     }
 
-    protected getEdgeDirection(face: number, adjFace: number): Point {
+    getIconOutlineColour(): string | undefined {
+        return this.iconOutlineColour ?? this.fgOutlineColour;
+    }
+
+    getEdgeDirection(face: number, adjFace: number): Point {
         const data = this.faceData.get(face);
         if (!data) throw new Error(`Unknown face ${face}`);
 
@@ -797,7 +930,7 @@ export abstract class DieTexture {
         return { x: dx / len, y: dy / len };
     }
 
-    protected isEdgeReversed(face: number, otherFace: number): boolean {
+    isEdgeReversed(face: number, otherFace: number): boolean {
         const faceVerts = this.faceVertices[face];
         const otherVerts = this.faceVertices[otherFace];
 
@@ -810,7 +943,7 @@ export abstract class DieTexture {
         return faceStartVert !== otherStartVert;
     }
 
-    protected edgeTargetToCanvas(target: EdgeTarget): Point {
+    edgeTargetToCanvas(target: EdgeTarget): Point {
         const data = this.faceData.get(target.face);
         if (!data) throw new Error(`Unknown face ${target.face}`);
 
@@ -832,7 +965,7 @@ export abstract class DieTexture {
         };
     }
 
-    protected stippleArea(
+    stippleArea(
         ctx: CanvasRenderingContext2D,
         polygon: Point[],
         baseWidth: number,
@@ -880,6 +1013,166 @@ export abstract class DieTexture {
             }
         }
     }
+
+    computeEdgeBezierSamples(
+        from: Point,
+        to: Point,
+        startEdgeDir: Point,
+        endEdgeDir: Point,
+        faceRadius: number,
+        isSymmetric: boolean,
+    ): EdgeBezierData {
+        const outwardEntry = perpendicular(startEdgeDir.x, startEdgeDir.y);
+        const entryPerp = { x: -outwardEntry.x, y: -outwardEntry.y };
+        const outwardExit = perpendicular(endEdgeDir.x, endEdgeDir.y);
+        const exitPerp = { x: -outwardExit.x, y: -outwardExit.y };
+
+        const segLen = Math.hypot(to.x - from.x, to.y - from.y);
+        const depthRatio = 0.3;
+        const easeDepth = segLen * depthRatio;
+        const entryEase = {
+            x: from.x + entryPerp.x * easeDepth,
+            y: from.y + entryPerp.y * easeDepth,
+        };
+        const exitEase = {
+            x: to.x + exitPerp.x * easeDepth,
+            y: to.y + exitPerp.y * easeDepth,
+        };
+        const anchor = {
+            x: (entryEase.x + exitEase.x) / 2,
+            y: (entryEase.y + exitEase.y) / 2,
+        };
+        const mid1 = {
+            x: (entryEase.x + anchor.x) / 2,
+            y: (entryEase.y + anchor.y) / 2,
+        };
+        const mid2 = {
+            x: (anchor.x + exitEase.x) / 2,
+            y: (anchor.y + exitEase.y) / 2,
+        };
+
+        const toVec = (p: Point) => new Vector2(p.x, p.y);
+        const curves: CubicBezierCurve[] = isSymmetric
+            ? [
+                  new CubicBezierCurve(
+                      toVec(from),
+                      toVec(entryEase),
+                      toVec(exitEase),
+                      toVec(to),
+                  ),
+              ]
+            : [
+                  new CubicBezierCurve(
+                      toVec(from),
+                      toVec(entryEase),
+                      toVec(mid1),
+                      toVec(anchor),
+                  ),
+                  new CubicBezierCurve(
+                      toVec(anchor),
+                      toVec(mid2),
+                      toVec(exitEase),
+                      toVec(to),
+                  ),
+              ];
+
+        const maxLength = faceRadius * 2;
+        const relativeLength = Math.min(1, segLen / maxLength);
+        const numSamples = Math.max(2, Math.floor(9 * relativeLength));
+        const samples: BezierSample[] = [];
+        const totalCurves = curves.length;
+        for (let i = 0; i <= numSamples; i++) {
+            const globalT = i / numSamples;
+            const segmentFloat = globalT * totalCurves;
+            const curveIdx = Math.min(Math.floor(segmentFloat), totalCurves - 1);
+            const localT = segmentFloat - curveIdx;
+
+            const point = curves[curveIdx].getPoint(localT);
+            const tangent = curves[curveIdx].getTangent(localT);
+            samples.push({
+                point: { x: point.x, y: point.y },
+                tangent: { x: tangent.x, y: tangent.y },
+            });
+        }
+
+        return {
+            samples,
+            from,
+            to,
+            entryEase,
+            exitEase,
+            anchor,
+            mid1,
+            mid2,
+            isSymmetric,
+        };
+    }
+
+    debugDrawBezier(
+        ctx: CanvasRenderingContext2D,
+        data: EdgeBezierData,
+        curveIndex: number,
+    ): void {
+        const { from, to, entryEase, exitEase, anchor, mid1, mid2, isSymmetric } = data;
+
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        if (isSymmetric) {
+            ctx.bezierCurveTo(
+                entryEase.x,
+                entryEase.y,
+                exitEase.x,
+                exitEase.y,
+                to.x,
+                to.y,
+            );
+        } else {
+            ctx.bezierCurveTo(
+                entryEase.x,
+                entryEase.y,
+                mid1.x,
+                mid1.y,
+                anchor.x,
+                anchor.y,
+            );
+            ctx.bezierCurveTo(mid2.x, mid2.y, exitEase.x, exitEase.y, to.x, to.y);
+        }
+        ctx.stroke();
+
+        const debugColours =
+            curveIndex % 2 === 0
+                ? { edge: DEBUG_COLOURS[0].hex, ease: DEBUG_COLOURS[1].hex }
+                : { edge: DEBUG_COLOURS[2].hex, ease: DEBUG_COLOURS[3].hex };
+
+        ctx.strokeStyle = debugColours.ease;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(entryEase.x, entryEase.y);
+        ctx.moveTo(to.x, to.y);
+        ctx.lineTo(exitEase.x, exitEase.y);
+        ctx.stroke();
+
+        ctx.fillStyle = debugColours.edge;
+        ctx.beginPath();
+        ctx.arc(from.x, from.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(to.x, to.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = debugColours.ease;
+        ctx.beginPath();
+        ctx.arc(entryEase.x, entryEase.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(exitEase.x, exitEase.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: mixin pattern requires any
@@ -888,31 +1181,31 @@ type DieTextureConstructor = new (...args: any[]) => DieTexture;
 export function TemplateMixin<T extends DieTextureConstructor>(Base: T) {
     // @ts-expect-error: mixin applied to concrete subclass, not abstract base
     return class extends Base {
-        protected bgColour = "#ffffff";
-        protected fgColour = "#e8e8e8";
-        protected stripColour = "#f8f8f8";
-        protected crownColour = "#f0f0f0";
+        bgColour = "#ffffff";
+        fgColour = "#e8e8e8";
+        stripColour = "#f8f8f8";
+        crownColour = "#f0f0f0";
     };
 }
 
 export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
     // @ts-expect-error: mixin applied to concrete subclass, not abstract base
     return class extends Base {
-        protected override get pixelDensity(): number {
+        override get pixelDensity(): number {
             return 200;
         }
-        protected bgColour = "#f0f0f0";
-        protected fgColour = "#000000";
-        protected stripColour = "#ffffff";
-        protected crownColour = "#ffffff";
-        protected fontFamily =
+        bgColour = "#f0f0f0";
+        fgColour = "#000000";
+        stripColour = "#ffffff";
+        crownColour = "#ffffff";
+        fontFamily =
             "Inter, Roboto, 'Helvetica Neue', 'Arial Nova', 'Nimbus Sans', Arial, sans-serif";
-        protected fontWeight = 200;
+        fontWeight = 200;
 
-        private stripColourIndex = new Map<string, number>();
-        private nextStripColour = 0;
+        stripColourIndex = new Map<string, number>();
+        nextStripColour = 0;
 
-        private getStripColourIndex(key: string): number {
+        getStripColourIndex(key: string): number {
             const index = this.stripColourIndex.get(key);
             if (index === undefined) {
                 const newIndex = this.nextStripColour++;
@@ -922,66 +1215,71 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
             return index;
         }
 
-        protected getStripColour(faceA: number, faceB: number): string {
+        getStripColour(faceA: number, faceB: number): string {
             const key = `${Math.min(faceA, faceB)},${Math.max(faceA, faceB)}`;
             return this.getDebugColour(this.getStripColourIndex(key)).hex;
         }
 
-        protected getStripColourName(faceA: number, faceB: number): string {
+        getStripColourName(faceA: number, faceB: number): string {
             const key = `${Math.min(faceA, faceB)},${Math.max(faceA, faceB)}`;
             return this.getDebugColour(this.getStripColourIndex(key)).name;
         }
 
-        protected getCrownColour(vertex: number): string {
+        getCrownColour(vertex: number): string {
             return this.getDebugColour(vertex).hex;
         }
 
-        protected getCrownColourName(vertex: number): string {
+        getCrownColourName(vertex: number): string {
             return this.getDebugColour(vertex).name;
         }
 
-        protected override decorateStrips(ctx: CanvasRenderingContext2D): void {
-            for (const [key, data] of this.stripData) {
-                const [faceA, faceB] = key.split(",").map(Number);
-                const [p1, p2, p3, p4] = data.points;
+        override drawStripDecoration(
+            ctx: CanvasRenderingContext2D,
+            key: string,
+            data: StripData,
+        ): void {
+            const [faceA, faceB] = key.split(",").map(Number);
+            const [p1, p2, p3, p4] = data.points;
 
-                ctx.strokeStyle = this.getStripColour(faceA, faceB);
-                ctx.lineWidth = 0.03 * this.pixelDensity;
+            ctx.strokeStyle = this.getStripColour(faceA, faceB);
+            ctx.lineWidth = 0.03 * this.pixelDensity;
 
-                const offsetRatio = this.stripWidth / this.edgeLength;
-                const innerMidX = (p1.x + p2.x) / 2;
-                const innerMidY = (p1.y + p2.y) / 2;
-                const outerMidX = (p3.x + p4.x) / 2;
-                const outerMidY = (p3.y + p4.y) / 2;
-                const innerX = innerMidX + offsetRatio * (p1.x - innerMidX);
-                const innerY = innerMidY + offsetRatio * (p1.y - innerMidY);
-                const outerX = outerMidX + offsetRatio * (p3.x - outerMidX);
-                const outerY = outerMidY + offsetRatio * (p3.y - outerMidY);
-                ctx.beginPath();
-                ctx.moveTo(innerX, innerY);
-                ctx.lineTo(outerX, outerY);
-                ctx.stroke();
-            }
+            const offsetRatio = this.stripWidth / this.edgeLength;
+            const innerMidX = (p1.x + p2.x) / 2;
+            const innerMidY = (p1.y + p2.y) / 2;
+            const outerMidX = (p3.x + p4.x) / 2;
+            const outerMidY = (p3.y + p4.y) / 2;
+            const innerX = innerMidX + offsetRatio * (p1.x - innerMidX);
+            const innerY = innerMidY + offsetRatio * (p1.y - innerMidY);
+            const outerX = outerMidX + offsetRatio * (p3.x - outerMidX);
+            const outerY = outerMidY + offsetRatio * (p3.y - outerMidY);
+            ctx.beginPath();
+            ctx.moveTo(innerX, innerY);
+            ctx.lineTo(outerX, outerY);
+            ctx.stroke();
         }
 
-        protected override decorateCrowns(ctx: CanvasRenderingContext2D): void {
-            for (const [vertex, data] of this.crownData) {
-                ctx.fillStyle = this.getCrownColour(vertex);
-                ctx.beginPath();
-                ctx.moveTo(data.points[0].x, data.points[0].y);
-                for (let i = 1; i < data.points.length; i++) {
-                    ctx.lineTo(data.points[i].x, data.points[i].y);
-                }
-                ctx.closePath();
-                ctx.fill();
+        override drawCrownDecoration(
+            ctx: CanvasRenderingContext2D,
+            vertex: number,
+            data: CrownData,
+        ): void {
+            ctx.fillStyle = this.getCrownColour(vertex);
+            ctx.beginPath();
+            ctx.moveTo(data.points[0].x, data.points[0].y);
+            for (let i = 1; i < data.points.length; i++) {
+                ctx.lineTo(data.points[i].x, data.points[i].y);
             }
+            ctx.closePath();
+            ctx.fill();
         }
 
-        protected drawFaceBackgroundDecoration(
+        override drawFaceDecoration(
             ctx: CanvasRenderingContext2D,
             face: number,
-            pts: Point[],
+            data: FaceData,
         ): void {
+            const pts = data.points;
             const n = pts.length;
 
             const centreX = pts.reduce((sum, p) => sum + p.x, 0) / n;
@@ -1018,8 +1316,8 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
             }
-            // biome-ignore lint/suspicious/noExplicitAny: mixin type limitation
-            (this as any).drawFaceIcon(ctx, face, pts);
+
+            this.drawFaceIcon(ctx, face, data);
         }
     };
 }

@@ -8,9 +8,9 @@ const geometryCache = new Map<number, THREE.BufferGeometry>();
 const defaultTexture = new D6Texture();
 
 export class D6 extends Die {
-    protected faceVertices = FACE_VERTICES;
-    protected meshVertices = VERTICES;
-    protected faceStance = FACE_STANCE;
+    faceVertices = FACE_VERTICES;
+    meshVertices = VERTICES;
+    faceStance = FACE_STANCE;
 
     async replaceTexture(options: TextureOptions): Promise<void> {
         const material = this.mesh.material as THREE.MeshPhysicalMaterial;

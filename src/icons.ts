@@ -33,25 +33,14 @@ const ICONS: Record<string, IconData> = {
     zap: Zap as IconData,
 };
 
-export function drawIcon(
+function drawIconPaths(
     ctx: CanvasRenderingContext2D,
-    iconName: string,
-    x: number,
-    y: number,
-    size: number,
+    iconData: IconData,
     colour: string,
+    lineWidth: number,
 ): void {
-    const iconData = ICONS[iconName];
-    if (!iconData) {
-        return;
-    }
-
-    ctx.save();
-    ctx.translate(x - size / 2, y - size / 2);
-    ctx.scale(size / 24, size / 24);
-
     ctx.strokeStyle = colour;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = lineWidth;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
@@ -104,6 +93,30 @@ export function drawIcon(
             }
         }
     }
+}
+
+export function drawIcon(
+    ctx: CanvasRenderingContext2D,
+    iconName: string,
+    x: number,
+    y: number,
+    size: number,
+    colour: string,
+    outlineColour?: string,
+): void {
+    const iconData = ICONS[iconName];
+    if (!iconData) {
+        return;
+    }
+
+    ctx.save();
+    ctx.translate(x - size / 2, y - size / 2);
+    ctx.scale(size / 24, size / 24);
+
+    if (outlineColour) {
+        drawIconPaths(ctx, iconData, outlineColour, 5);
+    }
+    drawIconPaths(ctx, iconData, colour, 2);
 
     ctx.restore();
 }

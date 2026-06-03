@@ -19,16 +19,16 @@ const defaultD10Texture = new D10Texture();
 const defaultPercentileTexture = new DPercentileTexture();
 
 export class D10 extends Die {
-    protected faceVertices = FACE_VERTICES;
-    protected meshVertices = VERTICES;
-    protected faceStance = FACE_STANCE;
+    faceVertices = FACE_VERTICES;
+    meshVertices = VERTICES;
+    faceStance = FACE_STANCE;
 
     override getFaceLabel(value: number): string {
         return String(value % 10);
     }
 
     // d10 numbers always point to apex, they don't "sit" on any edge
-    protected override computeUprightAngle(
+    override computeUprightAngle(
         faceValue: number,
         faceUpQuat: THREE.Quaternion,
     ): number {
@@ -45,9 +45,9 @@ export class D10 extends Die {
 }
 
 export class DPercentile extends Die {
-    protected faceVertices = PERCENTILE_FACE_VERTICES;
-    protected meshVertices = VERTICES;
-    protected faceStance = PERCENTILE_FACE_STANCE;
+    faceVertices = PERCENTILE_FACE_VERTICES;
+    meshVertices = VERTICES;
+    faceStance = PERCENTILE_FACE_STANCE;
 
     override getFaceLabel(value: number): string {
         return String(value % 100).padStart(2, "0");
@@ -57,7 +57,7 @@ export class DPercentile extends Die {
         return this.orientToFace(10);
     }
 
-    protected override computeUprightAngle(
+    override computeUprightAngle(
         faceValue: number,
         faceUpQuat: THREE.Quaternion,
     ): number {

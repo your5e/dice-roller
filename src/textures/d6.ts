@@ -4,17 +4,17 @@ import { KintsugiMixin } from "./kintsugi";
 import { Unfoldable } from "./unfold";
 
 export class D6Texture extends Unfoldable(DieTexture) {
-    protected faces = FACES;
-    protected vertices = VERTICES;
-    protected faceVertices = FACE_VERTICES;
-    protected bgColour = "#cc3333";
-    protected fgColour = "#ffffff";
+    faces = FACES;
+    vertices = VERTICES;
+    faceVertices = FACE_VERTICES;
+    bgColour = "#cc3333";
+    fgColour = "#ffffff";
 
     get startRotation(): number {
         return 0;
     }
 
-    protected get edgeLength(): number {
+    get edgeLength(): number {
         return this.pixelDensity * Math.sqrt(2);
     }
 

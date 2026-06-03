@@ -9,9 +9,9 @@ const geometryCache = new Map<number, THREE.BufferGeometry>();
 const defaultTexture = new D4Texture();
 
 export class D4 extends Die {
-    protected faceVertices = FACE_VERTICES;
-    protected meshVertices = VERTICES;
-    protected faceStance = FACE_STANCE;
+    faceVertices = FACE_VERTICES;
+    meshVertices = VERTICES;
+    faceStance = FACE_STANCE;
 
     // d4 number is the face pointing down, not up
     orientToFace(faceValue: number): THREE.Quaternion {

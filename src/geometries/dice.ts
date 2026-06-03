@@ -5,6 +5,8 @@ import type { DieTexture } from "../textures/dice";
 import { CHAMFER, createChamferedGeometry, type DieFaces } from "./chamfer";
 
 export abstract class Die {
+    mesh: THREE.Mesh;
+    physics: PhysicsDie;
     label?: string;
     icon?: string;
     parked?: { x: number; z: number; halfWidth: number };
@@ -13,10 +15,10 @@ export abstract class Die {
     originalTextureOptions?: import("../textures/dice").TextureOptions;
     texture?: DieTexture;
 
-    constructor(
-        public mesh: THREE.Mesh,
-        public physics: PhysicsDie,
-    ) {}
+    constructor(mesh: THREE.Mesh, physics: PhysicsDie) {
+        this.mesh = mesh;
+        this.physics = physics;
+    }
 
     dispose(): void {
         this.mesh.geometry.dispose();
@@ -25,9 +27,9 @@ export abstract class Die {
         material.dispose();
     }
 
-    protected abstract faceVertices: Record<number, number[]>;
-    protected abstract meshVertices: THREE.Vector3[];
-    protected abstract faceStance: Record<number, number>;
+    abstract faceVertices: Record<number, number[]>;
+    abstract meshVertices: THREE.Vector3[];
+    abstract faceStance: Record<number, number>;
 
     get dice(): Die[] {
         return [this];
@@ -64,10 +66,7 @@ export abstract class Die {
         return yRotation.multiply(faceUpQuat);
     }
 
-    protected computeUprightAngle(
-        faceValue: number,
-        faceUpQuat: THREE.Quaternion,
-    ): number {
+    computeUprightAngle(faceValue: number, faceUpQuat: THREE.Quaternion): number {
         const stance = this.faceStance[faceValue];
         const verts = this.faceVertices[faceValue];
 
