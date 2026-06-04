@@ -2,6 +2,7 @@ import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d12";
 import { DEG_TO_RAD } from "../geometry";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
+import { PrideMixin } from "./pride";
 import { Unfoldable } from "./unfold";
 
 export class D12Texture extends Unfoldable(DieTexture) {
@@ -35,3 +36,4 @@ export class D12Texture extends Unfoldable(DieTexture) {
 export class D12TemplateTexture extends TemplateMixin(D12Texture) {}
 export class D12DebugTexture extends DebugMixin(D12Texture) {}
 export class D12KintsugiTexture extends KintsugiMixin(D12Texture) {}
+export class D12PrideTexture extends PrideMixin(D12Texture) {}

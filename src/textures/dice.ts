@@ -19,7 +19,7 @@ export type TextureOptions = {
     seed?: number | string;
 };
 
-export type Point = { x: number; y: number };
+export type Point = { x: number; y: number; latitude?: number };
 export type UV = { u: number; v: number };
 
 export type FaceData = {
@@ -404,99 +404,6 @@ export abstract class DieTexture {
 
     get margin(): number {
         return this.stripWidth * 1.5;
-    }
-
-    buildFaceData(): void {
-        for (const { value: face } of this.faces) {
-            const points = this.calculateFacePoints(face);
-            const uvs = points.map((p) => ({
-                u: p.x / this.width,
-                v: p.y / this.height,
-            }));
-            this.faceData.set(face, { points, uvs });
-        }
-    }
-    buildStripData(): void {
-        for (const { value: faceA } of this.faces) {
-            for (const faceB of this.getAdjacentFaces(faceA)) {
-                if (faceB < faceA) continue;
-
-                const stripFace = this.getStripPriorityFace(faceA, faceB);
-                const points = this.calculateStripPoints(faceA, faceB);
-
-                const uvsByFace = new Map<number, UV[]>();
-                uvsByFace.set(
-                    faceA,
-                    this.calculateStripUVs(points, faceA, faceB, stripFace),
-                );
-                uvsByFace.set(
-                    faceB,
-                    this.calculateStripUVs(points, faceB, faceA, stripFace),
-                );
-
-                this.stripData.set(this.stripKey(faceA, faceB), {
-                    points,
-                    uvsByFace,
-                });
-            }
-        }
-    }
-    buildCrownData(): void {
-        const vertexCount = Math.max(...Object.values(this.faceVertices).flat()) + 1;
-        for (let vertex = 0; vertex < vertexCount; vertex++) {
-            const hasVertex = this.faces.some(({ value: face }) =>
-                this.faceVertices[face].includes(vertex),
-            );
-            if (!hasVertex) continue;
-
-            const points = this.calculateCrownPoints(vertex);
-            const uvs = points.map((pt) => ({
-                u: pt.x / this.width,
-                v: pt.y / this.height,
-            }));
-
-            this.crownData.set(vertex, { points, uvs });
-        }
-    }
-
-    buildLayoutData(): void {
-        this.buildFaceLayout();
-        this.buildFaceData();
-        this.buildStripData();
-        this.buildCrownData();
-        this.validateBounds();
-    }
-
-    validateBounds(): void {
-        const epsilon = 0.01;
-        const check = (pt: Point, label: string) => {
-            if (
-                pt.x < -epsilon ||
-                pt.x > this.width + epsilon ||
-                pt.y < -epsilon ||
-                pt.y > this.height + epsilon
-            ) {
-                throw new Error(
-                    `${label} at (${pt.x.toFixed(2)}, ${pt.y.toFixed(2)}) is outside canvas (${this.width}×${this.height})`,
-                );
-            }
-        };
-
-        for (const [face, data] of this.faceData) {
-            for (const [i, pt] of data.points.entries()) {
-                check(pt, `Face ${face} point ${i}`);
-            }
-        }
-        for (const [key, data] of this.stripData) {
-            for (const [i, pt] of data.points.entries()) {
-                check(pt, `Strip ${key} point ${i}`);
-            }
-        }
-        for (const [vertex, data] of this.crownData) {
-            for (const [i, pt] of data.points.entries()) {
-                check(pt, `Crown ${vertex} point ${i}`);
-            }
-        }
     }
 
     calculateStripPoints(faceA: number, faceB: number): Point[] {
@@ -885,6 +792,7 @@ export abstract class DieTexture {
     }
 
     buildFaceLayout(): void {}
+    buildLayoutData(): void {}
     calculateCrownPoints(_vertex: number): Point[] {
         return [];
     }

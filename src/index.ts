@@ -607,34 +607,41 @@ export { createStage, type DiceWrapper, type Stage } from "./renderer";
 export {
     D4DebugTexture,
     D4KintsugiTexture,
+    D4PrideTexture,
     D4Texture,
 } from "./textures/d4";
 export {
     D6DebugTexture,
     D6KintsugiTexture,
+    D6PrideTexture,
     D6Texture,
 } from "./textures/d6";
 export {
     D8DebugTexture,
     D8KintsugiTexture,
+    D8PrideTexture,
     D8Texture,
 } from "./textures/d8";
 export {
     D10DebugTexture,
     D10KintsugiTexture,
+    D10PrideTexture,
     D10Texture,
     DPercentileDebugTexture,
     DPercentileKintsugiTexture,
+    DPercentilePrideTexture,
     DPercentileTexture,
 } from "./textures/d10";
 export {
     D12DebugTexture,
     D12KintsugiTexture,
+    D12PrideTexture,
     D12Texture,
 } from "./textures/d12";
 export {
     D20DebugTexture,
     D20KintsugiTexture,
+    D20PrideTexture,
     D20Texture,
 } from "./textures/d20";
 export { getTrayDimensions, removeDice, resizeCamera, setCameraSize, syncDie };

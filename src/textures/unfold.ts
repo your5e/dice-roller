@@ -1,8 +1,13 @@
 import * as THREE from "three";
-import type { DieFaces } from "../geometries/chamfer";
-import { DEG_TO_RAD, edgeAngle, normalFromVertices, perpendicular } from "../geometry";
+import { CHAMFER, type DieFaces } from "../geometries/chamfer";
+import {
+    centroid,
+    DEG_TO_RAD,
+    edgeAngle,
+    normalFromVertices,
+    perpendicular,
+} from "../geometry";
 import { drawIcon } from "../icons";
-import type { DieTexture, Point } from "./dice";
 import type { DieTexture, FaceData, Point, UV } from "./dice";
 
 export type UnfoldData = { centre: Point; rotation: number };
@@ -17,6 +22,74 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         faces!: DieFaces;
         vertices!: THREE.Vector3[];
         placeReverse = true;
+
+        // the vertex the die "sits on" for latitude calculation
+        get balanceVertex(): number {
+            return this.vertices.length - 1;
+        }
+
+        // the vertex at the "top" -- if set, tilts the axis toward this vertex
+        get oppositeVertex(): number | null {
+            return null;
+        }
+
+        _latitudeAxis: THREE.Vector3 | null = null;
+        _latitudeMin = 0;
+        _latitudeMax = 1;
+
+        get latitudeAxis(): THREE.Vector3 {
+            if (!this._latitudeAxis) {
+                this.computeLatitudeBounds();
+            }
+            if (!this._latitudeAxis) {
+                throw new Error("latitudeAxis not computed");
+            }
+            return this._latitudeAxis;
+        }
+
+        get latitudeMin(): number {
+            if (!this._latitudeAxis) {
+                this.computeLatitudeBounds();
+            }
+            return this._latitudeMin;
+        }
+
+        get latitudeMax(): number {
+            if (!this._latitudeAxis) {
+                this.computeLatitudeBounds();
+            }
+            return this._latitudeMax;
+        }
+
+        computeLatitudeBounds(): void {
+            const balancePos = this.vertices[this.balanceVertex];
+
+            if (this.oppositeVertex !== null) {
+                // axis points from balance vertex toward opposite vertex
+                const oppositePos = this.vertices[this.oppositeVertex];
+                this._latitudeAxis = oppositePos.clone().sub(balancePos).normalize();
+            } else {
+                // axis points away from the balance vertex (toward the "top")
+                this._latitudeAxis = balancePos.clone().normalize().negate();
+            }
+
+            let min = Number.POSITIVE_INFINITY;
+            let max = Number.NEGATIVE_INFINITY;
+            for (const v of this.vertices) {
+                const projection = v.dot(this._latitudeAxis);
+                min = Math.min(min, projection);
+                max = Math.max(max, projection);
+            }
+            this._latitudeMin = min;
+            this._latitudeMax = max;
+        }
+
+        latitude(pos: THREE.Vector3): number {
+            const projection = pos.dot(this.latitudeAxis);
+            return (
+                (projection - this.latitudeMin) / (this.latitudeMax - this.latitudeMin)
+            );
+        }
 
         _faceShape: Point[] | null = null;
         get faceShape(): Point[] {
@@ -399,6 +472,158 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             for (const layout of this.faceLayout.values()) {
                 layout.centre.x += shiftX;
                 layout.centre.y += shiftY;
+            }
+        }
+
+        buildFaceData(): void {
+            for (const { value: face } of this.faces) {
+                const points = this.calculateFacePoints(face);
+                const verts = this.faceVertices[face];
+                const faceCentroid = centroid(verts.map((vi) => this.vertices[vi]));
+                for (let i = 0; i < points.length; i++) {
+                    const pos = this.vertices[verts[i]]
+                        .clone()
+                        .lerp(faceCentroid, CHAMFER);
+                    points[i].latitude = this.latitude(pos);
+                }
+                const uvs = points.map((p) => ({
+                    u: p.x / this.width,
+                    v: p.y / this.height,
+                }));
+                this.faceData.set(face, { points, uvs });
+            }
+        }
+
+        buildStripData(): void {
+            for (const { value: faceA } of this.faces) {
+                for (const faceB of this.getAdjacentFaces(faceA)) {
+                    if (faceB < faceA) continue;
+
+                    const stripFace = this.getStripPriorityFace(faceA, faceB);
+                    const otherFace = stripFace === faceA ? faceB : faceA;
+                    const points = this.calculateStripPoints(faceA, faceB);
+
+                    const edgeIdx = this.get2DEdgeIndex(stripFace, otherFace);
+                    const stripVerts = this.faceVertices[stripFace];
+                    const otherVerts = this.faceVertices[otherFace];
+                    const n = stripVerts.length;
+                    const v1 = stripVerts[edgeIdx];
+                    const v2 = stripVerts[(edgeIdx + 1) % n];
+
+                    // points: [inner1, inner2, outer2, outer1]
+                    const stripCentroid = centroid(
+                        stripVerts.map((vi) => this.vertices[vi]),
+                    );
+                    const otherCentroid = centroid(
+                        otherVerts.map((vi) => this.vertices[vi]),
+                    );
+                    // inner edge chamfered toward stripFace centroid
+                    points[0].latitude = this.latitude(
+                        this.vertices[v1].clone().lerp(stripCentroid, CHAMFER),
+                    );
+                    points[1].latitude = this.latitude(
+                        this.vertices[v2].clone().lerp(stripCentroid, CHAMFER),
+                    );
+                    // outer edge chamfered toward otherFace centroid
+                    points[2].latitude = this.latitude(
+                        this.vertices[v2].clone().lerp(otherCentroid, CHAMFER),
+                    );
+                    points[3].latitude = this.latitude(
+                        this.vertices[v1].clone().lerp(otherCentroid, CHAMFER),
+                    );
+
+                    const uvsByFace = new Map<number, UV[]>();
+                    uvsByFace.set(
+                        faceA,
+                        this.calculateStripUVs(points, faceA, faceB, stripFace),
+                    );
+                    uvsByFace.set(
+                        faceB,
+                        this.calculateStripUVs(points, faceB, faceA, stripFace),
+                    );
+
+                    this.stripData.set(this.stripKey(faceA, faceB), {
+                        points,
+                        uvsByFace,
+                    });
+                }
+            }
+        }
+
+        buildCrownData(): void {
+            const vertexCount =
+                Math.max(...Object.values(this.faceVertices).flat()) + 1;
+            for (let vertex = 0; vertex < vertexCount; vertex++) {
+                const hasVertex = this.faces.some(({ value: face }) =>
+                    this.faceVertices[face].includes(vertex),
+                );
+                if (!hasVertex) continue;
+
+                const points = this.calculateCrownPoints(vertex);
+                const facesWithVertex = this.faces.filter((f) =>
+                    f.vertices.includes(vertex),
+                );
+
+                // each crown point corresponds to a face's chamfered vertex
+                for (let i = 0; i < points.length; i++) {
+                    const face = facesWithVertex[i].value;
+                    const faceVerts = this.faceVertices[face];
+                    const faceCentroid = centroid(
+                        faceVerts.map((vi) => this.vertices[vi]),
+                    );
+                    const pos = this.vertices[vertex]
+                        .clone()
+                        .lerp(faceCentroid, CHAMFER);
+                    points[i].latitude = this.latitude(pos);
+                }
+
+                const uvs = points.map((pt) => ({
+                    u: pt.x / this.width,
+                    v: pt.y / this.height,
+                }));
+                const faceOrder = facesWithVertex.map((f) => f.value);
+
+                this.crownData.set(vertex, { points, uvs, faceOrder });
+            }
+        }
+
+        buildLayoutData(): void {
+            this.buildFaceLayout();
+            this.buildFaceData();
+            this.buildStripData();
+            this.buildCrownData();
+            this.validateBounds();
+        }
+
+        validateBounds(): void {
+            const epsilon = 0.01;
+            const check = (pt: Point, label: string) => {
+                if (
+                    pt.x < -epsilon ||
+                    pt.x > this.width + epsilon ||
+                    pt.y < -epsilon ||
+                    pt.y > this.height + epsilon
+                ) {
+                    throw new Error(
+                        `${label} at (${pt.x.toFixed(2)}, ${pt.y.toFixed(2)}) is outside canvas (${this.width}×${this.height})`,
+                    );
+                }
+            };
+
+            for (const [face, data] of this.faceData) {
+                for (const [i, pt] of data.points.entries()) {
+                    check(pt, `Face ${face} point ${i}`);
+                }
+            }
+            for (const [key, data] of this.stripData) {
+                for (const [i, pt] of data.points.entries()) {
+                    check(pt, `Strip ${key} point ${i}`);
+                }
+            }
+            for (const [vertex, data] of this.crownData) {
+                for (const [i, pt] of data.points.entries()) {
+                    check(pt, `Crown ${vertex} point ${i}`);
+                }
             }
         }
 

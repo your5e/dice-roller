@@ -6,36 +6,74 @@ import { VARELA_ROUND_DIGITS_WOFF2 } from "../src/fonts/varela-round";
 import {
     D4DebugTexture,
     D4KintsugiTexture,
+    D4PrideTexture,
     D4TemplateTexture,
 } from "../src/textures/d4";
 import {
     D6DebugTexture,
     D6KintsugiTexture,
+    D6PrideTexture,
     D6TemplateTexture,
 } from "../src/textures/d6";
 import {
     D8DebugTexture,
     D8KintsugiTexture,
+    D8PrideTexture,
     D8TemplateTexture,
 } from "../src/textures/d8";
 import {
     D10DebugTexture,
     D10KintsugiTexture,
+    D10PrideTexture,
     D10TemplateTexture,
     DPercentileDebugTexture,
     DPercentileKintsugiTexture,
+    DPercentilePrideTexture,
     DPercentileTemplateTexture,
 } from "../src/textures/d10";
 import {
     D12DebugTexture,
     D12KintsugiTexture,
+    D12PrideTexture,
     D12TemplateTexture,
 } from "../src/textures/d12";
 import {
     D20DebugTexture,
     D20KintsugiTexture,
+    D20PrideTexture,
     D20TemplateTexture,
 } from "../src/textures/d20";
+
+const DICE_NAMES = ["d4", "d6", "d8", "d10", "d12", "d20", "percentile"] as const;
+const TEXTURE_NAMES = ["template", "debug", "kintsugi", "pride"] as const;
+
+type DiceName = (typeof DICE_NAMES)[number];
+type TextureName = (typeof TEXTURE_NAMES)[number];
+
+const args = process.argv.slice(2);
+const requestedDice = new Set<DiceName>();
+const requestedTextures = new Set<TextureName>();
+
+for (const arg of args) {
+    if (DICE_NAMES.includes(arg as DiceName)) {
+        requestedDice.add(arg as DiceName);
+    } else if (TEXTURE_NAMES.includes(arg as TextureName)) {
+        requestedTextures.add(arg as TextureName);
+    } else {
+        console.error(`Unknown argument: ${arg}`);
+        console.error(`Dice: ${DICE_NAMES.join(", ")}`);
+        console.error(`Textures: ${TEXTURE_NAMES.join(", ")}`);
+        process.exit(1);
+    }
+}
+
+function shouldGenerateDie(name: DiceName): boolean {
+    return requestedDice.size === 0 || requestedDice.has(name);
+}
+
+function shouldGenerateTexture(name: TextureName): boolean {
+    return requestedTextures.size === 0 || requestedTextures.has(name);
+}
 
 // ttf needed for the non-browser canvas
 const woff2Buffer = Buffer.from(VARELA_ROUND_DIGITS_WOFF2, "base64");
@@ -44,11 +82,92 @@ const fontPath = "/tmp/varela-round.ttf";
 writeFileSync(fontPath, ttfBuffer);
 registerFont(fontPath, { family: "Varela Round" });
 
-mkdirSync("dist/template", { recursive: true });
-mkdirSync("dist/debug", { recursive: true });
-mkdirSync("dist/kintsugi", { recursive: true });
+for (const name of TEXTURE_NAMES) {
+    if (shouldGenerateTexture(name)) {
+        mkdirSync(`dist/${name}`, { recursive: true });
+    }
+}
 
 type CanvasLike = { toBuffer: (type: string) => Buffer };
+type TextureClass = new () => { createCanvas: () => Promise<HTMLCanvasElement> };
+type TemplateClass = new () => {
+    width: number;
+    height: number;
+    createCanvas: () => Promise<HTMLCanvasElement>;
+};
+type KintsugiClass = new (opts: {
+    seed: number;
+}) => {
+    createCanvas: () => Promise<HTMLCanvasElement>;
+};
+
+interface DieConfig {
+    name: DiceName;
+    Template: TemplateClass;
+    Debug: TextureClass;
+    Kintsugi: KintsugiClass;
+    Pride: TextureClass;
+    seed: number;
+}
+
+const DICE_CONFIG: DieConfig[] = [
+    {
+        name: "d4",
+        Template: D4TemplateTexture,
+        Debug: D4DebugTexture,
+        Kintsugi: D4KintsugiTexture,
+        Pride: D4PrideTexture,
+        seed: 1,
+    },
+    {
+        name: "d6",
+        Template: D6TemplateTexture,
+        Debug: D6DebugTexture,
+        Kintsugi: D6KintsugiTexture,
+        Pride: D6PrideTexture,
+        seed: 35,
+    },
+    {
+        name: "d8",
+        Template: D8TemplateTexture,
+        Debug: D8DebugTexture,
+        Kintsugi: D8KintsugiTexture,
+        Pride: D8PrideTexture,
+        seed: 1,
+    },
+    {
+        name: "d10",
+        Template: D10TemplateTexture,
+        Debug: D10DebugTexture,
+        Kintsugi: D10KintsugiTexture,
+        Pride: D10PrideTexture,
+        seed: 1,
+    },
+    {
+        name: "d12",
+        Template: D12TemplateTexture,
+        Debug: D12DebugTexture,
+        Kintsugi: D12KintsugiTexture,
+        Pride: D12PrideTexture,
+        seed: 2,
+    },
+    {
+        name: "d20",
+        Template: D20TemplateTexture,
+        Debug: D20DebugTexture,
+        Kintsugi: D20KintsugiTexture,
+        Pride: D20PrideTexture,
+        seed: 2,
+    },
+    {
+        name: "percentile",
+        Template: DPercentileTemplateTexture,
+        Debug: DPercentileDebugTexture,
+        Kintsugi: DPercentileKintsugiTexture,
+        Pride: DPercentilePrideTexture,
+        seed: 1,
+    },
+];
 
 function setupDocument(width: number, height: number): void {
     const window = new Window();
@@ -67,71 +186,24 @@ function writePng(path: string, canvas: HTMLCanvasElement): void {
     console.log(path);
 }
 
-console.log("-- d4");
-const d4TemplateTexture = new D4TemplateTexture();
-setupDocument(d4TemplateTexture.width, d4TemplateTexture.height);
-writePng("dist/template/d4.png", await d4TemplateTexture.createCanvas());
-const d4DebugTexture = new D4DebugTexture();
-writePng("dist/debug/d4.png", await d4DebugTexture.createCanvas());
-const d4KintsugiTexture = new D4KintsugiTexture({ seed: 1 });
-writePng("dist/kintsugi/d4.png", await d4KintsugiTexture.createCanvas());
-
-console.log("-- d6");
-const d6TemplateTexture = new D6TemplateTexture();
-setupDocument(d6TemplateTexture.width, d6TemplateTexture.height);
-writePng("dist/template/d6.png", await d6TemplateTexture.createCanvas());
-const d6DebugTexture = new D6DebugTexture();
-writePng("dist/debug/d6.png", await d6DebugTexture.createCanvas());
-const d6KintsugiTexture = new D6KintsugiTexture({ seed: 35 });
-writePng("dist/kintsugi/d6.png", await d6KintsugiTexture.createCanvas());
-
-console.log("-- d8");
-const d8TemplateTexture = new D8TemplateTexture();
-setupDocument(d8TemplateTexture.width, d8TemplateTexture.height);
-writePng("dist/template/d8.png", await d8TemplateTexture.createCanvas());
-const d8DebugTexture = new D8DebugTexture();
-writePng("dist/debug/d8.png", await d8DebugTexture.createCanvas());
-const d8KintsugiTexture = new D8KintsugiTexture({ seed: 1 });
-writePng("dist/kintsugi/d8.png", await d8KintsugiTexture.createCanvas());
-
-console.log("-- d12");
-const d12TemplateTexture = new D12TemplateTexture();
-setupDocument(d12TemplateTexture.width, d12TemplateTexture.height);
-writePng("dist/template/d12.png", await d12TemplateTexture.createCanvas());
-const d12DebugTexture = new D12DebugTexture();
-writePng("dist/debug/d12.png", await d12DebugTexture.createCanvas());
-const d12KintsugiTexture = new D12KintsugiTexture({ seed: 2 });
-writePng("dist/kintsugi/d12.png", await d12KintsugiTexture.createCanvas());
-
-console.log("-- d10");
-const d10TemplateTexture = new D10TemplateTexture();
-setupDocument(d10TemplateTexture.width, d10TemplateTexture.height);
-writePng("dist/template/d10.png", await d10TemplateTexture.createCanvas());
-const d10DebugTexture = new D10DebugTexture();
-writePng("dist/debug/d10.png", await d10DebugTexture.createCanvas());
-const d10KintsugiTexture = new D10KintsugiTexture({ seed: 1 });
-writePng("dist/kintsugi/d10.png", await d10KintsugiTexture.createCanvas());
-
-console.log("-- percentile");
-const percentileTemplateTexture = new DPercentileTemplateTexture();
-setupDocument(percentileTemplateTexture.width, percentileTemplateTexture.height);
-writePng(
-    "dist/template/percentile.png",
-    await percentileTemplateTexture.createCanvas(),
-);
-const percentileDebugTexture = new DPercentileDebugTexture();
-writePng("dist/debug/percentile.png", await percentileDebugTexture.createCanvas());
-const percentileKintsugiTexture = new DPercentileKintsugiTexture({ seed: 1 });
-writePng(
-    "dist/kintsugi/percentile.png",
-    await percentileKintsugiTexture.createCanvas(),
-);
-
-console.log("-- d20");
-const d20TemplateTexture = new D20TemplateTexture();
-setupDocument(d20TemplateTexture.width, d20TemplateTexture.height);
-writePng("dist/template/d20.png", await d20TemplateTexture.createCanvas());
-const d20DebugTexture = new D20DebugTexture();
-writePng("dist/debug/d20.png", await d20DebugTexture.createCanvas());
-const d20KintsugiTexture = new D20KintsugiTexture({ seed: 2 });
-writePng("dist/kintsugi/d20.png", await d20KintsugiTexture.createCanvas());
+for (const die of DICE_CONFIG) {
+    if (!shouldGenerateDie(die.name)) continue;
+    console.log(`-- ${die.name}`);
+    const templateTexture = new die.Template();
+    setupDocument(templateTexture.width, templateTexture.height);
+    if (shouldGenerateTexture("template")) {
+        writePng(`dist/template/${die.name}.png`, await templateTexture.createCanvas());
+    }
+    if (shouldGenerateTexture("debug")) {
+        writePng(`dist/debug/${die.name}.png`, await new die.Debug().createCanvas());
+    }
+    if (shouldGenerateTexture("kintsugi")) {
+        writePng(
+            `dist/kintsugi/${die.name}.png`,
+            await new die.Kintsugi({ seed: die.seed }).createCanvas(),
+        );
+    }
+    if (shouldGenerateTexture("pride")) {
+        writePng(`dist/pride/${die.name}.png`, await new die.Pride().createCanvas());
+    }
+}

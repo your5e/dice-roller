@@ -2,6 +2,7 @@ import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d4";
 import type { FaceData } from "./dice";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
+import { PrideMixin } from "./pride";
 import { Unfoldable } from "./unfold";
 
 export class D4Texture extends Unfoldable(DieTexture) {
@@ -10,6 +11,10 @@ export class D4Texture extends Unfoldable(DieTexture) {
     faceVertices = FACE_VERTICES;
     bgColour = "#2d9449";
     fgColour = "#ffffff";
+
+    get oppositeVertex(): number {
+        return 0;
+    }
 
     get startRotation(): number {
         return 0;
@@ -90,3 +95,4 @@ export class D4Texture extends Unfoldable(DieTexture) {
 export class D4TemplateTexture extends TemplateMixin(D4Texture) {}
 export class D4DebugTexture extends DebugMixin(D4Texture) {}
 export class D4KintsugiTexture extends KintsugiMixin(D4Texture) {}
+export class D4PrideTexture extends PrideMixin(D4Texture) {}

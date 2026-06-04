@@ -280,6 +280,15 @@
                 12: DiceRoller.D12KintsugiTexture,
                 20: DiceRoller.D20KintsugiTexture,
                 100: DiceRoller.DPercentileKintsugiTexture
+            },
+            pride: {
+                4: DiceRoller.D4PrideTexture,
+                6: DiceRoller.D6PrideTexture,
+                8: DiceRoller.D8PrideTexture,
+                10: DiceRoller.D10PrideTexture,
+                12: DiceRoller.D12PrideTexture,
+                20: DiceRoller.D20PrideTexture,
+                100: DiceRoller.DPercentilePrideTexture
             }
         };
 
@@ -485,7 +494,8 @@
         var textureOptions = [
             { value: 'debug', label: 'Debug' },
             { value: 'standard', label: 'Standard' },
-            { value: 'kintsugi', label: 'Kintsugi' }
+            { value: 'kintsugi', label: 'Kintsugi' },
+            { value: 'pride', label: 'Pride' }
         ];
         textureOptions.forEach(function(opt) {
             var option = document.createElement('option');

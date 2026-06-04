@@ -126,6 +126,9 @@ Each region type has pre-computed layout data available:
 - `this.stripData` — Map of edge key to `{ points, uvsByFace }`
 - `this.crownData` — Map of vertex index to `{ points, uvs, faceOrder }`
 
+Points include `x`, `y`, and `latitude` (0–1 value for position along the
+die's vertical axis.
+
 Helper functions include:
 
 - `stripKey(faceA, faceB)` — canonical string key for the edge between two faces

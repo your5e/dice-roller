@@ -22,19 +22,46 @@ import {
     type TextureStyle,
     type Tray,
 } from "./physics/tray";
-import { D4DebugTexture, D4KintsugiTexture, D4Texture } from "./textures/d4";
-import { D6DebugTexture, D6KintsugiTexture, D6Texture } from "./textures/d6";
-import { D8DebugTexture, D8KintsugiTexture, D8Texture } from "./textures/d8";
+import {
+    D4DebugTexture,
+    D4KintsugiTexture,
+    D4PrideTexture,
+    D4Texture,
+} from "./textures/d4";
+import {
+    D6DebugTexture,
+    D6KintsugiTexture,
+    D6PrideTexture,
+    D6Texture,
+} from "./textures/d6";
+import {
+    D8DebugTexture,
+    D8KintsugiTexture,
+    D8PrideTexture,
+    D8Texture,
+} from "./textures/d8";
 import {
     D10DebugTexture,
     D10KintsugiTexture,
+    D10PrideTexture,
     D10Texture,
     DPercentileDebugTexture,
     DPercentileKintsugiTexture,
+    DPercentilePrideTexture,
     DPercentileTexture,
 } from "./textures/d10";
-import { D12DebugTexture, D12KintsugiTexture, D12Texture } from "./textures/d12";
-import { D20DebugTexture, D20KintsugiTexture, D20Texture } from "./textures/d20";
+import {
+    D12DebugTexture,
+    D12KintsugiTexture,
+    D12PrideTexture,
+    D12Texture,
+} from "./textures/d12";
+import {
+    D20DebugTexture,
+    D20KintsugiTexture,
+    D20PrideTexture,
+    D20Texture,
+} from "./textures/d20";
 import type { DieTexture, TextureOptions } from "./textures/dice";
 
 type TextureConstructor = new (options?: TextureOptions) => DieTexture;
@@ -78,6 +105,15 @@ const textureRegistry: TextureRegistry = {
         12: D12DebugTexture,
         20: D20DebugTexture,
         100: DPercentileDebugTexture,
+    },
+    pride: {
+        4: D4PrideTexture,
+        6: D6PrideTexture,
+        8: D8PrideTexture,
+        10: D10PrideTexture,
+        12: D12PrideTexture,
+        20: D20PrideTexture,
+        100: DPercentilePrideTexture,
     },
 };
 

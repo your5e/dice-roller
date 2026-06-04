@@ -13,11 +13,16 @@ import {
     type TextureOptions,
 } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
+import { PrideMixin } from "./pride";
 import { Unfoldable } from "./unfold";
 
 // base class for kite-faced dice (d10 and d%)
 abstract class DKiteTexture extends Unfoldable(DieTexture) {
     vertices = VERTICES;
+
+    get balanceVertex(): number {
+        return 0;
+    }
 
     get startRotation(): number {
         return 53.425;
@@ -64,6 +69,7 @@ export class D10Texture extends DKiteTexture {
 export class D10TemplateTexture extends TemplateMixin(D10Texture) {}
 export class D10DebugTexture extends DebugMixin(D10Texture) {}
 export class D10KintsugiTexture extends KintsugiMixin(D10Texture) {}
+export class D10PrideTexture extends PrideMixin(D10Texture) {}
 
 export class DPercentileTexture extends DKiteTexture {
     faces = PERCENTILE_FACES;
@@ -96,3 +102,4 @@ export class DPercentileTexture extends DKiteTexture {
 export class DPercentileTemplateTexture extends TemplateMixin(DPercentileTexture) {}
 export class DPercentileDebugTexture extends DebugMixin(DPercentileTexture) {}
 export class DPercentileKintsugiTexture extends KintsugiMixin(DPercentileTexture) {}
+export class DPercentilePrideTexture extends PrideMixin(DPercentileTexture) {}
