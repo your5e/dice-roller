@@ -122,3 +122,7 @@ but not the full notation. For example, `1d20blep` generates no rolls, but
 ## Adding a new die
 
 See [docs/new_die.md](docs/new_die.md).
+
+## Adding a new texture
+
+See [docs/new_texture.md](docs/new_texture.md).
