@@ -183,6 +183,33 @@
             opacity: 0.7;
         }
 
+        #theme-select {
+            width: 100%;
+            padding: 0.5rem;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font: inherit;
+            color: #333;
+        }
+        #override-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+        #override-options label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
         /* Help button */
         #help-btn {
             width: 100%;
@@ -276,6 +303,20 @@
             <button type="submit">Roll</button>
         </form>
 
+        <select id="theme-select">
+            <option value="standard">Standard</option>
+            <option value="kintsugi">Kintsugi</option>
+            <option value="pride">Pride</option>
+        </select>
+        <div id="override-options">
+            <label>
+                <input type="checkbox" id="override-colours"> Colours
+            </label>
+            <label>
+                <input type="checkbox" id="override-damage"> Damage
+            </label>
+        </div>
+
         <button type="button" id="help-btn">Notation Help</button>
     </div>
 
@@ -321,7 +362,7 @@
 
     <script src="dist/dice-roller.js"></script>
     <script>
-        var tray = DiceRoller.tray('#dice-tray');
+        var tray = DiceRoller.tray('#dice-tray', { seed: 1 });
 
         var menuToggle = document.getElementById('menu-toggle');
         var menu = document.getElementById('menu');
@@ -336,6 +377,38 @@
         var helpEl = document.getElementById('help');
         var helpBtn = document.getElementById('help-btn');
         var helpClose = document.getElementById('help-close');
+        var themeSelect = document.getElementById('theme-select');
+        var overrideColoursCheckbox = document.getElementById('override-colours');
+        var overrideDamageCheckbox = document.getElementById('override-damage');
+
+        var storedTheme = localStorage.getItem('theme') || 'standard';
+        var storedOverrideColours = localStorage.getItem('overrideColours') === 'true';
+        var storedOverrideDamage = localStorage.getItem('overrideDamage') === 'true';
+        themeSelect.value = storedTheme;
+        overrideColoursCheckbox.checked = storedOverrideColours;
+        overrideDamageCheckbox.checked = storedOverrideDamage;
+
+        function applyTexture() {
+            var theme = themeSelect.value;
+            DiceRoller.texture(theme, {
+                asColours: overrideColoursCheckbox.checked,
+                asDamage: overrideDamageCheckbox.checked
+            });
+        }
+        applyTexture();
+
+        themeSelect.addEventListener('change', function() {
+            localStorage.setItem('theme', themeSelect.value);
+            applyTexture();
+        });
+        overrideColoursCheckbox.addEventListener('change', function() {
+            localStorage.setItem('overrideColours', overrideColoursCheckbox.checked);
+            applyTexture();
+        });
+        overrideDamageCheckbox.addEventListener('change', function() {
+            localStorage.setItem('overrideDamage', overrideDamageCheckbox.checked);
+            applyTexture();
+        });
 
         var recentNotations = [];
         var defaultSaved = [
