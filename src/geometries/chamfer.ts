@@ -56,8 +56,7 @@ export function createChamferedGeometry(
             .map((_, i) => i)
             .filter((i) => baseFaces[i].vertices.includes(vertex));
 
-        // order those faces so neighbours are grouped together
-        // so the crown surface comes out right
+        // walk around the vertex in face winding order
         const orderedFaces: number[] = [];
         const remaining = new Set(touchingFaces);
         let currentFace = touchingFaces[0];
@@ -66,13 +65,14 @@ export function createChamferedGeometry(
             remaining.delete(currentFace);
             orderedFaces.push(currentFace);
 
+            if (remaining.size === 0) break;
+
             const faceVerts = baseFaces[currentFace].vertices;
+            const idx = faceVerts.indexOf(vertex);
+            const prevVert = faceVerts[(idx + faceVerts.length - 1) % faceVerts.length];
+
             for (const face of remaining) {
-                if (
-                    faceVerts.some(
-                        (v) => v !== vertex && baseFaces[face].vertices.includes(v),
-                    )
-                ) {
+                if (baseFaces[face].vertices.includes(prevVert)) {
                     currentFace = face;
                     break;
                 }
@@ -88,14 +88,6 @@ export function createChamferedGeometry(
             const pos = baseVertices[vertex].clone().lerp(centre, chamfer);
             crownVerts.push(pos);
             newFaces[face][faceVerts.indexOf(vertex)] = pos;
-        }
-
-        // create the crown surface
-        const normal = normalFromVertices(crownVerts[0], crownVerts[1], crownVerts[2]);
-        const reversed = normal.dot(baseVertices[vertex]) < 0;
-        if (reversed) {
-            crownVerts.reverse();
-            orderedFaces.reverse();
         }
 
         orderedFacesPerVertex.push(orderedFaces);

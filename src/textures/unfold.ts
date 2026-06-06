@@ -265,12 +265,39 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             return this.getFacePoints(layout.centre, layout.rotation);
         }
 
+        // walk around the vertex in face winding order
+        orderFacesAroundVertex(vertex: number): DieFaces {
+            const touchingFaces = this.faces.filter((f) => f.vertices.includes(vertex));
+            const orderedFaces: DieFaces = [];
+            const remaining = new Set(touchingFaces);
+            let currentFace = touchingFaces[0];
+
+            while (remaining.size > 0) {
+                remaining.delete(currentFace);
+                orderedFaces.push(currentFace);
+
+                if (remaining.size === 0) break;
+
+                const faceVerts = currentFace.vertices;
+                const idx = faceVerts.indexOf(vertex);
+                const prevVert =
+                    faceVerts[(idx + faceVerts.length - 1) % faceVerts.length];
+
+                for (const face of remaining) {
+                    if (face.vertices.includes(prevVert)) {
+                        currentFace = face;
+                        break;
+                    }
+                }
+            }
+
+            return orderedFaces;
+        }
+
         calculateCrownPoints(vertex: number): Point[] {
             // the first face drawn "owns" each attached crown and strip
-            const facesWithVertex = this.faces.filter((f) =>
-                f.vertices.includes(vertex),
-            );
-            const ownerFace = facesWithVertex[0].value;
+            const orderedFaces = this.orderFacesAroundVertex(vertex);
+            const ownerFace = orderedFaces[0].value;
 
             const ownerFaceData = this.faces.find((f) => f.value === ownerFace);
             if (!ownerFaceData) {
@@ -284,7 +311,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
             const pts = this.getFacePoints(layout.centre, layout.rotation);
             const corner = pts[ownerFaceData.vertices.indexOf(vertex)];
-            const sides = facesWithVertex.length;
+            const sides = orderedFaces.length;
             const radius = this.stripWidth / (2 * Math.sin((180 / sides) * DEG_TO_RAD));
 
             // the centre of the crown sits on the line drawn from the centre of the
@@ -565,13 +592,11 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 if (!hasVertex) continue;
 
                 const points = this.calculateCrownPoints(vertex);
-                const facesWithVertex = this.faces.filter((f) =>
-                    f.vertices.includes(vertex),
-                );
+                const orderedFaces = this.orderFacesAroundVertex(vertex);
 
                 // each crown point corresponds to a face's chamfered vertex
                 for (let i = 0; i < points.length; i++) {
-                    const face = facesWithVertex[i].value;
+                    const face = orderedFaces[i].value;
                     const faceVerts = this.faceVertices[face];
                     const faceCentroid = centroid(
                         faceVerts.map((vi) => this.vertices[vi]),
@@ -586,7 +611,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                     u: pt.x / this.width,
                     v: pt.y / this.height,
                 }));
-                const faceOrder = facesWithVertex.map((f) => f.value);
+                const faceOrder = orderedFaces.map((f) => f.value);
                 const rotation =
                     points.length >= 2 ? edgeAngle(points[0], points[1]) : 0;
 
