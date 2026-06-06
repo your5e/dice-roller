@@ -11,10 +11,6 @@ export class D6Texture extends Unfoldable(DieTexture) {
     bgColour = "#cc3333";
     fgColour = "#ffffff";
 
-    get startRotation(): number {
-        return 0;
-    }
-
     get edgeLength(): number {
         return this.pixelDensity * Math.sqrt(2);
     }

@@ -122,12 +122,16 @@ The base `DieTexture` class provides several helpers that might be useful.
 
 Each region type has pre-computed layout data available:
 
-- `this.faceData` — Map of face number to `{ points, uvs }`
-- `this.stripData` — Map of edge key to `{ points, uvsByFace }`
-- `this.crownData` — Map of vertex index to `{ points, uvs, faceOrder }`
+- `this.faceData` — Map of face number to `{ points, uvs, rotation }`
+- `this.stripData` — Map of edge key to `{ points, uvs, rotation }`
+- `this.crownData` — Map of vertex index to `{ points, uvs, faceOrder, rotation }`
 
 Points include `x`, `y`, and `latitude` (0–1 value for position along the
-die's vertical axis.
+die's vertical axis).
+
+`rotation` is the angle of edge 0 from horizontal, in degrees (in canvas
+drawing 0 degrees is towards the right, not towards the top, positive values
+are clockwise).
 
 Helper functions include:
 

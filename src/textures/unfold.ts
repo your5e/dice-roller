@@ -8,7 +8,7 @@ import {
     perpendicular,
 } from "../geometry";
 import { drawIcon } from "../icons";
-import type { DieTexture, FaceData, Point, UV } from "./dice";
+import type { DieTexture, FaceData, Point } from "./dice";
 
 export type UnfoldData = { centre: Point; rotation: number };
 
@@ -149,7 +149,9 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
         faceLayout = new Map<number, UnfoldData>();
 
-        abstract get startRotation(): number;
+        get startRotation(): number {
+            return 0;
+        }
 
         getFacePoints(centre: Point, rotation: number): Point[] {
             const rad = rotation * DEG_TO_RAD;
@@ -477,6 +479,9 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
         buildFaceData(): void {
             for (const { value: face } of this.faces) {
+                const layout = this.faceLayout.get(face);
+                if (!layout) throw new Error(`No layout for face ${face}`);
+
                 const points = this.calculateFacePoints(face);
                 const verts = this.faceVertices[face];
                 const faceCentroid = centroid(verts.map((vi) => this.vertices[vi]));
@@ -490,7 +495,8 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                     u: p.x / this.width,
                     v: p.y / this.height,
                 }));
-                this.faceData.set(face, { points, uvs });
+                const rotation = layout.rotation;
+                this.faceData.set(face, { points, uvs, rotation });
             }
         }
 
@@ -532,19 +538,18 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                         this.vertices[v1].clone().lerp(otherCentroid, CHAMFER),
                     );
 
-                    const uvsByFace = new Map<number, UV[]>();
-                    uvsByFace.set(
-                        faceA,
-                        this.calculateStripUVs(points, faceA, faceB, stripFace),
+                    const uvs = this.calculateStripUVs(
+                        points,
+                        stripFace,
+                        otherFace,
+                        stripFace,
                     );
-                    uvsByFace.set(
-                        faceB,
-                        this.calculateStripUVs(points, faceB, faceA, stripFace),
-                    );
+                    const rotation = edgeAngle(points[0], points[1]);
 
                     this.stripData.set(this.stripKey(faceA, faceB), {
                         points,
-                        uvsByFace,
+                        uvs,
+                        rotation,
                     });
                 }
             }
@@ -582,8 +587,10 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                     v: pt.y / this.height,
                 }));
                 const faceOrder = facesWithVertex.map((f) => f.value);
+                const rotation =
+                    points.length >= 2 ? edgeAngle(points[0], points[1]) : 0;
 
-                this.crownData.set(vertex, { points, uvs, faceOrder });
+                this.crownData.set(vertex, { points, uvs, faceOrder, rotation });
             }
         }
 

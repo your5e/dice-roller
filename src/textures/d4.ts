@@ -16,10 +16,6 @@ export class D4Texture extends Unfoldable(DieTexture) {
         return 0;
     }
 
-    get startRotation(): number {
-        return 0;
-    }
-
     get edgeLength(): number {
         return this.pixelDensity * Math.sqrt(3);
     }

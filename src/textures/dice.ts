@@ -25,17 +25,20 @@ export type UV = { u: number; v: number };
 export type FaceData = {
     points: Point[];
     uvs: UV[];
+    rotation: number;
 };
 
 export type StripData = {
     points: Point[];
-    uvsByFace: Map<number, UV[]>;
+    uvs: UV[];
+    rotation: number;
 };
 
 export type CrownData = {
     points: Point[];
     uvs: UV[];
     faceOrder?: number[];
+    rotation: number;
 };
 
 export type EdgeTarget = {
@@ -622,10 +625,7 @@ export abstract class DieTexture {
     getStripUV(faceA: number, faceB: number): UV[] {
         const data = this.stripData.get(this.stripKey(faceA, faceB));
         if (!data) throw new Error(`No strip data for faces ${faceA}, ${faceB}`);
-        const uvs = data.uvsByFace.get(faceA);
-        if (!uvs)
-            throw new Error(`No UVs for face ${faceA} on strip ${faceA}-${faceB}`);
-        return uvs;
+        return data.uvs;
     }
 
     getCrownUV(faces: number[]): UV[] {

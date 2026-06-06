@@ -11,10 +11,6 @@ export class D20Texture extends Unfoldable(DieTexture) {
     bgColour = "#f08020";
     fgColour = "#1a1a1a";
 
-    get startRotation(): number {
-        return 0;
-    }
-
     get edgeLength(): number {
         return this.pixelDensity * Math.sqrt(3);
     }
