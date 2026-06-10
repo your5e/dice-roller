@@ -1,4 +1,5 @@
 import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d4";
+import { centroid2d } from "../geometry";
 import type { FaceData } from "./dice";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
@@ -37,8 +38,7 @@ export class D4Texture extends Unfoldable(DieTexture) {
         data: FaceData,
     ): void {
         const points = data.points;
-        const centreX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
-        const centreY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+        const { x: centreX, y: centreY } = centroid2d(points);
         const faceH = this.getFaceHeight();
 
         const fontScale = (faceH / 2.0) * this.getShapeFontScale();

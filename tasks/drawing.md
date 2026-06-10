@@ -24,8 +24,8 @@ arc continues with the same curvature as edges are developable surfaces.
 But a flat sticker cannot cross a vertex without bunching up, so arcs drawn
 over crowns will need to take into account a deficit from the wedge angle.
 
-- [ ] calculate deficits
-- [ ] method to draw whilst clipping to the current surface limits
-- [ ] implement arc drawing using constant radius and computed centre
-- [ ] propogate from surface to neighbouring surfaces until the circle is
-      complete
+- [X] calculate deficits
+- [X] method to draw whilst clipping to the current surface limits
+- [#] implement arc drawing using constant radius and computed centre
+      (draws entire polys with callback, not just arcs)
+- [X] propogate from surface to neighbouring surfaces

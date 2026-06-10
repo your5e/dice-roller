@@ -25,7 +25,7 @@ abstract class DKiteTexture extends Unfoldable(DieTexture) {
     }
 
     get startRotation(): number {
-        return 53.425;
+        return 20;
     }
 
     get edgeLength(): number {

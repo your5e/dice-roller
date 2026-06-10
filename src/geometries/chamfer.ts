@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { centroid, normalFromVertices } from "../geometry";
+import { centroid3d, normalFromVertices } from "../geometry";
 
 export const CHAMFER = 0.05;
 
@@ -84,7 +84,7 @@ export function createChamferedGeometry(
 
         for (const face of orderedFaces) {
             const faceVerts = baseFaces[face].vertices;
-            const centre = centroid(faceVerts.map((v) => baseVertices[v]));
+            const centre = centroid3d(faceVerts.map((v) => baseVertices[v]));
             const pos = baseVertices[vertex].clone().lerp(centre, chamfer);
             crownVerts.push(pos);
             newFaces[face][faceVerts.indexOf(vertex)] = pos;

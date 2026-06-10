@@ -1,4 +1,4 @@
-import { findSharedVertex } from "../geometry";
+import { centroid2d, findSharedVertex } from "../geometry";
 import type {
     DieTexture,
     EdgeBezierData,
@@ -62,10 +62,7 @@ export function KintsugiMixin<T extends DieTextureConstructor>(Base: T) {
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
 
-            const centroid = {
-                x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
-                y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
-            };
+            const centroid = centroid2d(pts);
             const faceRadius = Math.hypot(pts[0].x - centroid.x, pts[0].y - centroid.y);
 
             let curveIndex = 0;

@@ -1,16 +1,35 @@
 import * as THREE from "three";
 import { CHAMFER, type DieFaces } from "../geometries/chamfer";
 import {
-    centroid,
+    centroid2d,
+    centroid3d,
     DEG_TO_RAD,
     edgeAngle,
     normalFromVertices,
     perpendicular,
 } from "../geometry";
 import { drawIcon } from "../icons";
-import type { DieTexture, FaceData, Point } from "./dice";
+import type { CrownData, DieTexture, FaceData, Point, StripData } from "./dice";
+import { adjacentFacePlacement, reconstructPath, shortestPathTree } from "./spanning";
 
-export type UnfoldData = { centre: Point; rotation: number };
+export type UnfoldData = { centre: Point; rotation: number; parent?: number };
+
+type LayoutData = {
+    faceLayout: Map<number, UnfoldData>;
+    faceData: Map<number, FaceData>;
+    stripData: Map<string, StripData>;
+    crownData: Map<number, CrownData>;
+};
+const layoutCache = new Map<object, LayoutData>();
+
+export interface UnfoldableTexture {
+    faceLayout: Map<number, UnfoldData>;
+    faceShape: Point[];
+    get2DEdgeIndex(face: number, adjFace: number): number;
+    localEdgeAngle(edgeIndex: number): number;
+    adjacentAnchor(baseFace: number, adjFace: number): Point;
+    centreFromAnchor(vertexIndex: number, rotation: number, anchor: Point): Point;
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: mixin constructor pattern
 export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture>(
@@ -187,38 +206,8 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         }
 
         placeAdjacent(baseFace: number, adjFace: number): void {
-            const baseFaceLayout = this.faceLayout.get(baseFace);
-            if (!baseFaceLayout) {
-                throw new Error(`No layout for face ${baseFace}`);
-            }
-
-            // find the shared edge
-            const sharedEdgeOnBase = this.get2DEdgeIndex(baseFace, adjFace);
-            const sharedEdgeOnAdjacent = this.get2DEdgeIndex(adjFace, baseFace);
-
-            // the adjacent face will be placed flipped 180 across the shared
-            // edge...
-            const adjacentFaceRotation =
-                180 +
-                baseFaceLayout.rotation +
-                this.localEdgeAngle(sharedEdgeOnBase) -
-                this.localEdgeAngle(sharedEdgeOnAdjacent);
-            // ...and placed one stripWidth out from the current face
-            const adjacentEdgeStartPoint = this.outwardPerpendicular(
-                baseFaceLayout,
-                sharedEdgeOnBase,
-            );
-
-            const adjacentFaceCentre = this.centreFromAnchor(
-                sharedEdgeOnAdjacent,
-                adjacentFaceRotation,
-                adjacentEdgeStartPoint,
-            );
-
-            this.faceLayout.set(adjFace, {
-                centre: adjacentFaceCentre,
-                rotation: adjacentFaceRotation,
-            });
+            const layout = adjacentFacePlacement(this, baseFace, adjFace);
+            this.faceLayout.set(adjFace, { ...layout, parent: baseFace });
         }
 
         localEdgeAngle(edgeIndex: number): number {
@@ -229,8 +218,13 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             );
         }
 
-        // step from the base edge perpendicularly outward by stripWidth
-        outwardPerpendicular(layout: UnfoldData, hingeEdgeIndex: number): Point {
+        // step from the end of the base edge by the developed bevel end
+        // vector -- across the edge by the gap, along it by the slide
+        adjacentAnchor(baseFace: number, adjFace: number): Point {
+            const layout = this.faceLayout.get(baseFace);
+            if (!layout) throw new Error(`No layout for face ${baseFace}`);
+
+            const hingeEdgeIndex = this.get2DEdgeIndex(baseFace, adjFace);
             const n = this.faces[0].vertices.length;
             const pts = this.getFacePoints(layout.centre, layout.rotation);
             const a = pts[hingeEdgeIndex];
@@ -238,11 +232,13 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
             const edgeX = b.x - a.x;
             const edgeY = b.y - a.y;
+            const length = Math.hypot(edgeX, edgeY);
             const perp = perpendicular(edgeX, edgeY);
+            const { along, across } = this.getStripOffset(baseFace, adjFace);
 
             return {
-                x: b.x + perp.x * this.stripWidth,
-                y: b.y + perp.y * this.stripWidth,
+                x: b.x + (edgeX / length) * along + perp.x * across,
+                y: b.y + (edgeY / length) * along + perp.y * across,
             };
         }
 
@@ -295,40 +291,127 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
         }
 
         calculateCrownPoints(vertex: number): Point[] {
-            // the first face drawn "owns" each attached crown and strip
             const orderedFaces = this.orderFacesAroundVertex(vertex);
+
+            // get 3D crown vertex positions: vertex lerped toward each face centroid
+            const pts3D = orderedFaces.map(({ value: face }) => {
+                const faceVerts = this.faceVertices[face];
+                const faceCentroid = centroid3d(
+                    faceVerts.map((vi) => this.vertices[vi]),
+                );
+                return this.vertices[vertex].clone().lerp(faceCentroid, CHAMFER);
+            });
+
+            // flatten to 2D like deriveFaceShape does
+            const normal = normalFromVertices(pts3D[0], pts3D[1], pts3D[2]);
+            const up = new THREE.Vector3(0, 1, 0);
+            const quat = new THREE.Quaternion().setFromUnitVectors(normal, up);
+            const flat = pts3D.map((p) => p.clone().applyQuaternion(quat));
+
+            const cx = flat.reduce((s, p) => s + p.x, 0) / flat.length;
+            const cz = flat.reduce((s, p) => s + p.z, 0) / flat.length;
+            const shape = flat.map((p) => ({ x: p.x - cx, y: p.z - cz }));
+
+            // position from owner face
             const ownerFace = orderedFaces[0].value;
-
             const ownerFaceData = this.faces.find((f) => f.value === ownerFace);
-            if (!ownerFaceData) {
-                throw new Error(`Unknown face ${ownerFace}`);
-            }
-
+            if (!ownerFaceData) throw new Error(`Unknown face ${ownerFace}`);
             const layout = this.faceLayout.get(ownerFace);
-            if (!layout) {
-                throw new Error(`Unknown face ${ownerFace}`);
-            }
+            if (!layout) throw new Error(`No layout for face ${ownerFace}`);
 
-            const pts = this.getFacePoints(layout.centre, layout.rotation);
-            const corner = pts[ownerFaceData.vertices.indexOf(vertex)];
-            const sides = orderedFaces.length;
-            const radius = this.stripWidth / (2 * Math.sin((180 / sides) * DEG_TO_RAD));
+            const vertIdx = ownerFaceData.vertices.indexOf(vertex);
+            const facePts = this.getFacePoints(layout.centre, layout.rotation);
+            const corner = facePts[vertIdx];
 
-            // the centre of the crown sits on the line drawn from the centre of the
-            // face through the vertex
-            const dx = corner.x - layout.centre.x;
-            const dy = corner.y - layout.centre.y;
-            const dist = Math.hypot(dx, dy);
-            const crownCentre = {
-                x: corner.x + (dx / dist) * radius,
-                y: corner.y + (dy / dist) * radius,
+            // the crown sits in the wedge left over at the corner once the
+            // face's corner angle and the two strip ends are accounted for;
+            // centre the crown's own corner wedge in it, splitting the
+            // remaining gap evenly between the two seams
+            const nPts = facePts.length;
+            const ownerVerts = ownerFaceData.vertices;
+            const prevPt = facePts[(vertIdx - 1 + nPts) % nPts];
+            const nextPt = facePts[(vertIdx + 1) % nPts];
+
+            const neighbourAcross = (other: number): number => {
+                const found = orderedFaces.find(
+                    (f) =>
+                        f.value !== ownerFace &&
+                        f.vertices.includes(vertex) &&
+                        f.vertices.includes(other),
+                );
+                if (!found) {
+                    throw new Error(
+                        `No face shares edge ${vertex},${other} with face ${ownerFace}`,
+                    );
+                }
+                return found.value;
             };
-            const rotation = edgeAngle(corner, layout.centre);
+            const thetaNext =
+                this.bevelEndAngle(
+                    ownerFace,
+                    neighbourAcross(ownerVerts[(vertIdx + 1) % nPts]),
+                    vertex,
+                ) * DEG_TO_RAD;
+            const thetaPrev =
+                this.bevelEndAngle(
+                    ownerFace,
+                    neighbourAcross(ownerVerts[(vertIdx - 1 + nPts) % nPts]),
+                    vertex,
+                ) * DEG_TO_RAD;
 
-            return this.getPolygonOffsets(sides, rotation, radius).map((o) => ({
-                x: crownCentre.x + o.dx,
-                y: crownCentre.y + o.dy,
+            // signed rotation from the next-edge direction to the prev-edge
+            // direction through the face interior
+            const angleNext = Math.atan2(nextPt.y - corner.y, nextPt.x - corner.x);
+            const anglePrev = Math.atan2(prevPt.y - corner.y, prevPt.x - corner.x);
+            let interior = anglePrev - angleNext;
+            if (interior > Math.PI) interior -= 2 * Math.PI;
+            if (interior < -Math.PI) interior += 2 * Math.PI;
+            const outwardSign = -Math.sign(interior);
+
+            // the crown's interior angle at its anchored corner
+            const last = shape.length - 1;
+            const eNext = { x: shape[1].x - shape[0].x, y: shape[1].y - shape[0].y };
+            const ePrev = {
+                x: shape[last].x - shape[0].x,
+                y: shape[last].y - shape[0].y,
+            };
+            const crownCorner = Math.acos(
+                (eNext.x * ePrev.x + eNext.y * ePrev.y) /
+                    (Math.hypot(eNext.x, eNext.y) * Math.hypot(ePrev.x, ePrev.y)),
+            );
+
+            const gap =
+                2 * Math.PI - Math.abs(interior) - thetaNext - thetaPrev - crownCorner;
+
+            // walking outward from the next edge: its strip end, half the
+            // gap, then half the crown wedge reaches the crown's bisector
+            const targetBisector =
+                angleNext + outwardSign * (thetaNext + gap / 2 + crownCorner / 2);
+
+            const lenA = Math.hypot(eNext.x, eNext.y);
+            const lenB = Math.hypot(ePrev.x, ePrev.y);
+            const wedgeAngle = Math.atan2(
+                eNext.y / lenA + ePrev.y / lenB,
+                eNext.x / lenA + ePrev.x / lenB,
+            );
+
+            const rotation = targetBisector - wedgeAngle;
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            const rotated = shape.map((p) => ({
+                x: p.x * cos - p.y * sin,
+                y: p.x * sin + p.y * cos,
             }));
+
+            // scale to match pixel density and position with vertex 0 at corner
+            const scale = this.pixelDensity;
+            const offset = { x: rotated[0].x * scale, y: rotated[0].y * scale };
+            const points = rotated.map((p) => ({
+                x: corner.x + p.x * scale - offset.x,
+                y: corner.y + p.y * scale - offset.y,
+            }));
+
+            return points;
         }
 
         getTextRotation(
@@ -368,8 +451,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             if (!this.icon) return;
 
             const pts = data.points;
-            const centreX = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
-            const centreY = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+            const { x: centreX, y: centreY } = centroid2d(pts);
             const textRotation = this.getTextRotation(face, pts, centreX, centreY);
             const faceH = this.getFaceHeight();
             const iconSize = faceH * this.scale * 0.8 * this.getIconScale();
@@ -395,8 +477,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
             data: FaceData,
         ): void {
             const pts = data.points;
-            const centreX = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
-            const centreY = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+            const { x: centreX, y: centreY } = centroid2d(pts);
             const textRotation = this.getTextRotation(face, pts, centreX, centreY);
 
             ctx.save();
@@ -511,7 +592,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
 
                 const points = this.calculateFacePoints(face);
                 const verts = this.faceVertices[face];
-                const faceCentroid = centroid(verts.map((vi) => this.vertices[vi]));
+                const faceCentroid = centroid3d(verts.map((vi) => this.vertices[vi]));
                 for (let i = 0; i < points.length; i++) {
                     const pos = this.vertices[verts[i]]
                         .clone()
@@ -523,7 +604,20 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                     v: p.y / this.height,
                 }));
                 const rotation = layout.rotation;
-                this.faceData.set(face, { points, uvs, rotation });
+                const paths: Record<number, number[]> = {};
+                this.faceData.set(face, { points, uvs, rotation, paths });
+            }
+        }
+
+        buildPathData(): void {
+            for (const { value: fromFace } of this.faces) {
+                const data = this.faceData.get(fromFace);
+                if (!data) continue;
+                const tree = shortestPathTree(this, fromFace);
+                for (const { value: toFace } of this.faces) {
+                    if (toFace === fromFace) continue;
+                    data.paths[toFace] = reconstructPath(tree, toFace);
+                }
             }
         }
 
@@ -544,10 +638,10 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                     const v2 = stripVerts[(edgeIdx + 1) % n];
 
                     // points: [inner1, inner2, outer2, outer1]
-                    const stripCentroid = centroid(
+                    const stripCentroid = centroid3d(
                         stripVerts.map((vi) => this.vertices[vi]),
                     );
-                    const otherCentroid = centroid(
+                    const otherCentroid = centroid3d(
                         otherVerts.map((vi) => this.vertices[vi]),
                     );
                     // inner edge chamfered toward stripFace centroid
@@ -577,6 +671,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                         points,
                         uvs,
                         rotation,
+                        owner: stripFace,
                     });
                 }
             }
@@ -598,7 +693,7 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 for (let i = 0; i < points.length; i++) {
                     const face = orderedFaces[i].value;
                     const faceVerts = this.faceVertices[face];
-                    const faceCentroid = centroid(
+                    const faceCentroid = centroid3d(
                         faceVerts.map((vi) => this.vertices[vi]),
                     );
                     const pos = this.vertices[vertex]
@@ -615,16 +710,53 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 const rotation =
                     points.length >= 2 ? edgeAngle(points[0], points[1]) : 0;
 
-                this.crownData.set(vertex, { points, uvs, faceOrder, rotation });
+                // calculate interior angles at each crown vertex
+                const n = points.length;
+                const angles: number[] = [];
+                for (let i = 0; i < n; i++) {
+                    const p0 = points[(i - 1 + n) % n];
+                    const p1 = points[i];
+                    const p2 = points[(i + 1) % n];
+                    const v1 = { x: p0.x - p1.x, y: p0.y - p1.y };
+                    const v2 = { x: p2.x - p1.x, y: p2.y - p1.y };
+                    const dot = v1.x * v2.x + v1.y * v2.y;
+                    const cross = v1.x * v2.y - v1.y * v2.x;
+                    angles.push(Math.atan2(Math.abs(cross), dot) * (180 / Math.PI));
+                }
+
+                this.crownData.set(vertex, {
+                    points,
+                    uvs,
+                    faceOrder,
+                    angles,
+                    rotation,
+                });
             }
         }
 
         buildLayoutData(): void {
+            const cached = layoutCache.get(this.constructor);
+            if (cached) {
+                this.faceLayout = cached.faceLayout;
+                this.faceData = cached.faceData;
+                this.stripData = cached.stripData;
+                this.crownData = cached.crownData;
+                return;
+            }
+
             this.buildFaceLayout();
             this.buildFaceData();
             this.buildStripData();
+            this.buildPathData();
             this.buildCrownData();
             this.validateBounds();
+
+            layoutCache.set(this.constructor, {
+                faceLayout: this.faceLayout,
+                faceData: this.faceData,
+                stripData: this.stripData,
+                crownData: this.crownData,
+            });
         }
 
         validateBounds(): void {

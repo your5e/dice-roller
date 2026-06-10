@@ -75,6 +75,7 @@ the same dice each time. Variation in designs, but not unique every roll.
 The base class provides `seededRandom()`, and to use it you must pass the
 `seed` option to the texture upon initialisation.
 
+
 ### Simplex noise
 
 For spatially coherent patterns (wood grain, marble veins), use the seeded
@@ -83,6 +84,7 @@ simplex noise generator:
 ```typescript
 const noise = this.simplex.noise(x * scale, y * scale);
 ```
+
 
 ### Closed loops
 
@@ -94,6 +96,23 @@ and will not return an unclosed loop. Each loop crosses between faces at 1/4,
 
 For example, this is used by the Kintsugi texture to create crack patterns
 that are whole, not just a random crack that tails off to nothing.
+
+
+## Drawing across faces
+
+To draw a shape that spans the gaps, like laying a sticker on the die and
+letting it fold over the edges onto the neighbouring faces, use `drawAt`.
+This will run the callback on each face, strip, and crown, with the canvas
+rotated appropriately.
+
+```typescript
+drawAt(ctx, this, originFace, originPoint, (ctx) => {
+    // callback to draw your polygon
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+});
+```
 
 
 ## Utilities
@@ -122,9 +141,9 @@ The base `DieTexture` class provides several helpers that might be useful.
 
 Each region type has pre-computed layout data available:
 
-- `this.faceData` — Map of face number to `{ points, uvs, rotation }`
-- `this.stripData` — Map of edge key to `{ points, uvs, rotation }`
-- `this.crownData` — Map of vertex index to `{ points, uvs, faceOrder, rotation }`
+- `this.faceData` — Map of face number to `{ points, uvs, rotation, paths }`
+- `this.stripData` — Map of edge key to `{ points, uvs, rotation, owner }`
+- `this.crownData` — Map of vertex index to `{ points, uvs, faceOrder, angles, rotation }`
 
 Points include `x`, `y`, and `latitude` (0–1 value for position along the
 die's vertical axis).
@@ -132,6 +151,12 @@ die's vertical axis).
 `rotation` is the angle of edge 0 from horizontal, in degrees (in canvas
 drawing 0 degrees is towards the right, not towards the top, positive values
 are clockwise).
+
+`paths` maps a destination face to the chain of faces to walk across to reach it.
+
+`owner` is the face a strip is unfolded from.
+
+`angles` are the interior angles of the polygon.
 
 Helper functions include:
 

@@ -3,7 +3,15 @@ import { CubicBezierCurve, Vector2 } from "three";
 import { SimplexNoise } from "three/addons/math/SimplexNoise.js";
 import { loadVarelaRound } from "../fonts/varela-round";
 import { CHAMFER } from "../geometries/chamfer";
-import { perpendicular, pointInPolygon } from "../geometry";
+import {
+    centroid2d,
+    centroid3d,
+    DEG_TO_RAD,
+    perpendicular,
+    pointInPolygon,
+} from "../geometry";
+import { drawAt } from "./spanning";
+import type { UnfoldableTexture } from "./unfold";
 
 export type TextureOptions = {
     bgColour?: string;
@@ -26,18 +34,21 @@ export type FaceData = {
     points: Point[];
     uvs: UV[];
     rotation: number;
+    paths: Record<number, number[]>;
 };
 
 export type StripData = {
     points: Point[];
     uvs: UV[];
     rotation: number;
+    owner: number;
 };
 
 export type CrownData = {
     points: Point[];
     uvs: UV[];
     faceOrder?: number[];
+    angles: number[];
     rotation: number;
 };
 
@@ -405,6 +416,56 @@ export abstract class DieTexture {
         return centreA.distanceTo(centreB) * CHAMFER * this.pixelDensity;
     }
 
+    // the bevel between two adjacent faces is a parallelogram, in most cases
+    // a rectangle (but on the d10 equator it is not)
+    getStripOffset(faceA: number, faceB: number): { along: number; across: number } {
+        const verts = this.faceVertices[faceA];
+        const edgeIdx = this.get2DEdgeIndex(faceA, faceB);
+        const v1 = this.vertices[verts[edgeIdx]];
+        const v2 = this.vertices[verts[(edgeIdx + 1) % verts.length]];
+
+        const centreA = centroid3d(
+            this.faceVertices[faceA].map((vi) => this.vertices[vi]),
+        );
+        const centreB = centroid3d(
+            this.faceVertices[faceB].map((vi) => this.vertices[vi]),
+        );
+        const end = centreB.sub(centreA).multiplyScalar(CHAMFER);
+
+        const direction = v2.clone().sub(v1).normalize();
+        const along = end.dot(direction);
+        const across = end.sub(direction.multiplyScalar(along)).length();
+
+        return {
+            along: along * this.pixelDensity,
+            across: across * this.pixelDensity,
+        };
+    }
+
+    bevelEndAngle(face: number, neighbour: number, vertex: number): number {
+        const shared = this.faceVertices[face].filter((v) =>
+            this.faceVertices[neighbour].includes(v),
+        );
+        const other = shared.find((v) => v !== vertex);
+        if (shared.length !== 2 || other === undefined || !shared.includes(vertex)) {
+            throw new Error(
+                `Faces ${face} and ${neighbour} do not share an edge at vertex ${vertex}`,
+            );
+        }
+
+        const centreA = centroid3d(
+            this.faceVertices[face].map((vi) => this.vertices[vi]),
+        );
+        const centreB = centroid3d(
+            this.faceVertices[neighbour].map((vi) => this.vertices[vi]),
+        );
+        const end = centreB.sub(centreA);
+        const edge = this.vertices[other].clone().sub(this.vertices[vertex]);
+
+        const cos = edge.dot(end) / (edge.length() * end.length());
+        return Math.acos(cos) / DEG_TO_RAD;
+    }
+
     get margin(): number {
         return this.stripWidth * 1.5;
     }
@@ -419,13 +480,20 @@ export abstract class DieTexture {
 
         const p1 = points[edgeIdx];
         const p2 = points[(edgeIdx + 1) % pointCount];
+        const length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const direction = { x: (p2.x - p1.x) / length, y: (p2.y - p1.y) / length };
         const perp = perpendicular(p2.x - p1.x, p2.y - p1.y);
+        const { along, across } = this.getStripOffset(stripFace, otherFace);
+        const offset = {
+            x: direction.x * along + perp.x * across,
+            y: direction.y * along + perp.y * across,
+        };
 
         return [
             p1,
             p2,
-            { x: p2.x + perp.x * this.stripWidth, y: p2.y + perp.y * this.stripWidth },
-            { x: p1.x + perp.x * this.stripWidth, y: p1.y + perp.y * this.stripWidth },
+            { x: p2.x + offset.x, y: p2.y + offset.y },
+            { x: p1.x + offset.x, y: p1.y + offset.y },
         ];
     }
 
@@ -1102,10 +1170,10 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
         override get pixelDensity(): number {
             return 200;
         }
-        bgColour = "#f0f0f0";
+        bgColour = "#ffffff";
         fgColour = "#000000";
-        stripColour = "#ffffff";
-        crownColour = "#ffffff";
+        faceColour = "#ffffff";
+        stripColour = "#cccccc";
         fontFamily =
             "Inter, Roboto, 'Helvetica Neue', 'Arial Nova', 'Nimbus Sans', Arial, sans-serif";
         fontWeight = 200;
@@ -1141,62 +1209,23 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
             return this.getDebugColour(vertex).name;
         }
 
-        override drawStripDecoration(
-            ctx: CanvasRenderingContext2D,
-            key: string,
-            data: StripData,
-        ): void {
-            const [faceA, faceB] = key.split(",").map(Number);
-            const [p1, p2, p3, p4] = data.points;
-
-            ctx.strokeStyle = this.getStripColour(faceA, faceB);
-            ctx.lineWidth = 0.03 * this.pixelDensity;
-
-            const offsetRatio = this.stripWidth / this.edgeLength;
-            const innerMidX = (p1.x + p2.x) / 2;
-            const innerMidY = (p1.y + p2.y) / 2;
-            const outerMidX = (p3.x + p4.x) / 2;
-            const outerMidY = (p3.y + p4.y) / 2;
-            const innerX = innerMidX + offsetRatio * (p1.x - innerMidX);
-            const innerY = innerMidY + offsetRatio * (p1.y - innerMidY);
-            const outerX = outerMidX + offsetRatio * (p3.x - outerMidX);
-            const outerY = outerMidY + offsetRatio * (p3.y - outerMidY);
-            ctx.beginPath();
-            ctx.moveTo(innerX, innerY);
-            ctx.lineTo(outerX, outerY);
-            ctx.stroke();
-        }
-
-        override drawCrownDecoration(
-            ctx: CanvasRenderingContext2D,
-            vertex: number,
-            data: CrownData,
-        ): void {
-            ctx.fillStyle = this.getCrownColour(vertex);
-            ctx.beginPath();
-            ctx.moveTo(data.points[0].x, data.points[0].y);
-            for (let i = 1; i < data.points.length; i++) {
-                ctx.lineTo(data.points[i].x, data.points[i].y);
-            }
-            ctx.closePath();
-            ctx.fill();
-        }
-
         override drawFaceDecoration(
             ctx: CanvasRenderingContext2D,
             face: number,
             data: FaceData,
         ): void {
+            const faceVerts = this.faceVertices[face];
             const pts = data.points;
             const n = pts.length;
 
-            const centreX = pts.reduce((sum, p) => sum + p.x, 0) / n;
-            const centreY = pts.reduce((sum, p) => sum + p.y, 0) / n;
+            const { x: centreX, y: centreY } = centroid2d(pts);
 
-            ctx.lineWidth = 0.03 * this.pixelDensity;
+            const lineWidth = 0.03 * this.pixelDensity;
 
             for (const adjFace of this.getAdjacentFaces(face)) {
-                ctx.strokeStyle = this.getStripColour(face, adjFace);
+                // only draw once per edge
+                if (face > adjFace) continue;
+
                 const edgeIdx = this.get2DEdgeIndex(face, adjFace);
                 const edgePt = pts[edgeIdx];
                 const startX = centreX + 0.5 * (edgePt.x - centreX);
@@ -1206,23 +1235,93 @@ export function DebugMixin<T extends DieTextureConstructor>(Base: T) {
                 const offsetRatio = this.stripWidth / this.edgeLength;
                 const toX = midX + offsetRatio * (edgePt.x - midX);
                 const toY = midY + offsetRatio * (edgePt.y - midY);
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(toX, toY);
-                ctx.stroke();
+
+                // double the line length to cross to the adjacent face
+                const dx = toX - startX;
+                const dy = toY - startY;
+
+                const colour = this.getStripColour(face, adjFace);
+                drawAt(
+                    ctx,
+                    this as unknown as UnfoldableTexture & DieTexture,
+                    face,
+                    { x: startX, y: startY },
+                    (ctx) => {
+                        ctx.strokeStyle = colour;
+                        ctx.lineWidth = lineWidth;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(2 * dx, 2 * dy);
+                        ctx.stroke();
+                    },
+                );
             }
 
-            const faceVerts = this.faceVertices[face];
             for (let i = 0; i < n; i++) {
                 const vertex = faceVerts[i];
-                ctx.strokeStyle = this.getCrownColour(vertex);
                 const cornerPt = pts[i];
-                const endX = cornerPt.x + 0.3 * (centreX - cornerPt.x);
-                const endY = cornerPt.y + 0.3 * (centreY - cornerPt.y);
-                ctx.beginPath();
-                ctx.moveTo(cornerPt.x, cornerPt.y);
-                ctx.lineTo(endX, endY);
-                ctx.stroke();
+
+                // line from inside face, towards corner, extending into crown
+                const startX = cornerPt.x + 0.3 * (centreX - cornerPt.x);
+                const startY = cornerPt.y + 0.3 * (centreY - cornerPt.y);
+                const toCornerX = cornerPt.x - startX;
+                const toCornerY = cornerPt.y - startY;
+                const len = Math.hypot(toCornerX, toCornerY);
+
+                // irregular crowns have a different distance per face, so
+                // measure from this face's own crown corner
+                const crownData = this.crownData.get(vertex);
+                let extension = this.stripWidth;
+                if (crownData?.faceOrder) {
+                    const crownCentre = centroid2d(crownData.points);
+                    const idx = crownData.faceOrder.indexOf(face);
+                    const crownCorner = crownData.points[idx === -1 ? 0 : idx];
+                    extension = Math.hypot(
+                        crownCorner.x - crownCentre.x,
+                        crownCorner.y - crownCentre.y,
+                    );
+                }
+                const endDx = toCornerX + (toCornerX / len) * extension;
+                const endDy = toCornerY + (toCornerY / len) * extension;
+
+                const px = -toCornerY / len;
+                const py = toCornerX / len;
+                const halfWidth = lineWidth / 2;
+
+                // taper the tip
+                const taperLen = extension;
+                const ux = toCornerX / len;
+                const uy = toCornerY / len;
+                const taperDx = endDx - ux * taperLen;
+                const taperDy = endDy - uy * taperLen;
+
+                const colour = this.getDebugColour(face).hex;
+
+                drawAt(
+                    ctx,
+                    this as unknown as UnfoldableTexture & DieTexture,
+                    face,
+                    { x: startX, y: startY },
+                    (ctx) => {
+                        ctx.fillStyle = colour;
+                        ctx.beginPath();
+                        ctx.moveTo(px * halfWidth, py * halfWidth);
+                        ctx.lineTo(taperDx + px * halfWidth, taperDy + py * halfWidth);
+                        ctx.lineTo(endDx, endDy);
+                        ctx.lineTo(taperDx - px * halfWidth, taperDy - py * halfWidth);
+                        ctx.lineTo(-px * halfWidth, -py * halfWidth);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        // thin line through centre for rotation debugging
+                        ctx.strokeStyle = "#000000";
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(endDx, endDy);
+                        ctx.stroke();
+                    },
+                );
             }
 
             this.drawFaceIcon(ctx, face, data);
