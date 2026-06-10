@@ -1,4 +1,4 @@
-const VALID_DICE = new Set([4, 6, 8, 10, 12, 20, 100]);
+const VALID_DICE = new Set([2, 4, 6, 8, 10, 12, 20, 100]);
 
 export type Modifier = {
     type: "kh" | "kl" | "dl" | "dh" | "rb" | "rm" | "m" | "rmt";

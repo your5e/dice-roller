@@ -1,5 +1,7 @@
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { loadVarelaRound } from "./fonts/varela-round";
+import { createD2, setCoinEnvironment } from "./geometries/d2";
 import { createD4 } from "./geometries/d4";
 import { createD6 } from "./geometries/d6";
 import { createD8 } from "./geometries/d8";
@@ -213,6 +215,10 @@ export function createStage(container: HTMLElement, existingTray?: Tray): Stage 
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    setCoinEnvironment(pmrem.fromScene(new RoomEnvironment()).texture);
+    pmrem.dispose();
+
     const physicsTray =
         existingTray ??
         (() => {
@@ -256,6 +262,9 @@ export async function createDie(
     options?: TextureOptions,
 ): Promise<DiceWrapper> {
     switch (sides) {
+        // the coin sits outside the theme system, it has a single look
+        case 2:
+            return createD2(1);
         case 4:
             return createD4(
                 1,

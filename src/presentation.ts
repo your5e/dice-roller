@@ -119,6 +119,10 @@ function flatHalfWidth(die: Die, quaternion: THREE.Quaternion): number {
 function maxFlatHalfWidthFull(die: Die): number {
     let max = 0;
     for (const face of die.physics.faces) {
+        // valueless faces (the d2 coin rim) are never a resting result
+        if (face.value === 0) {
+            continue;
+        }
         const quat = die.orientToFace(face.value);
         const hw = flatHalfWidth(die, quat);
         if (hw > max) max = hw;

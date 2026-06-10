@@ -47,6 +47,29 @@ describe("Full throw velocity", () => {
     );
 });
 
+describe("Coin toss", () => {
+    it(
+        "coin flips through the air",
+        async () => {
+            let enough = 0;
+
+            for (let t = 0; t < VELOCITY_TRIALS; t++) {
+                const { turns } = await angleAdjustedThrow(
+                    10,
+                    10,
+                    (die, tray, whichSide) => applyFullThrow(die, tray, whichSide, 0, 1),
+                    2,
+                );
+                if (turns >= 8) enough++;
+            }
+
+            const enoughPct = (enough / VELOCITY_TRIALS) * 100;
+            expect(enoughPct, "8+ turns 80%+").toBeGreaterThanOrEqual(80);
+        },
+        120000,
+    );
+});
+
 describe("Gentle throw velocity", () => {
     it.each(trayWidths)(
         "$shape tray",
@@ -158,17 +181,19 @@ type Distribution = { near: number; middle: number; far: number };
 type ThrowResult = {
     tray: Tray;
     wallHits: number;
+    turns: number;
 };
 
 async function angleAdjustedThrow(
     halfWidth: number,
     halfDepth: number,
     applyThrow: (die: PhysicsDie, tray: Tray, whichSide: boolean) => void,
+    sides = 6,
 ): Promise<ThrowResult> {
     const tray = createTray(halfWidth, halfDepth);
     const whichSide = true;
 
-    const wrapper = await createDie(6);
+    const wrapper = await createDie(sides);
     for (const die of wrapper.dice) {
         tray.world.addBody(die.physics.body);
         tray.dice.push(die);
@@ -190,6 +215,7 @@ async function angleAdjustedThrow(
     return {
         tray,
         wallHits: "behaviour" in result ? result.behaviour[0].wallHits : 0,
+        turns: "behaviour" in result ? result.behaviour[0].turns : 0,
     };
 }
 

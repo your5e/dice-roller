@@ -6,14 +6,17 @@ import { diceMaterial } from "./tray";
 
 export type DiceConfig = {
     mass: number;
+    material: CANNON.Material;
     linearDamping: number;
     angularDamping: number;
     sleepSpeedLimit: number;
     sleepTimeLimit: number;
+    flick: { lift: number; spin: number; drive: number };
 };
 
 export const DEFAULT_DICE_CONFIG: DiceConfig = {
     mass: 10,
+    material: diceMaterial,
 
     // stop the rolling without making it feel like glue
     linearDamping: 0.5,
@@ -22,6 +25,9 @@ export const DEFAULT_DICE_CONFIG: DiceConfig = {
     // do not jiggle endlessly when landing on or against something
     sleepSpeedLimit: 0.1,
     sleepTimeLimit: 0.05,
+
+    // only coins are flicked, dice are rolled
+    flick: { lift: 0, spin: 0, drive: 1 },
 };
 
 export type PhysicsDie = {
@@ -30,6 +36,7 @@ export type PhysicsDie = {
     readFace: () => number;
     isCocked: (threshold: number) => boolean;
     liftProgress: number;
+    flick: { lift: number; spin: number; drive: number };
 };
 
 export function createDieBody(
@@ -49,7 +56,7 @@ export function createDieBody(
     const body = new CANNON.Body({
         mass: config.mass,
         shape,
-        material: diceMaterial,
+        material: config.material,
         linearDamping: config.linearDamping,
         angularDamping: config.angularDamping,
         allowSleep: true,
@@ -64,6 +71,7 @@ export function createDieBody(
         isCocked: (threshold: number) =>
             findTopFace(body, vertices, faces, readDown).dot < threshold,
         liftProgress: 0,
+        flick: config.flick,
     };
 }
 
@@ -78,6 +86,10 @@ function findTopFace(
     let bestDot = Number.NEGATIVE_INFINITY;
 
     for (const face of faces) {
+        // valueless faces are not results, they are cocked (coin edges)
+        if (face.value === 0) {
+            continue;
+        }
         const verts = face.vertices;
         const threeNormal = normalFromVertices(
             vertices[verts[0]],

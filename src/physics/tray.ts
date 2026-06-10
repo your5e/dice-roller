@@ -13,6 +13,8 @@ export type TrayConfig = {
     wallRestitution: number;
     diceFriction: number;
     diceRestitution: number;
+    coinFriction: number;
+    coinRestitution: number;
 };
 
 export const DEFAULT_TRAY_CONFIG: TrayConfig = {
@@ -31,6 +33,10 @@ export const DEFAULT_TRAY_CONFIG: TrayConfig = {
     // dice should bounce and slide off each other
     diceFriction: 0.2,
     diceRestitution: 0.8,
+
+    // metal lands dead, it does not bounce like plastic
+    coinFriction: 0.9,
+    coinRestitution: 0.01,
 };
 
 // wall tall enough to contain bouncing dice
@@ -46,6 +52,7 @@ let lastYield = 0;
 const MAX_SIMULATION_TIME = 10;
 
 export const diceMaterial = new CANNON.Material("dice");
+export const coinMaterial = new CANNON.Material("coin");
 const floorMaterial = new CANNON.Material("floor");
 const wallMaterial = new CANNON.Material("wall");
 
@@ -88,13 +95,33 @@ function shuffledIndices(length: number): number[] {
     return indices;
 }
 
+// flicked dice (the d2 coin) are tossed flat: from a random attitude the
+// end-over-end flick reads as a wheel-roll or record-spin from above
+function startOrientation(die: PhysicsDie): CANNON.Quaternion {
+    if (die.flick.spin === 0) {
+        return randomQuaternion();
+    }
+    const facing = new CANNON.Quaternion().setFromAxisAngle(
+        new CANNON.Vec3(0, 1, 0),
+        Math.random() * Math.PI * 2,
+    );
+    if (Math.random() < 0.5) {
+        return facing;
+    }
+    const flipped = new CANNON.Quaternion().setFromAxisAngle(
+        new CANNON.Vec3(1, 0, 0),
+        Math.PI,
+    );
+    return facing.mult(flipped);
+}
+
 export function packDice(dice: PhysicsDie[]): void {
     const placementOrder = shuffledIndices(dice.length);
     const placed: PhysicsDie[] = [];
     let lastRadius = 0;
     for (let i = 0; i < dice.length; i++) {
         const die = dice[placementOrder[i]];
-        die.body.quaternion.copy(randomQuaternion());
+        die.body.quaternion.copy(startOrientation(die));
 
         const angle = i * GOLDEN_ANGLE;
         let radius = lastRadius;
@@ -231,19 +258,23 @@ export function applyFullThrow(
 
     // always with a soupçon of randomness
     const perturbation = 0.8 + Math.random() * 0.4;
-    const throwSpeed = baseSpeed * taper * perturbation * velocityMultiplier;
+    const throwSpeed =
+        baseSpeed * taper * perturbation * velocityMultiplier * die.flick.drive;
 
     die.body.wakeUp();
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,
-        -2 - Math.random() * 4,
+        -2 - Math.random() * 4 + die.flick.lift * perturbation,
         Math.sin(throwAngle) * throwSpeed,
     );
 
+    // the flick spins end-over-end: about the horizontal axis
+    // perpendicular to the direction of travel
+    const flip = (Math.random() < 0.5 ? -1 : 1) * die.flick.spin * perturbation;
     die.body.angularVelocity.set(
+        (Math.random() - 0.5) * 10 - Math.sin(throwAngle) * flip,
         (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10 + Math.cos(throwAngle) * flip,
     );
 }
 
@@ -265,19 +296,25 @@ export function applyGentleThrow(
     // always with a soupçon of randomness
     const perturbation = 0.8 + Math.random() * 0.4;
     const throwSpeed =
-        velocityToTravel(distance, die, tray) * perturbation * velocityMultiplier;
+        velocityToTravel(distance, die, tray) *
+        perturbation *
+        velocityMultiplier *
+        die.flick.drive;
 
     die.body.wakeUp();
     die.body.velocity.set(
         Math.cos(throwAngle) * throwSpeed,
-        -2 - Math.random() * 4,
+        -2 - Math.random() * 4 + die.flick.lift * perturbation,
         Math.sin(throwAngle) * throwSpeed,
     );
 
+    // the flick spins end-over-end: about the horizontal axis
+    // perpendicular to the direction of travel
+    const flip = (Math.random() < 0.5 ? -1 : 1) * die.flick.spin * perturbation;
     die.body.angularVelocity.set(
+        (Math.random() - 0.5) * 6 - Math.sin(throwAngle) * flip,
         (Math.random() - 0.5) * 6,
-        (Math.random() - 0.5) * 6,
-        (Math.random() - 0.5) * 6,
+        (Math.random() - 0.5) * 6 + Math.cos(throwAngle) * flip,
     );
 }
 
@@ -336,7 +373,7 @@ function launchReroll(returning: ReturningDie, tray: Tray): void {
     die.liftProgress = 0;
     die.body.type = CANNON.Body.DYNAMIC;
     die.body.position.copy(returning.targetPos);
-    die.body.quaternion.copy(randomQuaternion());
+    die.body.quaternion.copy(startOrientation(die));
 
     applyGentleThrow(die, tray, whichSide);
 }
@@ -444,6 +481,14 @@ export function createTray(
             restitution: config.diceRestitution,
         }),
     );
+    for (const against of [floorMaterial, wallMaterial, diceMaterial, coinMaterial]) {
+        world.addContactMaterial(
+            new CANNON.ContactMaterial(coinMaterial, against, {
+                friction: config.coinFriction,
+                restitution: config.coinRestitution,
+            }),
+        );
+    }
 
     const groundBody = new CANNON.Body({
         type: CANNON.Body.STATIC,
@@ -528,6 +573,7 @@ export type SimulateStats = {
 export type DieBehaviour = {
     maxPosition: number;
     wallHits: number;
+    turns: number;
 };
 
 export type SimulateResult =
@@ -566,10 +612,17 @@ export function simulateThrow(
         const maxPositions = dice.map(() => Number.NEGATIVE_INFINITY);
         const wallHitCounts = dice.map(() => 0);
         const wasTouchingWall = dice.map(() => false);
+        const rotation = dice.map(() => 0);
         const wallSet = new Set(tray.walls);
 
         function stepPhysics(): void {
             world.step(TIME_STEP);
+
+            for (const die of dice) {
+                if (die.flick.lift === 0) continue;
+                if (returning.some((r) => r.die === die)) continue;
+                die.liftProgress = Math.max(0, Math.min(1, die.body.position.y / 12));
+            }
 
             // animate returning dice
             for (let i = returning.length - 1; i >= 0; i--) {
@@ -588,6 +641,10 @@ export function simulateThrow(
 
             stepPhysics();
             physicsSteps++;
+
+            for (let i = 0; i < dice.length; i++) {
+                rotation[i] += dice[i].body.angularVelocity.length() * TIME_STEP;
+            }
 
             // count wall bounces: when die starts touching a wall it wasn't before
             const isTouchingWall = dice.map(() => false);
@@ -709,6 +766,7 @@ export function simulateThrow(
         const behaviour: DieBehaviour[] = dice.map((_, i) => ({
             maxPosition: maxPositions[i],
             wallHits: wallHitCounts[i],
+            turns: rotation[i] / (2 * Math.PI),
         }));
 
         return { rerollCount, stats, behaviour };

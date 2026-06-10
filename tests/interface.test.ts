@@ -19,6 +19,10 @@ vi.mock("three", async (importOriginal) => {
             setPixelRatio = vi.fn();
             render = vi.fn();
         },
+        PMREMGenerator: class MockPMREMGenerator {
+            fromScene = vi.fn(() => ({ texture: {} }));
+            dispose = vi.fn();
+        },
     };
 });
 

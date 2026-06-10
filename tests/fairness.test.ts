@@ -6,6 +6,7 @@ import { roll, tray } from "../src/index";
 // only fail ~1% of the time, being a reasonable approximation of proving fairness.
 // https://en.wikipedia.org/wiki/Chi-squared_distribution#Table_of_%CF%872_values_vs_p-values
 const CHI_SQUARED_CRITICAL: Record<number, number> = {
+    1: 6.635,
     3: 11.345,
     5: 15.086,
     7: 18.475,
@@ -31,6 +32,7 @@ function chiSquared(observed: number[], expected: number): number {
 }
 
 const dice: { name: string; notation: string; faces: number }[] = [
+    { name: "d2", notation: "1d2", faces: 2 },
     { name: "d4", notation: "1d4", faces: 4 },
     { name: "d6", notation: "1d6", faces: 6 },
     { name: "d8", notation: "1d8", faces: 8 },

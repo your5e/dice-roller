@@ -583,6 +583,7 @@ export function texture(
 }
 
 export * as THREE from "three";
+export { createD2, D2 } from "./geometries/d2";
 export { createD4 } from "./geometries/d4";
 export { createD6 } from "./geometries/d6";
 export { createD8 } from "./geometries/d8";
@@ -604,6 +605,7 @@ export {
     type TrayConfig,
 } from "./physics/tray";
 export { createStage, type DiceWrapper, type Stage } from "./renderer";
+export { D2Texture } from "./textures/d2";
 export {
     D4DebugTexture,
     D4KintsugiTexture,

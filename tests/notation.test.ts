@@ -4,6 +4,16 @@ import { parse } from "../src/notation";
 describe("parse", () => {
     describe("dice", () => {
         it("parses", () => {
+            expect(parse("1d2")).toEqual([
+                {
+                    expression: "1d2",
+                    count: 1,
+                    sides: 2,
+                    modifiers: [],
+                    bonus: 0,
+                },
+            ]);
+
             expect(parse("1d4")).toEqual([
                 {
                     expression: "1d4",

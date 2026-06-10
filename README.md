@@ -1,8 +1,8 @@
 # dice-roller
 
 A 3D physics-based dice roller for the common types of roles in 5e. Rolls the
-standard seven polyhedrals (d4, d6, d8, d10, d12, d20, d100), allowing for
-common adjustments, such as advantage/disadvantage.
+standard seven polyhedrals (d4, d6, d8, d10, d12, d20, d100) plus a coin flip
+(d2), allowing for common adjustments, such as advantage/disadvantage.
 
 [Try it out.](https://your5e.github.io/dice-roller/)
 

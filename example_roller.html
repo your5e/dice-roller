@@ -137,8 +137,10 @@
     </form>
 
     <h2>Basic Dice</h2>
-    <p>The standard seven polyhedrals. Write as <code>NdS</code> where N is the
-    number of dice and S is the number of sides.</p>
+    <p>The standard seven polyhedrals, plus a coin flip (1d2). Write as
+    <code>NdS</code> where N is the number of dice and S is the number of
+    sides.</p>
+    <span class="roll" data-roll="1d2">coin flip</span>
     <span class="roll">1d4</span>
     <span class="roll">1d6</span>
     <span class="roll">1d8</span>
@@ -310,6 +312,7 @@
         }
 
         var dieCreators = {
+            2: function() { return DiceRoller.createD2(1); },
             4: function() { return DiceRoller.createD4(1, createDebugTexture(4)); },
             6: function() { return DiceRoller.createD6(1, createDebugTexture(6)); },
             8: function() { return DiceRoller.createD8(1, createDebugTexture(8)); },
@@ -393,7 +396,7 @@
 
             if (pausing) {
                 if (autoRotate && elapsed >= PAUSE_DURATION) {
-                    var faceValues = debugDie.physics.faces.map(function(f) { return f.value; }).sort(function(a, b) { return a - b; });
+                    var faceValues = debugDie.physics.faces.map(function(f) { return f.value; }).filter(function(v) { return v > 0; }).sort(function(a, b) { return a - b; });
                     var currentIndex = faceValues.indexOf(targetFace);
                     var nextIndex = (currentIndex + 1) % faceValues.length;
                     targetFace = faceValues[nextIndex];
@@ -447,7 +450,7 @@
         });
 
         // Debug controls - die type buttons
-        [4, 6, 8, 10, 12, 20, 100].forEach(function(sides) {
+        [2, 4, 6, 8, 10, 12, 20, 100].forEach(function(sides) {
             var btn = document.createElement('button');
             btn.textContent = sides === 100 ? 'd%' : 'd' + sides;
             btn.addEventListener('click', function() {
@@ -472,7 +475,7 @@
         function updateFaceSelect() {
             if (!debugDie) return;
             faceSelect.innerHTML = '';
-            var faceValues = debugDie.physics.faces.map(function(f) { return f.value; }).sort(function(a, b) { return a - b; });
+            var faceValues = debugDie.physics.faces.map(function(f) { return f.value; }).filter(function(v) { return v > 0; }).sort(function(a, b) { return a - b; });
             faceValues.forEach(function(value) {
                 var option = document.createElement('option');
                 option.value = String(value);
@@ -520,9 +523,14 @@
             DiceRoller.texture(textureStyle);
 
             if (debugDie) {
-                var sides = debugDie instanceof DiceRoller.DPercentile
-                    ? 100
-                    : debugDie.physics.faces.length;
+                var sides;
+                if (debugDie instanceof DiceRoller.DPercentile) {
+                    sides = 100;
+                } else if (debugDie instanceof DiceRoller.D2) {
+                    sides = 2;
+                } else {
+                    sides = debugDie.physics.faces.length;
+                }
                 createDebugDie(sides);
             }
         });

@@ -1,5 +1,6 @@
 import * as CANNON from "cannon-es";
 import { describe, expect, it } from "vitest";
+import { createD2 } from "../src/geometries/d2";
 import { createD6 } from "../src/geometries/d6";
 import { createD12 } from "../src/geometries/d12";
 import { createD20 } from "../src/geometries/d20";
@@ -56,6 +57,42 @@ describe("d6 body", () => {
         const die = await createD6(0.5);
         die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 12);
         expect(die.physics.readFace()).toBe(2);
+    });
+});
+
+describe("d2 body", () => {
+    const thresholdAngle = Math.acos(COCKED_THRESHOLD);
+    const delta = Math.PI / 180; // 1°
+
+    it("returns 1 when heads faces up", async () => {
+        const die = await createD2(0.5);
+        die.physics.body.quaternion.set(0, 0, 0, 1);
+        expect(die.physics.readFace()).toBe(1);
+    });
+
+    it("returns 2 when tails faces up", async () => {
+        const die = await createD2(0.5);
+        die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI);
+        expect(die.physics.readFace()).toBe(2);
+    });
+
+    it("still reads heads when tilted within the cocked threshold", async () => {
+        const die = await createD2(0.5);
+        die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), thresholdAngle - delta);
+        expect(die.physics.readFace()).toBe(1);
+        expect(die.physics.isCocked(COCKED_THRESHOLD)).toBe(false);
+    });
+
+    it("is cocked when resting on its rim", async () => {
+        const die = await createD2(0.5);
+        die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+        expect(die.physics.isCocked(COCKED_THRESHOLD)).toBe(true);
+    });
+
+    it("never reads a rim face", async () => {
+        const die = await createD2(0.5);
+        die.physics.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+        expect([1, 2]).toContain(die.physics.readFace());
     });
 });
 
@@ -249,6 +286,60 @@ describe("Throw behaviour", () => {
 
         const vx = die.physics.body.velocity.x;
         expect(vx, "die should be moving towards negative X").toBeLessThan(0);
+    });
+
+    it("the d2 coin is tossed upwards", async () => {
+        const tray = createTray(5, 5);
+        const die = await createD2(0.5);
+
+        applyFullThrow(die.physics, tray, true, 0, 1);
+
+        const vy = die.physics.body.velocity.y;
+        expect(vy, "coin should be moving upwards").toBeGreaterThan(0);
+    });
+
+    it("the d2 coin flips end-over-end", async () => {
+        const tray = createTray(5, 5);
+        const die = await createD2(0.5);
+
+        applyFullThrow(die.physics, tray, true, 0, 1);
+
+        // the base tumble is at most ±5 per axis, so without the flick the
+        // horizontal angular speed can never exceed √(5² + 5²) ≈ 7.08
+        const av = die.physics.body.angularVelocity;
+        expect(
+            Math.hypot(av.x, av.z),
+            "coin should spin about a horizontal axis",
+        ).toBeGreaterThan(7.08);
+    });
+
+    it("the d2 coin is packed flat, never on an angle", async () => {
+        for (let i = 0; i < 10; i++) {
+            const die = await createD2(0.5);
+            packDice([die.physics]);
+            expect(die.physics.isCocked(COCKED_THRESHOLD)).toBe(false);
+        }
+    });
+
+    it("the d2 coin swells while airborne and lands at normal size", async () => {
+        const tray = createTray(5, 5);
+        const die = await createD2(0.5);
+        tray.world.addBody(die.physics.body);
+        packDice([die.physics]);
+        applyFullThrow(die.physics, tray, true, 0, 1);
+
+        let maxLift = 0;
+        await simulateThrow(tray, [die.physics], {
+            onStep: () => {
+                maxLift = Math.max(maxLift, die.physics.liftProgress);
+            },
+        }).result;
+
+        expect(maxLift, "coin should swell in flight").toBeGreaterThan(0.2);
+        expect(
+            die.physics.liftProgress,
+            "coin should settle at normal size",
+        ).toBeLessThan(0.05);
     });
 });
 

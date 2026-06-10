@@ -1,5 +1,6 @@
 import type * as THREE from "three";
 import { beforeEach, describe, expect, it } from "vitest";
+import { createD2 } from "../src/geometries/d2";
 import { createD6 } from "../src/geometries/d6";
 import type { DiceCreationResult } from "../src/index";
 import { onRoll, roll, tray } from "../src/index";
@@ -226,6 +227,17 @@ describe("presentation", () => {
 
         it("reserves one row for a small group", async () => {
             const dice = await Promise.all([await createD6(), await createD6()]);
+            for (const die of dice) die.label = "a";
+
+            const rows = reserveRows(testTray, dice);
+
+            expect(rows).toHaveLength(1);
+            expect(rows[0].label).toBe("a");
+            expect(rows[0].z).toBeLessThan(frontEdge);
+        });
+
+        it("measures the d2 footprint from its readable faces only", async () => {
+            const dice = [await createD2()];
             for (const die of dice) die.label = "a";
 
             const rows = reserveRows(testTray, dice);

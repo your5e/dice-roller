@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
+import { createD2 } from "../../src/geometries/d2";
 import { createD4 } from "../../src/geometries/d4";
 import { createD6 } from "../../src/geometries/d6";
 import { createD8 } from "../../src/geometries/d8";
@@ -41,6 +42,10 @@ function assertTrianglesWoundOutward(die: Die) {
 }
 
 describe("dice geometries", () => {
+    it("d2 has all triangles wound outward", async () => {
+        assertTrianglesWoundOutward(await createD2(0.5));
+    });
+
     it("d4 has all triangles wound outward", async () => {
         assertTrianglesWoundOutward(await createD4(0.5));
     });
@@ -67,6 +72,11 @@ describe("dice geometries", () => {
 });
 
 describe("dice default orientations", () => {
+    it("d2 has a default orientation", async () => {
+        const die = await createD2(0.5);
+        expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
+    });
+
     it("d4 has a default orientation", async () => {
         const die = await createD4(0.5);
         expect(die.defaultOrientation()).toBeInstanceOf(THREE.Quaternion);
