@@ -6,46 +6,53 @@ import { VARELA_ROUND_DIGITS_WOFF2 } from "../src/fonts/varela-round";
 import {
     D4DebugTexture,
     D4KintsugiTexture,
+    D4NightSkyTexture,
     D4PrideTexture,
     D4TemplateTexture,
 } from "../src/textures/d4";
 import {
     D6DebugTexture,
     D6KintsugiTexture,
+    D6NightSkyTexture,
     D6PrideTexture,
     D6TemplateTexture,
 } from "../src/textures/d6";
 import {
     D8DebugTexture,
     D8KintsugiTexture,
+    D8NightSkyTexture,
     D8PrideTexture,
     D8TemplateTexture,
 } from "../src/textures/d8";
 import {
     D10DebugTexture,
     D10KintsugiTexture,
+    D10NightSkyTexture,
     D10PrideTexture,
     D10TemplateTexture,
     DPercentileDebugTexture,
     DPercentileKintsugiTexture,
+    DPercentileNightSkyTexture,
     DPercentilePrideTexture,
     DPercentileTemplateTexture,
 } from "../src/textures/d10";
 import {
     D12DebugTexture,
     D12KintsugiTexture,
+    D12NightSkyTexture,
     D12PrideTexture,
     D12TemplateTexture,
 } from "../src/textures/d12";
 import {
     D20DebugTexture,
     D20KintsugiTexture,
+    D20NightSkyTexture,
     D20PrideTexture,
     D20TemplateTexture,
 } from "../src/textures/d20";
 
 const DICE_NAMES = ["d4", "d6", "d8", "d10", "d12", "d20", "percentile"] as const;
-const TEXTURE_NAMES = ["template", "debug", "kintsugi", "pride"] as const;
+const TEXTURE_NAMES = ["template", "debug", "kintsugi", "pride", "nightsky"] as const;
 
 type DiceName = (typeof DICE_NAMES)[number];
 type TextureName = (typeof TEXTURE_NAMES)[number];
@@ -95,7 +102,7 @@ type TemplateClass = new () => {
     height: number;
     createCanvas: () => Promise<HTMLCanvasElement>;
 };
-type KintsugiClass = new (opts: {
+type SeededTextureClass = new (opts: {
     seed: number;
 }) => {
     createCanvas: () => Promise<HTMLCanvasElement>;
@@ -105,8 +112,9 @@ interface DieConfig {
     name: DiceName;
     Template: TemplateClass;
     Debug: TextureClass;
-    Kintsugi: KintsugiClass;
+    Kintsugi: SeededTextureClass;
     Pride: TextureClass;
+    NightSky: SeededTextureClass;
     seed: number;
 }
 
@@ -117,6 +125,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: D4DebugTexture,
         Kintsugi: D4KintsugiTexture,
         Pride: D4PrideTexture,
+        NightSky: D4NightSkyTexture,
         seed: 1,
     },
     {
@@ -125,6 +134,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: D6DebugTexture,
         Kintsugi: D6KintsugiTexture,
         Pride: D6PrideTexture,
+        NightSky: D6NightSkyTexture,
         seed: 35,
     },
     {
@@ -133,6 +143,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: D8DebugTexture,
         Kintsugi: D8KintsugiTexture,
         Pride: D8PrideTexture,
+        NightSky: D8NightSkyTexture,
         seed: 1,
     },
     {
@@ -141,6 +152,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: D10DebugTexture,
         Kintsugi: D10KintsugiTexture,
         Pride: D10PrideTexture,
+        NightSky: D10NightSkyTexture,
         seed: 1,
     },
     {
@@ -149,6 +161,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: D12DebugTexture,
         Kintsugi: D12KintsugiTexture,
         Pride: D12PrideTexture,
+        NightSky: D12NightSkyTexture,
         seed: 2,
     },
     {
@@ -157,6 +170,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: D20DebugTexture,
         Kintsugi: D20KintsugiTexture,
         Pride: D20PrideTexture,
+        NightSky: D20NightSkyTexture,
         seed: 2,
     },
     {
@@ -165,6 +179,7 @@ const DICE_CONFIG: DieConfig[] = [
         Debug: DPercentileDebugTexture,
         Kintsugi: DPercentileKintsugiTexture,
         Pride: DPercentilePrideTexture,
+        NightSky: DPercentileNightSkyTexture,
         seed: 1,
     },
 ];
@@ -205,5 +220,11 @@ for (const die of DICE_CONFIG) {
     }
     if (shouldGenerateTexture("pride")) {
         writePng(`dist/pride/${die.name}.png`, await new die.Pride().createCanvas());
+    }
+    if (shouldGenerateTexture("nightsky")) {
+        writePng(
+            `dist/nightsky/${die.name}.png`,
+            await new die.NightSky({ seed: die.seed }).createCanvas(),
+        );
     }
 }

@@ -16,10 +16,10 @@ const DEBUG_BEZIERS = false;
 export function KintsugiMixin<T extends DieTextureConstructor>(Base: T) {
     // @ts-expect-error: mixin applied to concrete subclass, not abstract base
     return class extends Base {
-        bgColour = this.options?.bgColour ?? "#004225";
-        fgColour = this.options?.fgColour ?? "#d4af37";
-        numeralColour = this.options?.fgColour ?? "#ffffff";
-        underlineColour = this.options?.fgColour ?? "#ffffff";
+        bgColour = "#004225";
+        fgColour = "#d4af37";
+        numeralColour = "#ffffff";
+        underlineColour = "#ffffff";
         numeralOutlineColour = "#996515";
         numberOutlineWidth = 0.03;
 

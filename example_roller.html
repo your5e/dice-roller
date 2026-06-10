@@ -289,12 +289,21 @@
                 12: DiceRoller.D12PrideTexture,
                 20: DiceRoller.D20PrideTexture,
                 100: DiceRoller.DPercentilePrideTexture
+            },
+            nightsky: {
+                4: DiceRoller.D4NightSkyTexture,
+                6: DiceRoller.D6NightSkyTexture,
+                8: DiceRoller.D8NightSkyTexture,
+                10: DiceRoller.D10NightSkyTexture,
+                12: DiceRoller.D12NightSkyTexture,
+                20: DiceRoller.D20NightSkyTexture,
+                100: DiceRoller.DPercentileNightSkyTexture
             }
         };
 
         function createDebugTexture(sides) {
             var TextureClass = textureClasses[textureStyle][sides];
-            if (textureStyle === 'kintsugi') {
+            if (textureStyle === 'kintsugi' || textureStyle === 'nightsky') {
                 return new TextureClass({ seed: tray.physicsTray.seed || 1 });
             }
             return new TextureClass();
@@ -495,7 +504,8 @@
             { value: 'debug', label: 'Debug' },
             { value: 'standard', label: 'Standard' },
             { value: 'kintsugi', label: 'Kintsugi' },
-            { value: 'pride', label: 'Pride' }
+            { value: 'pride', label: 'Pride' },
+            { value: 'nightsky', label: 'Night Sky' }
         ];
         textureOptions.forEach(function(opt) {
             var option = document.createElement('option');

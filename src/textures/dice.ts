@@ -941,6 +941,93 @@ export abstract class DieTexture {
         };
     }
 
+    polygonBounds(polygon: Point[]): {
+        minX: number;
+        maxX: number;
+        minY: number;
+        maxY: number;
+    } {
+        let minX = polygon[0].x;
+        let maxX = polygon[0].x;
+        let minY = polygon[0].y;
+        let maxY = polygon[0].y;
+        for (const p of polygon) {
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+        }
+        return { minX, maxX, minY, maxY };
+    }
+
+    latitudeMap(polygon: Point[]): (point: Point) => number {
+        const [c0, c1] = polygon;
+
+        // Latitude varies linearly across a 3D face, and unfolding only rotates and
+        // slides the region onto the canvas, so it varies linearly across the 2D
+        // polygon too -- the values at three corners determine it everywhere.
+        //
+        // Divide by the area of the triangle the three corners make, and a sliver of
+        // a triangle amplifies float noise into garbage latitudes. Crowns are
+        // irregular polygons, so rather than trust the third corner, use whichever
+        // sits farthest off the line through the first two.
+        let c2: Point | null = null;
+        let det = 0;
+        for (let i = 2; i < polygon.length; i++) {
+            const candidate =
+                (c1.x - c0.x) * (polygon[i].y - c0.y) -
+                (polygon[i].x - c0.x) * (c1.y - c0.y);
+            if (Math.abs(candidate) > Math.abs(det)) {
+                c2 = polygon[i];
+                det = candidate;
+            }
+        }
+        if (!c2 || det === 0) {
+            throw new Error("Degenerate polygon for latitude map");
+        }
+        if (
+            c0.latitude === undefined ||
+            c1.latitude === undefined ||
+            c2.latitude === undefined
+        ) {
+            throw new Error("Point missing latitude");
+        }
+
+        const dl1 = c1.latitude - c0.latitude;
+        const dl2 = c2.latitude - c0.latitude;
+        const a = (dl1 * (c2.y - c0.y) - dl2 * (c1.y - c0.y)) / det;
+        const b = (dl2 * (c1.x - c0.x) - dl1 * (c2.x - c0.x)) / det;
+        const l0 = c0.latitude;
+
+        return (point) => l0 + a * (point.x - c0.x) + b * (point.y - c0.y);
+    }
+
+    samplePoints<T>(
+        polygon: Point[],
+        perUnitArea: number,
+        density: (latitude: number) => number,
+        create: (point: Point) => T,
+    ): T[] {
+        const latitudeOf = this.latitudeMap(polygon);
+        const { minX, maxX, minY, maxY } = this.polygonBounds(polygon);
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const unit = this.pixelDensity;
+        const candidates = Math.round(((width * height) / (unit * unit)) * perUnitArea);
+
+        const accepted: T[] = [];
+        for (let i = 0; i < candidates; i++) {
+            const point = {
+                x: minX + this.seededRandom() * width,
+                y: minY + this.seededRandom() * height,
+            };
+            if (!pointInPolygon(point, polygon)) continue;
+            if (this.seededRandom() > density(latitudeOf(point))) continue;
+            accepted.push(create(point));
+        }
+        return accepted;
+    }
+
     stippleArea(
         ctx: CanvasRenderingContext2D,
         polygon: Point[],
@@ -953,16 +1040,7 @@ export abstract class DieTexture {
         const dotRadius = baseWidth * 0.06 * sizeMultiplier;
         const spacing = baseWidth * 0.18 * spacingMultiplier;
 
-        let minX = polygon[0].x;
-        let maxX = polygon[0].x;
-        let minY = polygon[0].y;
-        let maxY = polygon[0].y;
-        for (const p of polygon) {
-            minX = Math.min(minX, p.x);
-            maxX = Math.max(maxX, p.x);
-            minY = Math.min(minY, p.y);
-            maxY = Math.max(maxY, p.y);
-        }
+        const { minX, maxX, minY, maxY } = this.polygonBounds(polygon);
 
         const startX = Math.floor(minX / spacing) * spacing;
         const startY = Math.floor(minY / spacing) * spacing;

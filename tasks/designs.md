@@ -5,4 +5,4 @@ Different textures for dice.
 - [X] use distinct colours for unknown labels, reserving colour names
 - [ ] apply image PNGs rather than dynamic canvases
 - [ ] geode-like generated patterns
-- [ ] speckled / "night sky" patterns
+- [X] speckled / "night sky" patterns

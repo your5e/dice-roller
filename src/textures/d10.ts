@@ -13,6 +13,7 @@ import {
     type TextureOptions,
 } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
+import { NightSkyMixin } from "./nightsky";
 import { PrideMixin } from "./pride";
 import { Unfoldable } from "./unfold";
 
@@ -69,6 +70,7 @@ export class D10Texture extends DKiteTexture {
 export class D10TemplateTexture extends TemplateMixin(D10Texture) {}
 export class D10DebugTexture extends DebugMixin(D10Texture) {}
 export class D10KintsugiTexture extends KintsugiMixin(D10Texture) {}
+export class D10NightSkyTexture extends NightSkyMixin(D10Texture) {}
 export class D10PrideTexture extends PrideMixin(D10Texture) {}
 
 export class DPercentileTexture extends DKiteTexture {
@@ -102,4 +104,5 @@ export class DPercentileTexture extends DKiteTexture {
 export class DPercentileTemplateTexture extends TemplateMixin(DPercentileTexture) {}
 export class DPercentileDebugTexture extends DebugMixin(DPercentileTexture) {}
 export class DPercentileKintsugiTexture extends KintsugiMixin(DPercentileTexture) {}
+export class DPercentileNightSkyTexture extends NightSkyMixin(DPercentileTexture) {}
 export class DPercentilePrideTexture extends PrideMixin(DPercentileTexture) {}

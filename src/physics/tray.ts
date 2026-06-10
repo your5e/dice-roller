@@ -346,7 +346,7 @@ export type Simulation = {
     result: Promise<SimulateResult>;
 };
 
-export type TextureStyle = "standard" | "kintsugi" | "debug" | "pride";
+export type TextureStyle = "standard" | "kintsugi" | "debug" | "pride" | "nightsky";
 
 export type Tray = {
     world: CANNON.World;

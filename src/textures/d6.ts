@@ -1,6 +1,7 @@
 import { FACE_VERTICES, FACES, VERTICES } from "../bodies/d6";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
+import { NightSkyMixin } from "./nightsky";
 import { PrideMixin } from "./pride";
 import { Unfoldable } from "./unfold";
 
@@ -26,4 +27,5 @@ export class D6Texture extends Unfoldable(DieTexture) {
 export class D6TemplateTexture extends TemplateMixin(D6Texture) {}
 export class D6DebugTexture extends DebugMixin(D6Texture) {}
 export class D6KintsugiTexture extends KintsugiMixin(D6Texture) {}
+export class D6NightSkyTexture extends NightSkyMixin(D6Texture) {}
 export class D6PrideTexture extends PrideMixin(D6Texture) {}

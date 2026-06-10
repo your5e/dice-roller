@@ -3,6 +3,7 @@ import { centroid2d } from "../geometry";
 import type { FaceData } from "./dice";
 import { DebugMixin, DieTexture, TemplateMixin, type TextureOptions } from "./dice";
 import { KintsugiMixin } from "./kintsugi";
+import { NightSkyMixin } from "./nightsky";
 import { PrideMixin } from "./pride";
 import { Unfoldable } from "./unfold";
 
@@ -91,4 +92,5 @@ export class D4Texture extends Unfoldable(DieTexture) {
 export class D4TemplateTexture extends TemplateMixin(D4Texture) {}
 export class D4DebugTexture extends DebugMixin(D4Texture) {}
 export class D4KintsugiTexture extends KintsugiMixin(D4Texture) {}
+export class D4NightSkyTexture extends NightSkyMixin(D4Texture) {}
 export class D4PrideTexture extends PrideMixin(D4Texture) {}

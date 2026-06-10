@@ -115,6 +115,28 @@ drawAt(ctx, this, originFace, originPoint, (ctx) => {
 ```
 
 
+### Scattered points
+
+If you need random points scattered over a region (stars, speckles,
+spatter), use `samplePoints()`. Give it how many points you want per unit
+area, a function that decides how likely a point is to survive at its
+latitude, and a function to turn each surviving point into whatever your
+texture needs.
+
+```typescript
+const stars = this.samplePoints(
+    data.points,
+    this.starsPerUnitArea,
+    (latitude) => this.bandProfile(latitude),
+    (point) => ({ x: point.x, y: point.y, radius: this.seededRandom() }),
+);
+```
+
+For example, this is used by the Night Sky texture to scatter stars over
+the whole die, denser in a band around the equator to suggest the milky
+way.
+
+
 ## Utilities
 
 The base `DieTexture` class provides several helpers that might be useful.
@@ -168,5 +190,9 @@ Helper functions include:
 - `edgeTargetToCanvas(target)` — converts `{ face, adjFace, t }` to canvas `{ x, y }`
 - `perpendicular(dx, dy)` — returns unit vector perpendicular to `(dx, dy)`
 - `pointInPolygon(point, polygon)` — true if the point is inside the polygon
+- `polygonBounds(polygon)` — bounding box of a polygon as `{ minX, maxX,
+  minY, maxY }`
+- `latitudeMap(polygon)` — returns a function giving the latitude of any
+  point within the region polygon
 - `findSharedVertex(vertices, edgeIdx1, edgeIdx2)` — vertex shared by two edges, or null
 - `edgeAngle(p1, p2)` — degrees

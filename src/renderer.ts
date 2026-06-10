@@ -25,40 +25,47 @@ import {
 import {
     D4DebugTexture,
     D4KintsugiTexture,
+    D4NightSkyTexture,
     D4PrideTexture,
     D4Texture,
 } from "./textures/d4";
 import {
     D6DebugTexture,
     D6KintsugiTexture,
+    D6NightSkyTexture,
     D6PrideTexture,
     D6Texture,
 } from "./textures/d6";
 import {
     D8DebugTexture,
     D8KintsugiTexture,
+    D8NightSkyTexture,
     D8PrideTexture,
     D8Texture,
 } from "./textures/d8";
 import {
     D10DebugTexture,
     D10KintsugiTexture,
+    D10NightSkyTexture,
     D10PrideTexture,
     D10Texture,
     DPercentileDebugTexture,
     DPercentileKintsugiTexture,
+    DPercentileNightSkyTexture,
     DPercentilePrideTexture,
     DPercentileTexture,
 } from "./textures/d10";
 import {
     D12DebugTexture,
     D12KintsugiTexture,
+    D12NightSkyTexture,
     D12PrideTexture,
     D12Texture,
 } from "./textures/d12";
 import {
     D20DebugTexture,
     D20KintsugiTexture,
+    D20NightSkyTexture,
     D20PrideTexture,
     D20Texture,
 } from "./textures/d20";
@@ -114,6 +121,15 @@ const textureRegistry: TextureRegistry = {
         12: D12PrideTexture,
         20: D20PrideTexture,
         100: DPercentilePrideTexture,
+    },
+    nightsky: {
+        4: D4NightSkyTexture,
+        6: D6NightSkyTexture,
+        8: D8NightSkyTexture,
+        10: D10NightSkyTexture,
+        12: D12NightSkyTexture,
+        20: D20NightSkyTexture,
+        100: DPercentileNightSkyTexture,
     },
 };
 
