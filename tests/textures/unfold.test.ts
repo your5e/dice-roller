@@ -493,6 +493,16 @@ describe("unfold data structures", () => {
             expect(b.crownData).toBe(a.crownData);
         });
 
+        it("instances of the same class share the layout dimensions", () => {
+            const a = new D20Texture();
+            const b = new D20Texture({ bgColour: "#000000" });
+
+            expect(a.width).toBeGreaterThan(0);
+            expect(a.height).toBeGreaterThan(0);
+            expect(b.width).toBe(a.width);
+            expect(b.height).toBe(a.height);
+        });
+
         it("different classes have distinct layouts", () => {
             const d12 = new D12Texture();
             const d20 = new D20Texture();

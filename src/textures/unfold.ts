@@ -19,6 +19,8 @@ type LayoutData = {
     faceData: Map<number, FaceData>;
     stripData: Map<string, StripData>;
     crownData: Map<number, CrownData>;
+    width: number;
+    height: number;
 };
 const layoutCache = new Map<object, LayoutData>();
 
@@ -741,6 +743,8 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 this.faceData = cached.faceData;
                 this.stripData = cached.stripData;
                 this.crownData = cached.crownData;
+                this.width = cached.width;
+                this.height = cached.height;
                 return;
             }
 
@@ -756,6 +760,8 @@ export function Unfoldable<T extends abstract new (...args: any[]) => DieTexture
                 faceData: this.faceData,
                 stripData: this.stripData,
                 crownData: this.crownData,
+                width: this.width,
+                height: this.height,
             });
         }
 
